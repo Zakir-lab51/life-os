@@ -5,7 +5,8 @@
 import { spawnSync } from "node:child_process"
 
 const run = (cmd, args, opts = {}) => {
-  const r = spawnSync(cmd, args, { stdio: "inherit", shell: process.platform === "win32", ...opts })
+  // npm is a .cmd script on Windows and needs a shell; git doesn't (and a shell would split the commit message)
+  const r = spawnSync(cmd, args, { stdio: "inherit", shell: process.platform === "win32" && cmd === "npm", ...opts })
   if (r.status !== 0) process.exit(r.status ?? 1)
 }
 const read = (cmd, args) => spawnSync(cmd, args, { encoding: "utf8" }).stdout.trim()
