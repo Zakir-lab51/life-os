@@ -25,6 +25,7 @@ import { Bar, BarChart, PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar, Radar
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import { HabitMark } from "@/components/os/habit-mark"
 import { ChartFrame, ChartTooltip, axisProps } from "@/components/os/chart"
 import { Icon } from "@/components/os/icon"
 import { RollingText } from "@/components/os/rolling-text"
@@ -48,7 +49,7 @@ import { useFocus } from "@/lib/stores/focus"
 import { useUI } from "@/lib/stores/ui"
 import { cn } from "@/lib/utils"
 import type { Life } from "@/features/shell/use-life"
-import { toggleDone } from "@/features/tasks/task-actions"
+import { toggleDone, wasJustCompleted } from "@/features/tasks/task-actions"
 import { KIND_LABEL } from "@/features/planner/block-editor"
 
 /* ── greeting & score ───────────────────────────────── */
@@ -337,8 +338,8 @@ function TaskLine({ task, today, onOpen }: { task: Task; today: string; onOpen: 
   const overdue = isOverdue(task, today)
   return (
     <li className="group flex items-center gap-2.5 rounded-xl px-2 py-1.5 hover:bg-surface-2/70">
-      <Checkbox className="size-[18px] rounded-full" checked={done} onCheckedChange={() => void toggleDone(task)} aria-label={done ? `Reopen ${task.title}` : `Complete ${task.title}`} />
-      <button type="button" onClick={onOpen} className={cn("min-w-0 flex-1 truncate text-left text-sm", done && "text-muted-foreground line-through")}>
+      <Checkbox className="size-[18px] rounded-full" checked={done} celebrate={wasJustCompleted(task.id)} onCheckedChange={() => void toggleDone(task)} aria-label={done ? `Reopen ${task.title}` : `Complete ${task.title}`} />
+      <button type="button" onClick={onOpen} className={cn("strike min-w-0 flex-1 truncate text-left text-sm", done && "is-done")}>
         {task.title}
       </button>
       {task.dependsOn.length > 0 && !done && <Lock className="size-3 text-muted-foreground" aria-label="Waiting on another task" />}
@@ -421,9 +422,7 @@ export function HabitsWidget({ life }: { life: Life }) {
                   }}
                   className={cn("flex w-full items-center gap-3 rounded-2xl border p-2.5 text-left transition-all", done ? "border-transparent bg-surface-2/60" : "border-line hover:border-foreground/25")}
                 >
-                  <span className={cn("grid size-9 shrink-0 place-items-center rounded-full transition-colors", done ? cn(ACCENT_CLASSES[habit.color].bg, "text-primary-foreground") : cn(ACCENT_CLASSES[habit.color].soft, ACCENT_CLASSES[habit.color].text))}>
-                    {done ? <Check className="size-4" strokeWidth={3} /> : <Icon name={habit.icon} className="size-4" />}
-                  </span>
+                  <HabitMark habit={habit} done={done} className="size-9" />
                   <span className="min-w-0 flex-1">
                     <span className={cn("block truncate text-sm font-medium", done && "text-muted-foreground")}>{habit.name}</span>
                     <span className="text-xs text-muted-foreground">{progress ? `${progress.count}/${progress.target} this week` : habit.timeOfDay === "anytime" ? "Any time" : habit.timeOfDay}</span>

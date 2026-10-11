@@ -3,6 +3,7 @@
 import { motion } from "motion/react"
 import type { LucideIcon } from "lucide-react"
 import type { ReactNode } from "react"
+import { RollingText } from "@/components/os/rolling-text"
 import { ACCENT_CLASSES, AREA_META, PRIORITY_META } from "@/lib/domain/areas"
 import type { AccentColor, Area, Priority } from "@/lib/domain/types"
 import { cn } from "@/lib/utils"
@@ -153,7 +154,7 @@ export function StatTile({ label, value, sub, tone = "violet", icon: I }: { labe
         {I && <I className={cn("size-3.5", ACCENT_CLASSES[tone].text)} />}
         {label}
       </div>
-      <div className="mt-2 text-2xl font-semibold tracking-tight tabular">{value}</div>
+      <div className="mt-2 text-2xl font-semibold tracking-tight tabular">{typeof value === "number" || typeof value === "string" ? <RollingText text={String(value)} /> : value}</div>
       {sub && <div className="mt-1 text-xs text-muted-foreground">{sub}</div>}
     </div>
   )

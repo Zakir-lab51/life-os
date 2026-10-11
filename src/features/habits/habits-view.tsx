@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Skeleton } from "@/components/ui/skeleton"
+import { HabitMark } from "@/components/os/habit-mark"
 import { Heatmap } from "@/components/os/heatmap"
 import { Icon } from "@/components/os/icon"
 import { PageHeader, PageTransition } from "@/components/os/page-header"
@@ -127,9 +128,7 @@ function Habits({ life }: { life: Life }) {
                     onClick={() => void toggle(habit, today)}
                     className={cn("flex items-center gap-2.5 rounded-control border py-1.5 pr-4 pl-1.5 text-sm font-medium transition-all", done ? "border-transparent bg-surface-3" : "border-line hover:border-foreground/30")}
                   >
-                    <span className={cn("grid size-8 place-items-center rounded-full transition-colors", done ? cn(ACCENT_CLASSES[habit.color].bg, "text-primary-foreground") : cn(ACCENT_CLASSES[habit.color].soft, ACCENT_CLASSES[habit.color].text))}>
-                      {done ? <Check className="size-4" strokeWidth={3} /> : <Icon name={habit.icon} className="size-4" />}
-                    </span>
+                    <HabitMark habit={habit} done={done} className="size-8" />
                     {habit.name}
                     {progress && (
                       <span className="text-xs text-muted-foreground tabular">

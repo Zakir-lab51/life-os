@@ -12,7 +12,7 @@ import type { Task, TaskStatus } from "@/lib/domain/types"
 import { attempt } from "@/lib/feedback"
 import { useUI } from "@/lib/stores/ui"
 import { cn } from "@/lib/utils"
-import { deleteWithUndo, duplicateWithFeedback, toggleDone } from "./task-actions"
+import { deleteWithUndo, duplicateWithFeedback, toggleDone, wasJustCompleted } from "./task-actions"
 
 function doneLabel(doneOn: string, today: string) {
   const ago = daysBetween(doneOn, today)
@@ -138,11 +138,12 @@ export function TaskRow({
       <Checkbox
         className="mt-0.5 size-5 rounded-full"
         checked={done}
+        celebrate={wasJustCompleted(task.id)}
         onCheckedChange={() => void toggleDone(task)}
         aria-label={done ? `Reopen ${task.title}` : `Complete ${task.title}`}
       />
       <button type="button" onClick={() => openTaskEditor(task.id)} className="min-w-0 flex-1 text-left">
-        <span className={cn("block text-[0.95rem] leading-snug font-medium", done && "text-muted-foreground line-through")}>
+        <span className={cn("strike block text-[0.95rem] leading-snug font-medium", done && "is-done")}>
           {task.status === "in_progress" && <span className="mr-1.5 inline-block size-2 rounded-full bg-cyan align-middle" title="In progress" />}
           {task.title}
         </span>

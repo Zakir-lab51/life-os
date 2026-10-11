@@ -319,7 +319,7 @@ function TaskForm({ task, defaults, onDone }: { task: Task | null; defaults: Par
                 <input
                   value={s.title}
                   onChange={(e) => set("subtasks", d.subtasks.map((x, j) => (j === i ? { ...x, title: e.target.value } : x)))}
-                  className={cn("flex-1 bg-transparent text-sm outline-none", s.done && "text-muted-foreground line-through")}
+                  className={cn("strike flex-1 bg-transparent text-sm outline-none", s.done && "is-done")}
                   aria-label="Subtask title"
                   maxLength={200}
                 />

@@ -476,6 +476,61 @@
   }
 }
 
+/*
+  Done text: the strike is always set but transparent, and fades in (with the muted
+  colour) when something is done; a line can't animate in, its colour can.
+*/
+@utility strike {
+  text-decoration-line: line-through;
+  text-decoration-color: transparent;
+  transition:
+    color 0.3s var(--ease-out),
+    text-decoration-color 0.3s var(--ease-out);
+  &.is-done {
+    color: var(--muted-foreground);
+    text-decoration-color: currentColor;
+  }
+}
+
+/*
+  A small pop for things you just completed (data-pop, set for a moment by
+  useJustChanged so nothing pops on page load): the element springs from a little
+  smaller and a soft ring spreads from it. Transform and opacity only.
+*/
+@utility pop {
+  &[data-pop] {
+    animation: pop-in 0.5s var(--ease-spring-bouncy);
+  }
+  &[data-pop]::before {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    box-shadow: 0 0 0 2px var(--pop-ring, currentColor);
+    opacity: 0;
+    pointer-events: none;
+    animation: pop-ring 0.6s var(--ease-out);
+  }
+}
+@keyframes pop-in {
+  from {
+    scale: 0.78;
+  }
+  to {
+    scale: 1;
+  }
+}
+@keyframes pop-ring {
+  from {
+    opacity: 0.45;
+    scale: 0.9;
+  }
+  to {
+    opacity: 0;
+    scale: 1.7;
+  }
+}
+
 /* Navigation highlighter: soft smoky glass, lit faintly along its edge. */
 @utility glass-pill {
   background: var(--pill);
@@ -576,6 +631,29 @@
     }
   }
 }
+/* Tick-boxes: the check draws itself when you tick one (not on load), with a soft pop */
+[data-slot="checkbox"][data-pop] {
+  animation: pop-in 0.45s var(--ease-spring-bouncy);
+}
+[data-slot="checkbox"][data-pop] svg path {
+  stroke-dasharray: 24;
+  animation: check-draw 0.32s var(--ease-out) both;
+}
+@keyframes check-draw {
+  from {
+    stroke-dashoffset: 24;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+/* on touch screens every tick-box answers to at least a 44 px square */
+@media (pointer: coarse) {
+  [data-slot="checkbox"]::after {
+    inset: min(-8px, calc((100% - 44px) / 2));
+  }
+}
+
 /* the sidebar watch's sweeping seconds (sidebar-watch.tsx) */
 @keyframes watch-sweep {
   to {

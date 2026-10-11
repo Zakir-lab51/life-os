@@ -55,6 +55,21 @@ function DatePill() {
   )
 }
 
+/** The unread count on the bell; it pops when a new notification arrives. */
+function UnreadBadge({ count }: { count: number }) {
+  const [seen, setSeen] = useState(count)
+  const [pop, setPop] = useState(0)
+  if (count !== seen) {
+    if (count > seen) setPop((p) => p + 1)
+    setSeen(count)
+  }
+  return (
+    <span key={pop} data-pop={pop > 0 || undefined} className="pop absolute -top-0.5 -right-0.5 grid h-4 min-w-4 place-items-center rounded-control bg-violet px-1 text-[10px] font-bold text-primary-foreground tabular">
+      {count > 9 ? "9+" : count}
+    </span>
+  )
+}
+
 function FocusMini() {
   const timer = useFocus((s) => s.timer)
   const pauseTimer = useFocus((s) => s.pauseTimer)
@@ -146,7 +161,7 @@ function NotificationCenter() {
       <PopoverTrigger asChild>
         <Button variant="outline" size="icon" className="relative size-10 rounded-full bg-surface" aria-label={unread ? `Notifications, ${unread} unread` : "Notifications"}>
           <Bell className="size-[18px]" />
-          {unread > 0 && <span className="absolute -top-0.5 -right-0.5 grid h-4 min-w-4 place-items-center rounded-control bg-violet px-1 text-[10px] font-bold text-primary-foreground tabular">{unread > 9 ? "9+" : unread}</span>}
+          {unread > 0 && <UnreadBadge count={unread} />}
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-[min(92vw,380px)] rounded-3xl p-0">

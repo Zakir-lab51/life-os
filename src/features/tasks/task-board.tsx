@@ -11,7 +11,7 @@ import { BlockedError, setTaskStatus } from "@/lib/db/repo"
 import { reportError } from "@/lib/feedback"
 import { useUI } from "@/lib/stores/ui"
 import { cn } from "@/lib/utils"
-import { toggleDone } from "./task-actions"
+import { toggleDone, wasJustCompleted } from "./task-actions"
 import { TaskActionsMenu, TaskMeta } from "./task-row"
 
 const COLUMNS: { status: TaskStatus; label: string; dot: string }[] = [
@@ -99,11 +99,12 @@ function Card({ task, today, byId, overlay }: { task: Task; today: string; byId:
         <Checkbox
           className="mt-0.5 size-[18px] rounded-full"
           checked={done}
+          celebrate={wasJustCompleted(task.id)}
           onPointerDown={(e) => e.stopPropagation()}
           onCheckedChange={() => void toggleDone(task)}
           aria-label={done ? `Reopen ${task.title}` : `Complete ${task.title}`}
         />
-        <button type="button" onPointerDown={(e) => e.stopPropagation()} onClick={() => openTaskEditor(task.id)} className={cn("min-w-0 flex-1 text-left text-sm leading-snug font-medium", done && "text-muted-foreground line-through")}>
+        <button type="button" onPointerDown={(e) => e.stopPropagation()} onClick={() => openTaskEditor(task.id)} className={cn("strike min-w-0 flex-1 text-left text-sm leading-snug font-medium", done && "is-done")}>
           {task.title}
         </button>
         <div onPointerDown={(e) => e.stopPropagation()} className="-mt-1 -mr-1">

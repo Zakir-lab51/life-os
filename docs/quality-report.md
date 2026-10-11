@@ -83,3 +83,21 @@ quality monitor steps down when a device can't hold about 50 fps.
   and was already rest-only for tiles; the quality levels apply there too.
 - `npm audit` reports high-severity advisories in `fast-glob` via the `shadcn` CLI, a
   development tool that isn't shipped in the app.
+
+## Increment 2: motion and micro-interactions
+
+Built on the existing system (Motion + CSS springs), no new animation library. Spec:
+`docs/design-system.md`.
+
+| Change | Where | Verified |
+|---|---|---|
+| Tick-boxes pop and draw their check when ticked | `components/ui/checkbox.tsx`, globals.css | In the production build: `pop-in` and `check-draw` run on tick |
+| Ticks pop even when the row is rebuilt (open and done tasks listed apart) | `wasJustCompleted` in `features/tasks/task-actions.ts` | Test `tests/task-pop.test.ts`; in the browser the first try (before this) showed no pop, after it the pop ran |
+| Done titles: strike and muted colour fade in | `strike` / `is-done` utility, 8 call sites | Computed style shows the transition and the strike colour once done |
+| Habit check-ins pop with a ring in the habit's colour | `components/os/habit-mark.tsx` | `pop-in` and `pop-ring` run on check-in |
+| Nothing pops on page load | `lib/use-just-changed.ts` | Loading Habits with done habits runs only the ambient animations; test `tests/just-changed.test.tsx` |
+| Stat numbers roll when they change | `StatTile` uses `RollingText` | (initial render doesn't animate) |
+| New notifications pop the bell badge | `topbar.tsx` | not exercised in the browser (needs a new notification) |
+| Toasts are glass | `components/ui/sonner.tsx` | |
+| Tick-boxes answer to a 44 px square on touch screens | globals.css `(pointer: coarse)` | |
+

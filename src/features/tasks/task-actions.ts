@@ -6,7 +6,23 @@ import { formatDay } from "@/lib/domain/dates"
 import type { ID, Task } from "@/lib/domain/types"
 import { attempt } from "@/lib/feedback"
 
+/*
+  Tasks completed a moment ago. A list may rebuild a task's row when it's ticked (open
+  and done tasks are often listed apart), so the tick's pop can't rely on the row
+  noticing the change; rows ask here instead.
+*/
+const justCompleted = new Map<ID, number>()
+const POP_FOR = 1000 // ms
+
+/** Whether `id` was completed in the last moment, so its tick-box should pop. */
+export function wasJustCompleted(id: ID): boolean {
+  const at = justCompleted.get(id)
+  return at !== undefined && performance.now() - at < POP_FOR
+}
+
 export async function toggleDone(task: Task) {
+  // noted before the write, so the first render of the finished task already sees it
+  if (task.status !== "done") justCompleted.set(task.id, performance.now())
   const result = await attempt(() => toggleTaskDone(task.id))
   if (result === undefined) return
   if (task.status !== "done" && result && typeof result === "object" && "next" in result && result.next?.dueDate) {

@@ -225,7 +225,7 @@ function Calendar({ life, anchor, gridStart, gridEnd, blocks, setMonth }: { life
                 {selTasks.map((t) => (
                   <li key={t.id} className="flex items-center gap-2.5 rounded-xl px-1 py-1.5 hover:bg-surface-2/60">
                     <Checkbox className="rounded-full" checked={t.status === "done"} onCheckedChange={() => void toggleDone(t)} aria-label={`Toggle ${t.title}`} />
-                    <button type="button" onClick={() => openTaskEditor(t.id)} className={cn("min-w-0 flex-1 truncate text-left text-sm", t.status === "done" && "text-muted-foreground line-through")}>
+                    <button type="button" onClick={() => openTaskEditor(t.id)} className={cn("strike min-w-0 flex-1 truncate text-left text-sm", t.status === "done" && "is-done")}>
                       {t.title}
                     </button>
                     <PriorityFlag priority={t.priority} />

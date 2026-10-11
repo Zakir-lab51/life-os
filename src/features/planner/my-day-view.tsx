@@ -233,7 +233,7 @@ function Routines({ date, items, title, icon }: { date: string; items: RoutineIt
               <li key={item.id}>
                 <label className="flex cursor-pointer items-center gap-2.5 rounded-lg px-1 py-1 text-sm hover:bg-surface-2/60">
                   <Checkbox checked={done.has(item.id)} onCheckedChange={() => void attempt(() => toggleRoutine(date, item.id))} />
-                  <span className={cn(done.has(item.id) && "text-muted-foreground line-through")}>{item.label}</span>
+                  <span className={cn("strike", done.has(item.id) && "is-done")}>{item.label}</span>
                 </label>
               </li>
             ))}
