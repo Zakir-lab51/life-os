@@ -30,8 +30,8 @@ const GLASS_SLIDERS: SliderSpec[] = [
 ]
 
 const PHOTO_SLIDERS: SliderSpec[] = [
-  { key: "photoDim", label: "Dimming", ariaLabel: "Photo dimming", step: 0.05, left: "Clear", right: "Faint", format: (v) => `${Math.round(v * 100)}%` },
-  { key: "photoBlur", label: "Blur", ariaLabel: "Photo blur", step: 1, left: "Sharp", right: "Soft", format: (v) => (v === 0 ? "Off" : `${Math.round(v)}px`) },
+  { key: "photoDim", label: "Dimming", ariaLabel: "Background dimming", step: 0.05, left: "Clear", right: "Faint", format: (v) => `${Math.round(v * 100)}%` },
+  { key: "photoBlur", label: "Blur", ariaLabel: "Background blur", step: 1, left: "Sharp", right: "Soft", format: (v) => (v === 0 ? "Off" : `${Math.round(v)}px`) },
 ]
 
 // a design waiting to be saved; flushed after a short pause or when the studio unmounts
@@ -210,9 +210,12 @@ export function DesignStudio({ saved }: { saved: Design }) {
                 aria-pressed={active}
                 onClick={() => update({ photo: id })}
                 className={cn("relative grid aspect-[16/10] place-items-end justify-start overflow-hidden rounded-xl border p-2 text-left transition-colors", active ? "border-foreground/50 ring-2 ring-foreground/20" : "border-line hover:border-foreground/25")}
-                style={photo.small ? { background: `url("${asset(photo.small)}") center / cover` } : undefined}
+                style={photo.small ? { background: `url("${asset(photo.small)}") center / cover` } : photo.preview ? { background: photo.preview } : undefined}
               >
-                <span className={cn("rounded-md px-1.5 py-0.5 text-[11px] font-medium", photo.small ? "bg-black/45 text-white" : "text-muted-foreground")}>{photo.label}</span>
+                <span className={cn("rounded-md px-1.5 py-0.5 text-[11px] font-medium", photo.small || photo.preview ? "bg-black/45 text-white" : "text-muted-foreground")}>
+                  {photo.label}
+                  {photo.scene && <span className="ml-1 opacity-75">· animated</span>}
+                </span>
                 {active && (
                   <span className="absolute top-2 right-2 grid size-5 place-items-center rounded-full bg-foreground text-background">
                     <Check className="size-3" strokeWidth={3} />

@@ -16,12 +16,16 @@ export function switchTheme(next: "light" | "dark" | "system", setTheme: (t: str
   const reduce = root.dataset.motion === "reduced" || matchMedia("(prefers-reduced-motion: reduce)").matches
   if (reduce || !from || !("startViewTransition" in document) || root.classList.contains(resolved)) return apply()
   const radius = Math.hypot(Math.max(from.x, innerWidth - from.x), Math.max(from.y, innerHeight - from.y))
-  document.startViewTransition(apply).ready.then(() => {
-    root.animate(
-      { clipPath: [`circle(0px at ${from.x}px ${from.y}px)`, `circle(${radius}px at ${from.x}px ${from.y}px)`] },
-      { duration: 700, easing: "cubic-bezier(0.32, 0.72, 0, 1)", pseudoElement: "::view-transition-new(root)" },
-    )
-  })
+  document
+    .startViewTransition(apply)
+    .ready.then(() => {
+      root.animate(
+        { clipPath: [`circle(0px at ${from.x}px ${from.y}px)`, `circle(${radius}px at ${from.x}px ${from.y}px)`] },
+        { duration: 700, easing: "cubic-bezier(0.32, 0.72, 0, 1)", pseudoElement: "::view-transition-new(root)" },
+      )
+    })
+    // the reveal can be cut short (say, by a resize); the theme still switches, just without it
+    .catch(() => {})
 }
 
 /** The centre of an element, for `from`. */

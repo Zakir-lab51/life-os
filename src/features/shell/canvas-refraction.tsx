@@ -3,42 +3,55 @@
 import { useEffect, useRef } from "react"
 import { PHOTOS, asset, type PhotoId } from "@/lib/design/design"
 import { GLASS_IOR, bezelFor } from "@/lib/design/lens"
+import { FLOW_GLSL, flowPalette } from "@/lib/design/scene"
 
 /*
-  Liquid-glass refraction for browsers without SVG filters in backdrop-filter (Safari,
-  so every browser on iPad and iPhone, and Firefox). The background photo is drawn
-  with WebGL instead of CSS, and near every .glass surface's rounded edge the photo
-  is sampled from further in, so the glass above it (which still blurs as usual)
-  shows the same thick, bending rim as the Chromium version. The rim's profile is the
-  one in lib/design/lens.ts (a convex squircle refracting like real glass), written
-  out again in GLSL below. Only the photo bends: other page content behind a glass bar
-  doesn't.
+  The page background, drawn with WebGL: either the animated "Liquid flow" scene
+  (lib/design/scene.ts) or, in browsers without SVG filters in backdrop-filter
+  (Safari, so every browser on iPad and iPhone, and Firefox), the background photo.
+
+  With `refract` on, near every .glass surface's rounded edge the background is
+  sampled from further in, so the glass above it (which still blurs as usual) shows
+  the same thick, bending rim as the Chromium version. The rim's profile is the one
+  in lib/design/lens.ts (a convex squircle refracting like real glass), written out
+  again in GLSL below. Only the background bends: other page content behind a glass
+  bar doesn't. In Chromium, `refract` is off and the glass bends the canvas itself.
 
   Scrolling: the canvas is redrawn from JavaScript, which can't keep pace with the
   browser's own scrolling, so a bend drawn under a moving tile would trail behind it.
-  Instead, tiles in the page let their bend go while you scroll (in about a tenth of a
-  second) and it flows back once scrolling stops; the sidebar, top bar and dialogs
-  don't move with the page, so they keep bending throughout and nothing is redrawn
-  while you scroll. Otherwise the canvas redraws only while glass moves (animations,
-  resizing) and stops once everything is still.
+  Instead, tiles in the page let go of their bend while you scroll (in about a tenth
+  of a second) and it flows back once scrolling stops; the sidebar, top bar and dialogs
+  don't move with the page, so they keep bending throughout. A photo is redrawn only
+  while glass moves; the flow animates continuously at up to 60 frames a second,
+  holding still when motion is reduced and pausing with the tab.
 */
 
 const MAX = 32 // glass surfaces handled at once
 const FADE_OUT = 120 // ms for tiles to let go of their bend when scrolling starts
 const FADE_IN = 480 // ms for it to flow back once scrolling stops
 const SCROLL_IDLE = 140 // ms without scroll events that counts as stopped
+const FRAME_MS = 1000 / 61 // the flow's frame budget (60 fps, even on 120 Hz screens)
+const STILL_TIME = 37 // s: where the flow rests when motion is reduced
 
 const VERT = "attribute vec2 a; void main() { gl_Position = vec4(a, 0.0, 1.0); }"
-const FRAG = `
-precision highp float;
+
+const PHOTO_SCENE = `
 uniform sampler2D photo;
+uniform vec4 fit;        // photo placement inside the canvas: offset xy, size zw (CSS px)
+vec3 scene(vec2 local) { return texture2D(photo, clamp((local - fit.xy) / fit.zw, 0.0, 1.0)).rgb; }`
+
+const FLOW_SCENE = `${FLOW_GLSL}
+vec3 scene(vec2 local) { return flow(local + origin); }`
+
+const fragment = (sceneCode: string) => `
+precision highp float;
 uniform float heightPx;  // canvas height in device px
 uniform float dpr;
 uniform vec2 origin;     // canvas top-left in the viewport, CSS px
-uniform vec4 fit;        // photo placement inside the canvas: offset xy, size zw (CSS px)
 uniform int count;
 uniform vec4 rects[${MAX}];  // x, y, width, height in the viewport (CSS px)
 uniform vec4 shape[${MAX}];  // corner radius, strength 0-1, bezel width, thickness
+${sceneCode}
 
 // convex squircle rim and its slope (see lib/design/lens.ts)
 float squircle(float x) { return pow(max(1e-6, 1.0 - pow(1.0 - x, 4.0)), 0.25); }
@@ -76,7 +89,7 @@ void main() {
       shift = -n * lensShift(d, sh.z, sh.w) * sh.y;
     }
   }
-  gl_FragColor = texture2D(photo, clamp((local + shift - fit.xy) / fit.zw, 0.0, 1.0));
+  gl_FragColor = vec4(scene(local + shift), 1.0);
 }`
 
 function compile(gl: WebGLRenderingContext, type: number, source: string) {
@@ -85,7 +98,7 @@ function compile(gl: WebGLRenderingContext, type: number, source: string) {
   gl.shaderSource(shader, source)
   gl.compileShader(shader)
   if (gl.getShaderParameter(shader, gl.COMPILE_STATUS)) return shader
-  console.warn("LIFE OS glass refraction is off: the shader didn't compile.", gl.getShaderInfoLog(shader))
+  console.warn("LIFE OS background is off: the shader didn't compile.", gl.getShaderInfoLog(shader))
   return null
 }
 
@@ -96,24 +109,32 @@ const cornerRadius = (el: HTMLElement) => {
 
 const easeOut = (t: number) => 1 - Math.pow(1 - t, 3)
 
-export function CanvasRefraction({ photo }: { photo: PhotoId }) {
+export function CanvasRefraction({ photo, refract, hue, saturation }: { photo: PhotoId; refract: boolean; hue: number; saturation: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  // the flow's colours follow the accent without restarting the renderer
+  const colour = useRef({ hue, saturation, changed: true })
+  const redraw = useRef<() => void>(() => {})
+  useEffect(() => {
+    colour.current = { hue, saturation, changed: true }
+    redraw.current()
+  }, [hue, saturation])
 
   useEffect(() => {
     const canvas = canvasRef.current
     const files = PHOTOS[photo]
-    if (!canvas || !files.src) return
+    const flow = files.scene === "flow"
+    if (!canvas || (!flow && !files.src)) return
     const gl = canvas.getContext("webgl", { alpha: false, antialias: false, premultipliedAlpha: false })
     if (!gl) return
     const vs = compile(gl, gl.VERTEX_SHADER, VERT)
-    const fs = compile(gl, gl.FRAGMENT_SHADER, FRAG)
+    const fs = compile(gl, gl.FRAGMENT_SHADER, fragment(flow ? FLOW_SCENE : PHOTO_SCENE))
     const program = gl.createProgram()
     if (!vs || !fs || !program) return
     gl.attachShader(program, vs)
     gl.attachShader(program, fs)
     gl.linkProgram(program)
     if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-      console.warn("LIFE OS glass refraction is off: the shader didn't link.", gl.getProgramInfoLog(program))
+      console.warn("LIFE OS background is off: the shader didn't link.", gl.getProgramInfoLog(program))
       return
     }
     gl.useProgram(program)
@@ -126,9 +147,24 @@ export function CanvasRefraction({ photo }: { photo: PhotoId }) {
     gl.enableVertexAttribArray(a)
     gl.vertexAttribPointer(a, 2, gl.FLOAT, false, 0, 0)
     const u = (name: string) => gl.getUniformLocation(program, name)
-    const U = { heightPx: u("heightPx"), dpr: u("dpr"), origin: u("origin"), fit: u("fit"), count: u("count"), rects: u("rects"), shape: u("shape") }
+    const U = {
+      heightPx: u("heightPx"),
+      dpr: u("dpr"),
+      origin: u("origin"),
+      fit: u("fit"),
+      count: u("count"),
+      rects: u("rects"),
+      shape: u("shape"),
+      time: u("time"),
+      view: u("view"),
+      base: u("base"),
+      pal: u("pal"),
+      light: u("light"),
+    }
 
+    colour.current.changed = true // a new program needs its colours
     const root = document.documentElement
+    const reducedQuery = matchMedia("(prefers-reduced-motion: reduce)")
     const img = new Image()
     let texture: WebGLTexture | null = null
     let ready = false
@@ -141,6 +177,8 @@ export function CanvasRefraction({ photo }: { photo: PhotoId }) {
     let force = true
     let raf = 0
     let still = 0
+    let lastFrame = 0
+    let dark = root.classList.contains("dark")
 
     // how much tiles in the page bend right now (0 while scrolling), easing towards `tileTarget`
     let tileBend = 1
@@ -150,9 +188,12 @@ export function CanvasRefraction({ photo }: { photo: PhotoId }) {
     let scrolling = false
     let idleTimer: ReturnType<typeof setTimeout> | undefined
 
+    const animating = () => flow && root.dataset.motion !== "reduced" && !reducedQuery.matches
+
     const collect = () => {
       let n = 0
       const parts: number[] = []
+      if (!refract) return { n, signature: "" }
       for (const el of document.querySelectorAll<HTMLElement>(".glass")) {
         if (n >= MAX) break
         let tile = inPage.get(el)
@@ -180,9 +221,19 @@ export function CanvasRefraction({ photo }: { photo: PhotoId }) {
       return { n, signature: parts.join(",") }
     }
 
-    const draw = (n: number) => {
+    const setColours = () => {
+      const { hue, saturation } = colour.current
+      const p = flowPalette(hue, saturation, dark)
+      gl.uniform3f(U.base, ...p.base)
+      gl.uniform3fv(U.pal, p.ribbons.flat())
+      gl.uniform1f(U.light, dark ? 0 : 1)
+      colour.current.changed = false
+    }
+
+    const draw = (n: number, now: number) => {
       const box = canvas.getBoundingClientRect()
-      const dpr = Math.min(devicePixelRatio || 1, 1.5)
+      // the flow is smooth, so it's drawn at CSS-pixel resolution; photos a little sharper
+      const dpr = Math.min(devicePixelRatio || 1, flow ? 1 : 1.5)
       const w = Math.max(1, Math.round(box.width * dpr))
       const h = Math.max(1, Math.round(box.height * dpr))
       if (canvas.width !== w || canvas.height !== h) {
@@ -190,14 +241,20 @@ export function CanvasRefraction({ photo }: { photo: PhotoId }) {
         canvas.height = h
       }
       gl.viewport(0, 0, w, h)
-      // like background-size: cover, centred
-      const s = Math.max(box.width / img.naturalWidth, box.height / img.naturalHeight)
-      const fw = img.naturalWidth * s
-      const fh = img.naturalHeight * s
       gl.uniform1f(U.heightPx, h)
       gl.uniform1f(U.dpr, dpr)
       gl.uniform2f(U.origin, box.left, box.top)
-      gl.uniform4f(U.fit, (box.width - fw) / 2, (box.height - fh) / 2, fw, fh)
+      if (flow) {
+        if (colour.current.changed) setColours()
+        gl.uniform1f(U.time, animating() ? STILL_TIME + now / 1000 : STILL_TIME)
+        gl.uniform2f(U.view, innerWidth, innerHeight)
+      } else {
+        // like background-size: cover, centred
+        const s = Math.max(box.width / img.naturalWidth, box.height / img.naturalHeight)
+        const fw = img.naturalWidth * s
+        const fh = img.naturalHeight * s
+        gl.uniform4f(U.fit, (box.width - fw) / 2, (box.height - fh) / 2, fw, fh)
+      }
       gl.uniform1i(U.count, n)
       gl.uniform4fv(U.rects, rects)
       gl.uniform4fv(U.shape, shape)
@@ -207,6 +264,11 @@ export function CanvasRefraction({ photo }: { photo: PhotoId }) {
     const tick = (now: number) => {
       raf = 0
       if (!ready || disposed) return
+      const moving = animating()
+      if (moving && now - lastFrame < FRAME_MS) {
+        raf = requestAnimationFrame(tick)
+        return
+      }
       if (tileBend !== tileTarget) {
         const duration = tileTarget > fadeFrom ? FADE_IN : FADE_OUT
         // a frame's timestamp can be a moment earlier than the fade's start
@@ -215,18 +277,20 @@ export function CanvasRefraction({ photo }: { photo: PhotoId }) {
         force = true
       }
       const { n, signature } = collect()
-      if (force || signature !== last) {
-        draw(n)
+      if (moving || force || signature !== last || colour.current.changed) {
+        draw(n, now)
+        lastFrame = now
         last = signature
         force = false
         still = 0
       } else still++
-      if (still < 12 || tileBend !== tileTarget) raf = requestAnimationFrame(tick)
+      if (moving || still < 12 || tileBend !== tileTarget) raf = requestAnimationFrame(tick)
     }
     const kick = () => {
       still = 0
       if (!raf) raf = requestAnimationFrame(tick)
     }
+    redraw.current = kick
     const fadeTiles = (target: number) => {
       if (tileTarget === target) return
       fadeFrom = tileBend
@@ -235,6 +299,7 @@ export function CanvasRefraction({ photo }: { photo: PhotoId }) {
       kick()
     }
     const scrolled = () => {
+      if (!refract) return
       if (!scrolling) {
         scrolling = true
         fadeTiles(0)
@@ -249,25 +314,43 @@ export function CanvasRefraction({ photo }: { photo: PhotoId }) {
       force = true
       kick()
     }
-
-    img.onload = () => {
-      if (disposed) return
-      texture = gl.createTexture()
-      gl.bindTexture(gl.TEXTURE_2D, texture)
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, img)
-      ready = true
-      force = true
-      root.classList.add("canvas-photo") // hide the CSS photo now the canvas has it
+    // light/dark mode and reduced motion change the flow (Lenis also toggles classes on <html>, so check)
+    const rootChanged = () => {
+      const nowDark = root.classList.contains("dark")
+      if (nowDark !== dark) {
+        dark = nowDark
+        colour.current.changed = true
+      }
       kick()
     }
-    img.src = asset(innerWidth <= 800 && files.small ? files.small : files.src)
+    const start = () => {
+      ready = true
+      force = true
+      root.classList.add("canvas-photo") // hide the CSS photo and fade the canvas in
+      kick()
+    }
+
+    if (flow) start()
+    else {
+      img.onload = () => {
+        if (disposed) return
+        texture = gl.createTexture()
+        gl.bindTexture(gl.TEXTURE_2D, texture)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, img)
+        start()
+      }
+      img.src = asset(innerWidth <= 800 && files.small ? files.small : files.src!)
+    }
 
     const mo = new MutationObserver(kick)
-    mo.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "style", "data-state"] })
+    if (refract) mo.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "style", "data-state"] })
+    const rootMo = new MutationObserver(rootChanged)
+    rootMo.observe(root, { attributes: true, attributeFilter: ["class", "data-motion"] })
+    reducedQuery.addEventListener("change", kick)
     document.addEventListener("scroll", scrolled, { capture: true, passive: true })
     window.addEventListener("resize", resized)
     const lost = (e: Event) => {
@@ -279,9 +362,12 @@ export function CanvasRefraction({ photo }: { photo: PhotoId }) {
 
     return () => {
       disposed = true
+      redraw.current = () => {}
       cancelAnimationFrame(raf)
       clearTimeout(idleTimer)
       mo.disconnect()
+      rootMo.disconnect()
+      reducedQuery.removeEventListener("change", kick)
       document.removeEventListener("scroll", scrolled, { capture: true })
       window.removeEventListener("resize", resized)
       canvas.removeEventListener("webglcontextlost", lost)
@@ -293,7 +379,7 @@ export function CanvasRefraction({ photo }: { photo: PhotoId }) {
       gl.deleteShader(vs)
       gl.deleteShader(fs)
     }
-  }, [photo])
+  }, [photo, refract])
 
   return (
     <div aria-hidden className="canvas-photo-layer">

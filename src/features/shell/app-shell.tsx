@@ -22,7 +22,7 @@ import { FocusEngine, ProgressWatcher, ReminderEngine } from "./engines"
 import { GlassPointer } from "./glass-pointer"
 import { OfflineSupport } from "./offline"
 import { QuickCapture } from "./quick-capture"
-import { Refraction } from "./refraction"
+import { Backdrop } from "./refraction"
 import { ShortcutsDialog, useGlobalShortcuts } from "./shortcuts"
 import { SmoothScroll } from "./smooth-scroll"
 import { Sidebar } from "./sidebar"
@@ -66,7 +66,7 @@ function Shell({ children }: { children: ReactNode }) {
         Skip to content
       </a>
       <Aurora />
-      <Refraction enabled={prefs?.design.material === "liquid"} photo={prefs?.design.photo ?? "none"} />
+      <Backdrop liquid={prefs?.design.material === "liquid"} photo={prefs?.design.photo ?? "none"} hue={prefs?.design.hue ?? 0} saturation={prefs?.design.saturation ?? 1} />
       <GlassPointer />
       <SmoothScroll reduced={prefs?.motion === "reduced"} />
       <OfflineSupport />

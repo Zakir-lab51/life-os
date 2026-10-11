@@ -43,11 +43,15 @@ export function defaultPrefs(now = new Date()): Prefs {
     currency: "INR",
     motion: "system",
     design: { ...DEFAULT_DESIGN },
+    designVersion: DESIGN_VERSION,
     lastSeenLevel: 0,
     createdAt: stamp,
     updatedAt: stamp,
   }
 }
+
+/** Version 2 made the animated "Liquid flow" the default background. */
+const DESIGN_VERSION = 2
 
 /** Fills in fields added in later versions so older saved prefs keep working. */
 export function migratePrefs(saved: Partial<Prefs>): Prefs {
@@ -58,6 +62,12 @@ export function migratePrefs(saved: Partial<Prefs>): Prefs {
   merged.weeklyTargets = { ...base.weeklyTargets, ...(saved.weeklyTargets ?? {}) }
   merged.routines = { ...base.routines, ...(saved.routines ?? {}) }
   merged.design = { ...base.design, ...(saved.design ?? {}) }
+  // a design still on the old default photo moves to the new default background, once;
+  // choosing the photo again afterwards sticks
+  if ((saved.designVersion ?? 1) < 2 && merged.design.photo === "mountains") {
+    merged.design = { ...merged.design, photo: DEFAULT_DESIGN.photo, photoDim: DEFAULT_DESIGN.photoDim, photoBlur: DEFAULT_DESIGN.photoBlur }
+  }
+  merged.designVersion = DESIGN_VERSION
   const known = new Set(merged.widgets?.map((w) => w.id) ?? [])
   merged.widgets = [...(merged.widgets ?? []), ...base.widgets.filter((w) => !known.has(w.id))]
   // quick actions added since these prefs were saved start switched on, once; switching one off later sticks.

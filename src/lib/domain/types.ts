@@ -332,6 +332,8 @@ export interface Prefs {
   design: Design
   /** Highest level already announced, so level-ups are celebrated once. */
   lastSeenLevel: number
+  /** Design defaults these prefs have been brought up to (see migratePrefs). */
+  designVersion?: number
   createdAt: ISODateTime
   updatedAt: ISODateTime
 }

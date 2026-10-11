@@ -102,7 +102,8 @@
     --glow         background glow strength (0 = off)
     --ui-scale     overall size of text and spacing
     --font-ui      interface font
-    --bg-image     background photo (and --bg-image-sm, a lighter copy for phones)
+    --bg-image     background photo (and --bg-image-sm, a lighter copy for phones);
+                   none for the animated backgrounds, which canvas-refraction.tsx draws
     --bg-dim       how much the page colour veils the photo (0 = clear)
     --bg-blur      photo blur
 */
@@ -117,9 +118,9 @@
   --glow: 1;
   --ui-scale: 1;
   --font-ui: var(--font-jakarta);
-  --bg-image: url("/backgrounds/mountains.webp");
-  --bg-image-sm: url("/backgrounds/mountains-sm.webp");
-  --bg-dim: 0.5;
+  --bg-image: none;
+  --bg-image-sm: none;
+  --bg-dim: 0.3;
   --bg-blur: 0px;
 
   /* neutrals carry a faint tint of the accent hue (none in greyscale) */
@@ -342,13 +343,19 @@
       overscroll-behavior: none;
     }
   }
-  /* Safari/Firefox: the photo is drawn by canvas-refraction.tsx instead, so glass can bend it */
+  /* the animated background, and in Safari/Firefox the photo too, are drawn by
+     canvas-refraction.tsx (so glass can bend them); it fades in once it has drawn */
   .canvas-photo-layer {
     position: fixed;
     inset: calc(var(--bg-blur) * -2);
     z-index: -20;
     pointer-events: none;
     filter: blur(var(--bg-blur));
+    opacity: 0;
+    transition: opacity 0.7s var(--ease-out);
+  }
+  html.canvas-photo .canvas-photo-layer {
+    opacity: 1;
   }
   html.canvas-photo body::before {
     opacity: 0;

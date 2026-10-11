@@ -4,7 +4,8 @@
   restyles live without touching component code.
 
   To add or change a preset, edit PRESETS below; to add a background photo,
-  put it in public/backgrounds and list it in PHOTOS. To change the default
+  put it in public/backgrounds and list it in PHOTOS (which also lists the animated
+  backgrounds drawn in code, see lib/design/scene.ts). To change the default
   for everyone, change DEFAULT_DESIGN and the matching defaults in globals.css
   (tests/design.test.ts checks that the two agree).
 */
@@ -22,11 +23,23 @@ const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? ""
 /** A file in public/, addressed so it works under the base path too. */
 export const asset = (path: string) => `${BASE_PATH}${path}`
 
-/** Background photos, served from public/backgrounds (a full-size and a phone-size copy). */
+/**
+ * Backgrounds. Photos are served from public/backgrounds (a full-size and a phone-size
+ * copy); a `scene` is drawn live in code instead (lib/design/scene.ts), with `preview`
+ * standing in for it in the picker.
+ */
 export const PHOTOS = {
-  none: { label: "None", src: null, small: null, credit: null },
-  mountains: { label: "Misty mountains", src: "/backgrounds/mountains.webp", small: "/backgrounds/mountains-sm.webp", credit: "Daniel Sessler on Unsplash" },
-} satisfies Record<string, { label: string; src: string | null; small: string | null; credit: string | null }>
+  flow: {
+    label: "Liquid flow",
+    src: null,
+    small: null,
+    credit: null,
+    scene: "flow",
+    preview: "linear-gradient(150deg, oklch(0.3 0.14 245) 0%, oklch(0.38 0.19 285) 28%, oklch(0.46 0.22 325) 52%, oklch(0.54 0.21 5) 76%, oklch(0.6 0.18 45) 100%)",
+  },
+  mountains: { label: "Misty mountains", src: "/backgrounds/mountains.webp", small: "/backgrounds/mountains-sm.webp", credit: "Daniel Sessler on Unsplash", scene: null, preview: null },
+  none: { label: "None", src: null, small: null, credit: null, scene: null, preview: null },
+} satisfies Record<string, { label: string; src: string | null; small: string | null; credit: string | null; scene: "flow" | null; preview: string | null }>
 export type PhotoId = keyof typeof PHOTOS
 
 /** How glass surfaces are finished. Transparency and blur are separate settings. */
@@ -100,7 +113,7 @@ export const PRESETS: Record<string, { label: string; description: string; look:
   },
 }
 
-export const DEFAULT_DESIGN: Design = { ...PRESETS.violet.look, material: "liquid", glass: 0.8, glassBlur: 12, photo: "mountains", photoDim: 0.5, photoBlur: 0 }
+export const DEFAULT_DESIGN: Design = { ...PRESETS.violet.look, material: "liquid", glass: 0.8, glassBlur: 12, photo: "flow", photoDim: 0.3, photoBlur: 0 }
 
 export const DESIGN_LIMITS = {
   hue: [0, 360],

@@ -173,6 +173,7 @@ export const prefsSchema = z
     motion: z.enum(["system", "reduced"]),
     design: designSchema,
     lastSeenLevel: z.number().int().min(0),
+    designVersion: z.number().int().min(1).optional(),
     createdAt: isoDateTime,
     updatedAt: isoDateTime,
   })

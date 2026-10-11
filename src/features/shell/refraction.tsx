@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import type { PhotoId } from "@/lib/design/design"
+import { PHOTOS, type PhotoId } from "@/lib/design/design"
 import { bezelFor, lensShift, maxLensShift } from "@/lib/design/lens"
 import { CanvasRefraction } from "./canvas-refraction"
 
@@ -17,7 +17,8 @@ import { CanvasRefraction } from "./canvas-refraction"
   split colour slightly at the rim, as real glass does: blue bends a little more than
   red. Surfaces of the same size share a map, and maps are rebuilt shortly after a
   resize rather than on every frame. Other browsers (Safari, Firefox) get
-  canvas-refraction.tsx instead, which bends the background photo itself.
+  canvas-refraction.tsx instead, which bends the background (photo or animated scene)
+  itself as it draws it. The animated scene is drawn by that canvas in every browser.
   localStorage "life-os.refraction" = "svg" or "webgl" forces one or the other.
 */
 
@@ -45,11 +46,20 @@ function refractionMode(): "svg" | "webgl" {
   return supported() ? "svg" : "webgl"
 }
 
-/** Liquid-glass refraction, by whichever method this browser supports. */
-export function Refraction({ enabled, photo }: { enabled: boolean; photo: PhotoId }) {
+/**
+ * The page background and liquid-glass refraction, by whichever method this browser
+ * supports. `liquid` is the glass material; the animated scene is drawn either way.
+ */
+export function Backdrop({ liquid, photo, hue, saturation }: { liquid: boolean; photo: PhotoId; hue: number; saturation: number }) {
   const [mode] = useState(refractionMode)
-  if (mode === "webgl") return enabled && photo !== "none" ? <CanvasRefraction photo={photo} /> : null
-  return <SvgRefraction enabled={enabled} />
+  const canvasBends = liquid && mode === "webgl"
+  const canvas = !!PHOTOS[photo]?.scene || (canvasBends && photo !== "none")
+  return (
+    <>
+      {canvas && <CanvasRefraction photo={photo} refract={canvasBends} hue={hue} saturation={saturation} />}
+      {mode === "svg" && <SvgRefraction enabled={liquid} />}
+    </>
+  )
 }
 
 /**
