@@ -1,13 +1,11 @@
 "use client"
 
-import { PanelLeftClose, PanelLeftOpen, Search } from "lucide-react"
+import { PanelLeftClose, PanelLeftOpen } from "lucide-react"
 import { motion } from "motion/react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useMemo, type ReactElement, type ReactNode } from "react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { ProfileAvatar } from "@/components/os/profile-avatar"
-import { HatchBar, Kbd } from "@/components/os/visuals"
 import { formatTimer, remainingMs, elapsedMs } from "@/lib/domain/focus"
 import { habitsForDay, logsByHabit } from "@/lib/domain/habits"
 import { isDueToday, isOverdue } from "@/lib/domain/tasks"
@@ -18,13 +16,13 @@ import { SPRING_SNAPPY } from "@/lib/motion"
 import { cn } from "@/lib/utils"
 import { LayeredIcon, useTilt } from "./layered-icon"
 import { NAV, navForPath, type NavItem, type NavKey } from "./nav"
-import { useLife, useXP } from "./use-life"
+import { useLife } from "./use-life"
 
 /*
   The sidebar, laid out like the Settings category list (after Apple's System
-  Settings): one liquid-glass pane with a search field, your profile card, and the
-  tabs as rows in groups split by thin lines. Each tab has a 3D layered icon, and the
-  soft highlighter glides to the tab you pick.
+  Settings): one liquid-glass pane with the logo and name, then the tabs as rows in
+  groups split by thin lines. Each tab has a 3D layered icon, and the soft
+  highlighter glides to the tab you pick.
 */
 
 export function LifeMark({ className }: { className?: string }) {
@@ -138,71 +136,7 @@ function NavLink({ item, active, collapsed, status, onNavigate }: { item: NavIte
   )
 }
 
-/** Opens the command palette (the same search as Ctrl+K and the top bar's search button). */
-function SearchField({ collapsed, beforeOpen, inset }: { collapsed: boolean; beforeOpen?: () => void; inset?: boolean }) {
-  const setPalette = useUI((s) => s.setPalette)
-  return (
-    <Tip show={collapsed} label="Search or run a command (Ctrl K)">
-      <button
-        type="button"
-        aria-label="Search and commands"
-        aria-keyshortcuts="Control+K"
-        onClick={() => {
-          beforeOpen?.()
-          setPalette(true)
-        }}
-        className={cn(
-          "pressable flex h-9 shrink-0 items-center gap-2 rounded-full bg-surface-3/70 pr-2 pl-3 text-sm text-muted-foreground ring-1 ring-line outline-none [--press-scale:0.98] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
-          collapsed && "mx-auto size-9 justify-center p-0",
-          inset && "mr-10",
-        )}
-      >
-        <Search className="size-4 shrink-0" />
-        {!collapsed && (
-          <>
-            Search
-            {/* no keyboard shortcut hint on touch screens */}
-            <span className="ml-auto flex gap-1 pointer-coarse:hidden">
-              <Kbd>Ctrl</Kbd>
-              <Kbd>K</Kbd>
-            </span>
-          </>
-        )}
-      </button>
-    </Tip>
-  )
-}
-
-/** You: name, level and progress to the next one (details live on Habits → Progress). */
-function ProfileCard({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
-  const life = useLife()
-  const xp = useXP(life?.data)
-  const name = life?.prefs.name || "You"
-  const level = xp?.level
-  return (
-    <Tip show={collapsed} label={level ? `${name} · Level ${level.level} · ${level.intoLevel}/${level.needed} XP` : name}>
-      <Link
-        href="/habits#progress"
-        onNavigate={onNavigate}
-        className={cn(
-          "pressable flex shrink-0 items-center gap-3 rounded-2xl bg-foreground/[0.06] p-2.5 ring-1 ring-line outline-none [--press-scale:0.98] hover:bg-foreground/[0.09] focus-visible:ring-2 focus-visible:ring-ring",
-          collapsed && "justify-center bg-transparent p-0 ring-0 hover:bg-transparent",
-        )}
-      >
-        <ProfileAvatar name={life?.prefs.name ?? ""} />
-        {!collapsed && (
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-[0.95rem] font-semibold">{name}</span>
-            <span className="block truncate text-xs text-muted-foreground">{level ? `Level ${level.level} · ${level.title}` : "Your progress"}</span>
-            {level && <HatchBar value={level.progress} tone="violet" className="mt-1.5" height={4} />}
-          </span>
-        )}
-      </Link>
-    </Tip>
-  )
-}
-
-export function SidebarContent({ collapsed = false, onNavigate, drawer = false }: { collapsed?: boolean; onNavigate?: () => void; drawer?: boolean }) {
+export function SidebarContent({ collapsed = false, onNavigate }: { collapsed?: boolean; onNavigate?: () => void }) {
   const pathname = usePathname()
   const active = navForPath(pathname)
   const statuses = useStatuses()
@@ -210,9 +144,10 @@ export function SidebarContent({ collapsed = false, onNavigate, drawer = false }
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">
-      {/* in the drawer, leave room for its close button */}
-      <SearchField collapsed={collapsed} beforeOpen={onNavigate} inset={drawer} />
-      <ProfileCard collapsed={collapsed} onNavigate={onNavigate} />
+      <Link href="/" onNavigate={onNavigate} aria-label="LIFE OS, overview" className={cn("flex h-11 shrink-0 items-center gap-2.5 rounded-control px-1.5 outline-none focus-visible:ring-2 focus-visible:ring-ring", collapsed && "justify-center px-0")}>
+        <LifeMark />
+        {!collapsed && <span className="text-[1.05rem] font-semibold tracking-[0.08em]">LIFE OS</span>}
+      </Link>
       <nav aria-label="Main" className="no-scrollbar -mx-1 min-h-0 flex-1 space-y-3 overflow-y-auto px-1">
         {groups.map((g) => (
           <ul key={g} aria-label={g} className="space-y-0.5 border-t border-line pt-3">

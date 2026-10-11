@@ -310,7 +310,7 @@ export function Topbar() {
       <Sheet open={mobileOpen} onOpenChange={setMobileNav}>
         <SheetContent side="left" className="glass w-[290px] rounded-r-panel border-line p-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
           <SheetTitle className="sr-only">Navigation</SheetTitle>
-          <SidebarContent drawer onNavigate={() => setMobileNav(false)} />
+          <SidebarContent onNavigate={() => setMobileNav(false)} />
         </SheetContent>
       </Sheet>
     </header>
