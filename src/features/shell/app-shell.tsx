@@ -1,11 +1,13 @@
 "use client"
 
 import { MotionConfig } from "motion/react"
+import { useTheme } from "next-themes"
 import { useEffect, type ReactNode } from "react"
 import { Toaster } from "@/components/ui/sonner"
 import { usePrefs } from "@/lib/db/hooks"
 import { applyDesign } from "@/lib/design/design"
 import { SPRING } from "@/lib/motion"
+import { setThemeColor } from "@/lib/theme-color"
 import { TaskEditorDialog } from "@/features/tasks/task-editor"
 import { HabitEditorDialog } from "@/features/habits/habit-editor"
 import { BlockEditorDialog } from "@/features/planner/block-editor"
@@ -40,6 +42,12 @@ function Shell({ children }: { children: ReactNode }) {
     if (prefs?.motion === "reduced") document.documentElement.dataset.motion = "reduced"
     else delete document.documentElement.dataset.motion
   }, [prefs?.motion])
+
+  // the status bar strip (iPad home-screen app) and browser chrome follow the app's theme
+  const { resolvedTheme } = useTheme()
+  useEffect(() => {
+    if (resolvedTheme) setThemeColor(resolvedTheme === "dark" ? "dark" : "light")
+  }, [resolvedTheme])
 
   // the saved design (accent, roundness, glass…) drives the CSS variables in globals.css
   const design = prefs?.design

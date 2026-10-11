@@ -3,6 +3,7 @@ import { Geist_Mono, Inter, Outfit, Plus_Jakarta_Sans, Space_Grotesk } from "nex
 import { ThemeProvider } from "next-themes"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { asset, PREPAINT_SCRIPT } from "@/lib/design/design"
+import { THEME_COLORS, THEME_COLOR_SCRIPT } from "@/lib/theme-color"
 import "./globals.css"
 
 const jakarta = Plus_Jakarta_Sans({
@@ -26,8 +27,9 @@ export const metadata: Metadata = {
     template: "%s · LIFE OS",
   },
   description: "A personal operating system for your day, habits, focus and progress.",
-  // home-screen app (iPad/iPhone): full screen, status bar over the app, our icon
-  appleWebApp: { capable: true, title: "LIFE OS", statusBarStyle: "black-translucent" },
+  // home-screen app (iPad/iPhone): full screen with our icon. The status bar keeps its own
+  // strip in the theme colour (see theme-color.ts) instead of sitting over the page.
+  appleWebApp: { capable: true, title: "LIFE OS", statusBarStyle: "default" },
   icons: {
     icon: [{ url: asset("/icons/icon-192.png"), sizes: "192x192", type: "image/png" }],
     apple: [{ url: asset("/icons/apple-touch-icon.png"), sizes: "180x180" }],
@@ -35,12 +37,8 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  // draw under the status bar and home indicator; the bars pad themselves with safe-area insets
+  // use the full screen in landscape and around the home indicator; the bars pad themselves with safe-area insets
   viewportFit: "cover",
-  themeColor: [
-    { media: "(prefers-color-scheme: dark)", color: "#121216" },
-    { media: "(prefers-color-scheme: light)", color: "#f6f6f9" },
-  ],
 }
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -52,6 +50,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${jakarta.variable} ${inter.variable} ${outfit.variable} ${grotesk.variable} ${geistMono.variable} h-full antialiased`}
     >
       <head>
+        {/* status bar / browser colour; follows the app's theme (set before load, then kept in sync) */}
+        <meta name="theme-color" content={THEME_COLORS.dark} />
+        <script dangerouslySetInnerHTML={{ __html: THEME_COLOR_SCRIPT }} />
         {/* paints your saved design before the app loads, so there's no flash of the default look */}
         <script dangerouslySetInnerHTML={{ __html: PREPAINT_SCRIPT }} />
       </head>

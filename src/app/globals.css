@@ -326,6 +326,14 @@
       background-image: var(--bg-image-sm);
     }
   }
+  /* Home-screen app: no rubber-band bounce of the whole page (it dragged the bars down
+     and showed empty space above them). Scroll areas inside still scroll normally. */
+  @media (display-mode: standalone) {
+    html,
+    body {
+      overscroll-behavior: none;
+    }
+  }
   /* Safari/Firefox: the photo is drawn by canvas-refraction.tsx instead, so glass can bend it */
   .canvas-photo-layer {
     position: fixed;
