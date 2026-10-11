@@ -282,7 +282,7 @@ export function Topbar() {
   return (
     // a floating glass bar, lined up with the page content below it
     <header className="sticky top-0 z-20 mx-auto w-full max-w-[1400px] px-4 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-6 lg:px-8">
-      <div className="glass flex h-[60px] items-center gap-2 rounded-panel px-3 sm:gap-3 sm:px-4">
+      <div data-lens="dispersive" className="glass flex h-[60px] items-center gap-2 rounded-panel px-3 sm:gap-3 sm:px-4">
         <Button variant="outline" size="icon" className="size-10 rounded-full bg-surface lg:hidden" aria-label="Open navigation" onClick={() => setMobileNav(true)}>
           <Menu className="size-[18px]" />
         </Button>

@@ -2,20 +2,31 @@
 
 import { useEffect, useRef } from "react"
 import { PHOTOS, asset, type PhotoId } from "@/lib/design/design"
+import { GLASS_IOR, bezelFor } from "@/lib/design/lens"
 
 /*
   Liquid-glass refraction for browsers without SVG filters in backdrop-filter (Safari,
   so every browser on iPad and iPhone, and Firefox). The background photo is drawn
   with WebGL instead of CSS, and near every .glass surface's rounded edge the photo
   is sampled from further in, so the glass above it (which still blurs as usual)
-  shows the same thick, bending rim as the Chromium version. Only the photo bends:
-  other page content behind a glass bar doesn't. The canvas redraws only while glass
-  moves (scrolling, animations, resizing) and stops once everything is still.
+  shows the same thick, bending rim as the Chromium version. The rim's profile is the
+  one in lib/design/lens.ts (a convex squircle refracting like real glass), written
+  out again in GLSL below. Only the photo bends: other page content behind a glass bar
+  doesn't.
+
+  Scrolling: the canvas is redrawn from JavaScript, which can't keep pace with the
+  browser's own scrolling, so a bend drawn under a moving tile would trail behind it.
+  Instead, tiles in the page let their bend go while you scroll (in about a tenth of a
+  second) and it flows back once scrolling stops; the sidebar, top bar and dialogs
+  don't move with the page, so they keep bending throughout and nothing is redrawn
+  while you scroll. Otherwise the canvas redraws only while glass moves (animations,
+  resizing) and stops once everything is still.
 */
 
 const MAX = 32 // glass surfaces handled at once
-const BAND = 16 // px of edge that bends (matches refraction.tsx)
-const SHIFT = 13 // px the backdrop is pulled in right at the rim
+const FADE_OUT = 120 // ms for tiles to let go of their bend when scrolling starts
+const FADE_IN = 480 // ms for it to flow back once scrolling stops
+const SCROLL_IDLE = 140 // ms without scroll events that counts as stopped
 
 const VERT = "attribute vec2 a; void main() { gl_Position = vec4(a, 0.0, 1.0); }"
 const FRAG = `
@@ -27,7 +38,25 @@ uniform vec2 origin;     // canvas top-left in the viewport, CSS px
 uniform vec4 fit;        // photo placement inside the canvas: offset xy, size zw (CSS px)
 uniform int count;
 uniform vec4 rects[${MAX}];  // x, y, width, height in the viewport (CSS px)
-uniform vec2 shape[${MAX}];  // corner radius, strength 0-1
+uniform vec4 shape[${MAX}];  // corner radius, strength 0-1, bezel width, thickness
+
+// convex squircle rim and its slope (see lib/design/lens.ts)
+float squircle(float x) { return pow(max(1e-6, 1.0 - pow(1.0 - x, 4.0)), 0.25); }
+float slopeAt(float x) { float a = 1.0 - x; return a * a * a / pow(max(1e-6, 1.0 - a * a * a * a), 0.75); }
+
+// px inwards that a straight-down view through the rim, d px from the edge, lands
+float lensShift(float d, float bezel, float thick) {
+  float x = d / bezel;
+  float s = slopeAt(x) * thick / bezel;
+  float z = thick * squircle(x);
+  float l = sqrt(s * s + 1.0);
+  float nu = -s / l;
+  float nz = 1.0 / l;
+  float eta = 1.0 / ${GLASS_IOR.toFixed(2)};
+  float c = eta * nz - sqrt(1.0 - eta * eta * (1.0 - nz * nz));
+  return c * nu * (z / -(-eta + c * nz));
+}
+
 void main() {
   vec2 local = vec2(gl_FragCoord.x, heightPx - gl_FragCoord.y) / dpr;
   vec2 p = local + origin;
@@ -35,16 +64,16 @@ void main() {
   for (int i = 0; i < ${MAX}; i++) {
     if (i >= count) break;
     vec4 r = rects[i];
+    vec4 sh = shape[i];
     vec2 hs = r.zw * 0.5;
     vec2 c = r.xy + hs;
-    float rad = min(shape[i].x, min(hs.x, hs.y));
+    float rad = min(sh.x, min(hs.x, hs.y));
     vec2 q = abs(p - c) - (hs - rad);
     float d = -(length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - rad);
-    if (d >= 0.0 && d < ${BAND}.0) {
+    if (d > 0.0 && d < sh.z) {
       vec2 n = (q.x > 0.0 && q.y > 0.0) ? normalize(q) : (q.x > q.y ? vec2(1.0, 0.0) : vec2(0.0, 1.0));
       n *= vec2(p.x < c.x ? -1.0 : 1.0, p.y < c.y ? -1.0 : 1.0);
-      float t = 1.0 - d / ${BAND}.0;
-      shift = -n * t * t * ${SHIFT}.0 * shape[i].y;
+      shift = -n * lensShift(d, sh.z, sh.w) * sh.y;
     }
   }
   gl_FragColor = texture2D(photo, clamp((local + shift - fit.xy) / fit.zw, 0.0, 1.0));
@@ -64,6 +93,8 @@ const cornerRadius = (el: HTMLElement) => {
   const cs = getComputedStyle(el)
   return Math.max(...[cs.borderTopLeftRadius, cs.borderTopRightRadius, cs.borderBottomLeftRadius, cs.borderBottomRightRadius].map((v) => parseFloat(v) || 0))
 }
+
+const easeOut = (t: number) => 1 - Math.pow(1 - t, 3)
 
 export function CanvasRefraction({ photo }: { photo: PhotoId }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -103,18 +134,34 @@ export function CanvasRefraction({ photo }: { photo: PhotoId }) {
     let ready = false
     let disposed = false
     const rects = new Float32Array(MAX * 4)
-    const shape = new Float32Array(MAX * 2)
+    const shape = new Float32Array(MAX * 4)
     const radii = new WeakMap<HTMLElement, number>()
+    const inPage = new WeakMap<HTMLElement, boolean>()
     let last = ""
     let force = true
     let raf = 0
     let still = 0
+
+    // how much tiles in the page bend right now (0 while scrolling), easing towards `tileTarget`
+    let tileBend = 1
+    let tileTarget = 1
+    let fadeFrom = 1
+    let fadeStart = 0
+    let scrolling = false
+    let idleTimer: ReturnType<typeof setTimeout> | undefined
 
     const collect = () => {
       let n = 0
       const parts: number[] = []
       for (const el of document.querySelectorAll<HTMLElement>(".glass")) {
         if (n >= MAX) break
+        let tile = inPage.get(el)
+        if (tile === undefined) {
+          tile = !!el.closest("main")
+          inPage.set(el, tile)
+        }
+        // a tile that has let go of its bend isn't drawn, so its movement needs no redraw
+        if (tile && tileBend === 0) continue
         const r = el.getBoundingClientRect()
         if (r.width < 8 || r.height < 8 || r.bottom < 0 || r.right < 0 || r.top > innerHeight || r.left > innerWidth) continue
         if (el.checkVisibility && !el.checkVisibility({ visibilityProperty: true })) continue
@@ -123,10 +170,11 @@ export function CanvasRefraction({ photo }: { photo: PhotoId }) {
           radius = cornerRadius(el)
           radii.set(el, radius)
         }
-        const strength = Math.min(1, Number(getComputedStyle(el).opacity) || 0)
+        const strength = Math.min(1, Number(getComputedStyle(el).opacity) || 0) * (tile ? tileBend : 1)
+        const { bezel, thickness } = bezelFor(r.width, r.height, Math.min(radius, r.width / 2, r.height / 2))
         rects.set([r.left, r.top, r.width, r.height], n * 4)
-        shape.set([radius, strength], n * 2)
-        parts.push(Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height), Math.round(strength * 50))
+        shape.set([radius, strength, bezel, thickness], n * 4)
+        parts.push(Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height), Math.round(strength * 100))
         n++
       }
       return { n, signature: parts.join(",") }
@@ -152,13 +200,20 @@ export function CanvasRefraction({ photo }: { photo: PhotoId }) {
       gl.uniform4f(U.fit, (box.width - fw) / 2, (box.height - fh) / 2, fw, fh)
       gl.uniform1i(U.count, n)
       gl.uniform4fv(U.rects, rects)
-      gl.uniform2fv(U.shape, shape)
+      gl.uniform4fv(U.shape, shape)
       gl.drawArrays(gl.TRIANGLES, 0, 3)
     }
 
-    const tick = () => {
+    const tick = (now: number) => {
       raf = 0
       if (!ready || disposed) return
+      if (tileBend !== tileTarget) {
+        const duration = tileTarget > fadeFrom ? FADE_IN : FADE_OUT
+        // a frame's timestamp can be a moment earlier than the fade's start
+        const t = Math.min(1, Math.max(0, (now - fadeStart) / duration))
+        tileBend = t >= 1 ? tileTarget : fadeFrom + (tileTarget - fadeFrom) * easeOut(t)
+        force = true
+      }
       const { n, signature } = collect()
       if (force || signature !== last) {
         draw(n)
@@ -166,11 +221,29 @@ export function CanvasRefraction({ photo }: { photo: PhotoId }) {
         force = false
         still = 0
       } else still++
-      if (still < 12) raf = requestAnimationFrame(tick)
+      if (still < 12 || tileBend !== tileTarget) raf = requestAnimationFrame(tick)
     }
     const kick = () => {
       still = 0
       if (!raf) raf = requestAnimationFrame(tick)
+    }
+    const fadeTiles = (target: number) => {
+      if (tileTarget === target) return
+      fadeFrom = tileBend
+      tileTarget = target
+      fadeStart = performance.now()
+      kick()
+    }
+    const scrolled = () => {
+      if (!scrolling) {
+        scrolling = true
+        fadeTiles(0)
+      }
+      clearTimeout(idleTimer)
+      idleTimer = setTimeout(() => {
+        scrolling = false
+        fadeTiles(1)
+      }, SCROLL_IDLE)
     }
     const resized = () => {
       force = true
@@ -195,7 +268,7 @@ export function CanvasRefraction({ photo }: { photo: PhotoId }) {
 
     const mo = new MutationObserver(kick)
     mo.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "style", "data-state"] })
-    document.addEventListener("scroll", kick, { capture: true, passive: true })
+    document.addEventListener("scroll", scrolled, { capture: true, passive: true })
     window.addEventListener("resize", resized)
     const lost = (e: Event) => {
       e.preventDefault()
@@ -207,8 +280,9 @@ export function CanvasRefraction({ photo }: { photo: PhotoId }) {
     return () => {
       disposed = true
       cancelAnimationFrame(raf)
+      clearTimeout(idleTimer)
       mo.disconnect()
-      document.removeEventListener("scroll", kick, { capture: true })
+      document.removeEventListener("scroll", scrolled, { capture: true })
       window.removeEventListener("resize", resized)
       canvas.removeEventListener("webglcontextlost", lost)
       root.classList.remove("canvas-photo")

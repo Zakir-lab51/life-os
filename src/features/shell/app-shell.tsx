@@ -24,14 +24,17 @@ import { OfflineSupport } from "./offline"
 import { QuickCapture } from "./quick-capture"
 import { Refraction } from "./refraction"
 import { ShortcutsDialog, useGlobalShortcuts } from "./shortcuts"
+import { SmoothScroll } from "./smooth-scroll"
 import { Sidebar } from "./sidebar"
 import { Topbar } from "./topbar"
 
+/** Soft colour behind the photo. It holds still on purpose: anything moving under the
+    glass makes every glass surface re-blur on every frame, which costs smooth scrolling. */
 function Aurora() {
   return (
     <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-      <div className="absolute -top-[30%] -left-[15%] h-[70vh] w-[70vw] animate-aurora rounded-full blur-3xl" style={{ background: "radial-gradient(closest-side, var(--aurora-1), transparent)" }} />
-      <div className="absolute -right-[20%] -bottom-[35%] h-[70vh] w-[65vw] animate-aurora rounded-full blur-3xl [animation-delay:-9s]" style={{ background: "radial-gradient(closest-side, var(--aurora-2), transparent)" }} />
+      <div className="absolute -top-[30%] -left-[15%] h-[70vh] w-[70vw] rounded-full blur-3xl" style={{ background: "radial-gradient(closest-side, var(--aurora-1), transparent)" }} />
+      <div className="absolute -right-[20%] -bottom-[35%] h-[70vh] w-[65vw] rounded-full blur-3xl" style={{ background: "radial-gradient(closest-side, var(--aurora-2), transparent)" }} />
     </div>
   )
 }
@@ -65,6 +68,7 @@ function Shell({ children }: { children: ReactNode }) {
       <Aurora />
       <Refraction enabled={prefs?.design.material === "liquid"} photo={prefs?.design.photo ?? "none"} />
       <GlassPointer />
+      <SmoothScroll reduced={prefs?.motion === "reduced"} />
       <OfflineSupport />
       <div className="flex min-h-dvh">
         <Sidebar />
