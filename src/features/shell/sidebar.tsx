@@ -16,13 +16,15 @@ import { SPRING_SNAPPY } from "@/lib/motion"
 import { cn } from "@/lib/utils"
 import { LayeredIcon, useTilt } from "./layered-icon"
 import { NAV, navForPath, type NavItem, type NavKey } from "./nav"
+import { SidebarWatch } from "./sidebar-watch"
 import { useLife } from "./use-life"
 
 /*
   The sidebar, laid out like the Settings category list (after Apple's System
   Settings): one liquid-glass pane with the logo and name, then the tabs as rows in
-  groups split by thin lines. Each tab has a 3D layered icon, and the soft
-  highlighter glides to the tab you pick.
+  groups split by thin lines, then a vintage chronograph in whatever room is left
+  (sidebar-watch.tsx). Each tab has a 3D layered icon, and the soft highlighter glides
+  to the tab you pick.
 */
 
 export function LifeMark({ className }: { className?: string }) {
@@ -148,7 +150,8 @@ export function SidebarContent({ collapsed = false, onNavigate }: { collapsed?: 
         <LifeMark />
         {!collapsed && <span className="text-[1.05rem] font-semibold tracking-[0.08em]">LIFE OS</span>}
       </Link>
-      <nav aria-label="Main" className="no-scrollbar -mx-1 min-h-0 flex-1 space-y-3 overflow-y-auto px-1">
+      {/* the tabs take the room they need (scrolling if short of it); the watch gets what's left */}
+      <nav aria-label="Main" className="no-scrollbar -mx-1 min-h-0 shrink space-y-3 overflow-y-auto px-1">
         {groups.map((g) => (
           <ul key={g} aria-label={g} className="space-y-0.5 border-t border-line pt-3">
             {NAV.filter((n) => n.group === g).map((item) => (
@@ -159,6 +162,7 @@ export function SidebarContent({ collapsed = false, onNavigate }: { collapsed?: 
           </ul>
         ))}
       </nav>
+      <SidebarWatch collapsed={collapsed} />
     </div>
   )
 }

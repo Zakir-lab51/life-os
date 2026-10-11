@@ -1,10 +1,26 @@
 import { formatClock, roundUpTo } from "./dates"
-import type { Block, BlockKind, Habit, ID, TimeOfDay } from "./types"
+import type { AccentColor, Block, BlockKind, Habit, ID, TimeOfDay } from "./types"
 import type { Recommendation } from "./scheduling"
+
+/** The colour each kind of time block is drawn in (timeline, calendar, sidebar). */
+export const KIND_TONE: Record<BlockKind, AccentColor> = {
+  event: "blue",
+  task: "violet",
+  focus: "cyan",
+  break: "mint",
+  routine: "amber",
+  habit: "lilac",
+}
 
 export interface Slot {
   start: number
   end: number
+}
+
+/** How far through the day `nowMin` is: 0 until it starts, 1 once it's over. */
+export function dayProgress(nowMin: number, startMin: number, endMin: number): number {
+  if (endMin <= startMin) return 0
+  return Math.min(1, Math.max(0, (nowMin - startMin) / (endMin - startMin)))
 }
 
 /** Ids of blocks that overlap at least one other block. */

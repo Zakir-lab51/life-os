@@ -9,8 +9,8 @@ import { useNow, usePrefs } from "@/lib/db/hooks"
 import { createBlock, updateBlock } from "@/lib/db/repo"
 import { ACCENT_CLASSES } from "@/lib/domain/areas"
 import { formatClock, formatDuration, snapTo } from "@/lib/domain/dates"
-import { findConflicts } from "@/lib/domain/planner"
-import type { AccentColor, Block, BlockKind, Task } from "@/lib/domain/types"
+import { KIND_TONE, findConflicts } from "@/lib/domain/planner"
+import type { Block, Task } from "@/lib/domain/types"
 import { attempt } from "@/lib/feedback"
 import { useUI } from "@/lib/stores/ui"
 import { cn } from "@/lib/utils"
@@ -20,15 +20,6 @@ import { KIND_LABEL, deleteBlockWithUndo, startFocusForBlock } from "./block-edi
 export const HOUR_PX = 64
 const SNAP = 15
 export const TASK_DRAG_TYPE = "application/x-life-task"
-
-export const KIND_TONE: Record<BlockKind, AccentColor> = {
-  event: "blue",
-  task: "violet",
-  focus: "cyan",
-  break: "mint",
-  routine: "amber",
-  habit: "lilac",
-}
 
 /** Side-by-side lanes for overlapping blocks. */
 function assignLanes(blocks: Block[]) {

@@ -576,6 +576,12 @@
     }
   }
 }
+/* the sidebar watch's sweeping seconds (sidebar-watch.tsx) */
+@keyframes watch-sweep {
+  to {
+    rotate: 360deg;
+  }
+}
 @keyframes li-float {
   0%,
   100% {

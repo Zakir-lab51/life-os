@@ -56,6 +56,7 @@ function phaseMinutes(phase: TimerState["phase"], prefs: Prefs) {
 export function FocusEngine() {
   const prefs = usePrefs()
   const originalTitle = useRef<string | null>(null)
+  const timerTitle = useRef("")
 
   useEffect(() => {
     if (!prefs) return
@@ -73,10 +74,13 @@ export function FocusEngine() {
         }
         return
       }
-      if (originalTitle.current === null) originalTitle.current = document.title
+      // a title we didn't write is the page's own (it changes when you move to another
+      // page mid-session); that's the one to put back when the timer stops
+      if (originalTitle.current === null || document.title !== timerTitle.current) originalTitle.current = document.title
       const label = timer.phase === "focus" ? "Focus" : "Break"
       const rem = remainingMs(timer, now)
-      document.title = `${timer.status === "paused" ? "⏸ " : ""}${formatTimer(rem ?? elapsedMs(timer, now))} · ${label} · LIFE OS`
+      timerTitle.current = `${timer.status === "paused" ? "⏸ " : ""}${formatTimer(rem ?? elapsedMs(timer, now))} · ${label} · LIFE OS`
+      document.title = timerTitle.current
 
       if (!isFinished(timer, now)) return
       busy = true

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { findConflicts, freeSlots, planDay } from "@/lib/domain/planner"
+import { dayProgress, findConflicts, freeSlots, planDay } from "@/lib/domain/planner"
 import { recommendTasks } from "@/lib/domain/scheduling"
 import { makeHabit, makeTask } from "./helpers"
 
@@ -61,5 +61,14 @@ describe("planner", () => {
     const { suggestions, unscheduled } = planDay({ ranked, existing: [], habitsDue: [], dayStart: 8 * H, dayEnd: 8 * H + 30, notBefore: 0 })
     expect(suggestions).toHaveLength(0)
     expect(unscheduled[0].title).toBe("Task")
+  })
+})
+
+describe("the sidebar watch's day reserve", () => {
+  it("measures how far through the day it is", () => {
+    expect(dayProgress(6 * 60, 7 * 60, 23 * 60)).toBe(0)
+    expect(dayProgress(15 * 60, 7 * 60, 23 * 60)).toBe(0.5)
+    expect(dayProgress(23 * 60 + 30, 7 * 60, 23 * 60)).toBe(1)
+    expect(dayProgress(600, 600, 600)).toBe(0)
   })
 })
