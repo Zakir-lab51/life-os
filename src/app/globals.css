@@ -466,10 +466,11 @@
     background-color 0.2s var(--ease-out),
     border-color 0.2s var(--ease-out),
     box-shadow 0.2s var(--ease-out),
-    opacity 0.2s var(--ease-out);
+    opacity 0.2s var(--ease-out),
+    --glass-hover 0.6s var(--ease-out);
   &:active:not([aria-haspopup], :disabled) {
     scale: var(--press-scale, 0.96);
-    transition-duration: 0.12s, 0.2s, 0.2s, 0.2s, 0.2s, 0.2s;
+    transition-duration: 0.12s, 0.2s, 0.2s, 0.2s, 0.2s, 0.2s, 0.12s;
     transition-timing-function: var(--ease-out);
   }
 }
@@ -483,6 +484,114 @@
     inset 0 0 0 1px oklch(1 0 0 / calc(0.04 + 0.06 * var(--glass-sheen))),
     inset 0 0 12px 0 oklch(1 0 0 / calc(0.06 * var(--glass-sheen))),
     0 4px 14px -8px oklch(0 0 0 / 0.4);
+}
+
+/* The selected sidebar tab: a glow in the tab's own colour (sidebar.tsx). */
+.nav-glow {
+  background: linear-gradient(135deg, color-mix(in oklch, var(--li-from) 34%, transparent), color-mix(in oklch, var(--li-to) 16%, transparent) 75%);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in oklch, var(--li-from) 50%, transparent),
+    0 10px 24px -12px color-mix(in oklch, var(--li-to) 85%, transparent);
+  pointer-events: none;
+}
+
+/*
+  Layered 3D icons (layered-icon.tsx): a vivid tile, a glass plate and a white symbol
+  stacked in depth, like iOS 26's. --depth spreads the layers apart (more when the
+  icon's host is hovered or the icon is selected, less while pressed) and --rx/--ry
+  tilt the stack towards the pointer. The selected icon's symbol floats gently.
+*/
+@layer components {
+  .layered-icon {
+    --depth: 1;
+    position: relative;
+    flex-shrink: 0;
+    width: var(--icon-size, 2rem);
+    height: var(--icon-size, 2rem);
+    perspective: 140px;
+  }
+  .li-stack {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    transform-style: preserve-3d;
+    transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+    transition: transform 0.35s var(--ease-out);
+  }
+  .li-back,
+  .li-plate,
+  .li-glyph {
+    grid-area: 1 / 1;
+    transition: transform 0.6s var(--ease-spring-bouncy), filter 0.3s var(--ease-out);
+  }
+  .li-back {
+    width: 100%;
+    height: 100%;
+    border-radius: 32%;
+    background: linear-gradient(150deg, var(--li-from), var(--li-to));
+    box-shadow:
+      inset 0 1px 0.5px oklch(1 0 0 / 0.5),
+      inset 0 -1.5px 1.5px oklch(0 0 0 / 0.16),
+      0 4px 10px -3px color-mix(in oklch, var(--li-to) 70%, transparent);
+  }
+  .li-plate {
+    width: 64%;
+    height: 64%;
+    border-radius: 30%;
+    background: linear-gradient(150deg, oklch(1 0 0 / 0.46), oklch(1 0 0 / 0.1) 70%);
+    box-shadow:
+      inset 0 0.75px 0 oklch(1 0 0 / 0.75),
+      inset 0 -0.5px 0 oklch(1 0 0 / 0.25),
+      0 2px 5px -1px oklch(0 0 0 / 0.28);
+    transform: translate3d(calc(var(--depth) * -0.5px), calc(var(--depth) * -1px), calc(var(--depth) * 5px));
+  }
+  .li-glyph {
+    width: 46%;
+    height: 46%;
+    color: white;
+    filter: drop-shadow(0 1px 1px oklch(0 0 0 / 0.4));
+    transform: translate3d(calc(var(--depth) * -1px), calc(var(--depth) * -2px), calc(var(--depth) * 10px));
+  }
+  .layered-icon[data-active] {
+    --depth: 1.7;
+  }
+  .layered-icon[data-muted] {
+    opacity: 0.72;
+  }
+  .layered-icon[data-muted] .li-back {
+    filter: saturate(0.35) brightness(0.92);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .icon-host:hover .layered-icon {
+      --depth: 2;
+    }
+  }
+  .icon-host:active .layered-icon {
+    --depth: 0.3;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    html:not([data-motion="reduced"]) .layered-icon[data-active] .li-glyph {
+      animation: li-float 3.2s ease-in-out infinite;
+    }
+  }
+  html[data-motion="reduced"] .li-stack {
+    transform: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .li-stack {
+      transform: none;
+    }
+  }
+}
+@keyframes li-float {
+  0%,
+  100% {
+    translate: 0 0.5px;
+  }
+  50% {
+    translate: 0 -1.5px;
+  }
 }
 
 /*

@@ -19,14 +19,15 @@ import { FLOW_GLSL, flowPalette } from "@/lib/design/scene"
 
   Scrolling: the canvas is redrawn from JavaScript, which can't keep pace with the
   browser's own scrolling, so a bend drawn under a moving tile would trail behind it.
-  Instead, tiles in the page let go of their bend while you scroll (in about a tenth
-  of a second) and it flows back once scrolling stops; the sidebar, top bar and dialogs
-  don't move with the page, so they keep bending throughout. A photo is redrawn only
+  Instead, tiles in the page (and in the sidebar's list, which can scroll too) let go
+  of their bend while you scroll (in about a tenth of a second) and it flows back once
+  scrolling stops; the top bar, the logo and dialogs don't move, so they keep bending
+  throughout. A photo is redrawn only
   while glass moves; the flow animates continuously at up to 60 frames a second,
   holding still when motion is reduced and pausing with the tab.
 */
 
-const MAX = 32 // glass surfaces handled at once
+const MOST_SURFACES = 64 // glass surfaces handled at once, if the GPU allows (see surfaceLimit)
 const FADE_OUT = 120 // ms for tiles to let go of their bend when scrolling starts
 const FADE_IN = 480 // ms for it to flow back once scrolling stops
 const SCROLL_IDLE = 140 // ms without scroll events that counts as stopped
@@ -43,14 +44,14 @@ vec3 scene(vec2 local) { return texture2D(photo, clamp((local - fit.xy) / fit.zw
 const FLOW_SCENE = `${FLOW_GLSL}
 vec3 scene(vec2 local) { return flow(local + origin); }`
 
-const fragment = (sceneCode: string) => `
+const fragment = (sceneCode: string, max: number) => `
 precision highp float;
 uniform float heightPx;  // canvas height in device px
 uniform float dpr;
 uniform vec2 origin;     // canvas top-left in the viewport, CSS px
 uniform int count;
-uniform vec4 rects[${MAX}];  // x, y, width, height in the viewport (CSS px)
-uniform vec4 shape[${MAX}];  // corner radius, strength 0-1, bezel width, thickness
+uniform vec4 rects[${max}];  // x, y, width, height in the viewport (CSS px)
+uniform vec4 shape[${max}];  // corner radius, strength 0-1, bezel width, thickness
 ${sceneCode}
 
 // convex squircle rim and its slope (see lib/design/lens.ts)
@@ -74,7 +75,7 @@ void main() {
   vec2 local = vec2(gl_FragCoord.x, heightPx - gl_FragCoord.y) / dpr;
   vec2 p = local + origin;
   vec2 shift = vec2(0.0);
-  for (int i = 0; i < ${MAX}; i++) {
+  for (int i = 0; i < ${max}; i++) {
     if (i >= count) break;
     vec4 r = rects[i];
     vec4 sh = shape[i];
@@ -109,6 +110,12 @@ const cornerRadius = (el: HTMLElement) => {
 
 const easeOut = (t: number) => 1 - Math.pow(1 - t, 3)
 
+/** How many glass surfaces fit in this GPU's fragment uniforms (two vec4s each, plus ~20 for the rest). */
+const surfaceLimit = (gl: WebGLRenderingContext) => {
+  const vectors = Number(gl.getParameter(gl.MAX_FRAGMENT_UNIFORM_VECTORS)) || 64
+  return Math.max(8, Math.min(MOST_SURFACES, Math.floor((vectors - 20) / 2)))
+}
+
 export function CanvasRefraction({ photo, refract, hue, saturation }: { photo: PhotoId; refract: boolean; hue: number; saturation: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   // the flow's colours follow the accent without restarting the renderer
@@ -127,7 +134,8 @@ export function CanvasRefraction({ photo, refract, hue, saturation }: { photo: P
     const gl = canvas.getContext("webgl", { alpha: false, antialias: false, premultipliedAlpha: false })
     if (!gl) return
     const vs = compile(gl, gl.VERTEX_SHADER, VERT)
-    const fs = compile(gl, gl.FRAGMENT_SHADER, fragment(flow ? FLOW_SCENE : PHOTO_SCENE))
+    const MAX = surfaceLimit(gl)
+    const fs = compile(gl, gl.FRAGMENT_SHADER, fragment(flow ? FLOW_SCENE : PHOTO_SCENE, MAX))
     const program = gl.createProgram()
     if (!vs || !fs || !program) return
     gl.attachShader(program, vs)
@@ -198,7 +206,7 @@ export function CanvasRefraction({ photo, refract, hue, saturation }: { photo: P
         if (n >= MAX) break
         let tile = inPage.get(el)
         if (tile === undefined) {
-          tile = !!el.closest("main")
+          tile = !!el.closest("main, [data-scroll-tiles]")
           inPage.set(el, tile)
         }
         // a tile that has let go of its bend isn't drawn, so its movement needs no redraw
