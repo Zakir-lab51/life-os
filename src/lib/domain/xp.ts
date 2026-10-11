@@ -1,6 +1,6 @@
 import { addDays, toISODate } from "./dates"
 import { bestStreak, logsByHabit } from "./habits"
-import type { FocusSession, Habit, HabitLog, ISODate, Reflection, Task } from "./types"
+import type { FocusSession, Goal, GoalHorizon, Habit, HabitLog, ISODate, Reflection, Task } from "./types"
 
 /*
   XP rewards meaningful activity, with guard rails:
@@ -16,13 +16,18 @@ export const XP_RULES = {
   focusPer5Min: 1,
   focusDailyCapMin: 240,
   reflection: 10,
+  milestone: 15,
 } as const
+
+/** XP for achieving a goal grows with its horizon. */
+export const GOAL_XP: Record<GoalHorizon, number> = { week: 20, month: 40, quarter: 60, year: 100, "five-year": 150 }
 
 export interface XPInput {
   tasks: Task[]
   habitLogs: HabitLog[]
   sessions: FocusSession[]
   reflections: Reflection[]
+  goals?: Goal[]
 }
 
 export interface XPBreakdown {
@@ -31,9 +36,10 @@ export interface XPBreakdown {
   habits: number
   focus: number
   reflections: number
+  goals: number
 }
 
-export function computeXP({ tasks, habitLogs, sessions, reflections }: XPInput): XPBreakdown {
+export function computeXP({ tasks, habitLogs, sessions, reflections, goals = [] }: XPInput): XPBreakdown {
   const taskXP = tasks
     .filter((t) => t.status === "done")
     .reduce((acc, t) => acc + XP_RULES.task + (t.priority <= 2 ? XP_RULES.importantTaskBonus : 0), 0)
@@ -48,12 +54,14 @@ export function computeXP({ tasks, habitLogs, sessions, reflections }: XPInput):
   }
 
   const reflectionXP = reflections.length * XP_RULES.reflection
+  const goalXP = goals.reduce((acc, g) => acc + g.milestones.filter((m) => m.doneAt).length * XP_RULES.milestone + (g.status === "done" ? GOAL_XP[g.horizon] : 0), 0)
   return {
-    total: taskXP + habitXP + focusXP + reflectionXP,
+    total: taskXP + habitXP + focusXP + reflectionXP + goalXP,
     tasks: taskXP,
     habits: habitXP,
     focus: focusXP,
     reflections: reflectionXP,
+    goals: goalXP,
   }
 }
 
@@ -99,6 +107,8 @@ export interface Stats {
   reflections: number
   activeDays: number
   earlyTasks: number
+  goalsDone: number
+  milestonesDone: number
 }
 
 export function computeStats(input: XPInput & { habits: Habit[]; today: ISODate }): Stats {
@@ -120,6 +130,8 @@ export function computeStats(input: XPInput & { habits: Habit[]; today: ISODate 
     reflections: input.reflections.length,
     activeDays: active.size,
     earlyTasks: done.filter((t) => t.completedAt && new Date(t.completedAt).getHours() < 9).length,
+    goalsDone: (input.goals ?? []).filter((g) => g.status === "done").length,
+    milestonesDone: (input.goals ?? []).reduce((acc, g) => acc + g.milestones.filter((m) => m.doneAt).length, 0),
   }
 }
 
@@ -155,6 +167,8 @@ export const ACHIEVEMENTS: Achievement[] = [
   a("reflect-7", "Know thyself", "Write 7 daily reflections", "PenLine", (s) => s.reflections, 7),
   a("early-bird", "Early bird", "Finish 5 tasks before 9 am", "Sunrise", (s) => s.earlyTasks, 5),
   a("active-14", "Showing up", "Be active on 14 different days", "CalendarDays", (s) => s.activeDays, 14),
+  a("goal-first", "Goal getter", "Achieve your first goal", "Trophy", (s) => s.goalsDone, 1),
+  a("milestones-10", "Stepping stones", "Reach 10 milestones", "Flag", (s) => s.milestonesDone, 10),
 ]
 
 /** Focus streak: consecutive days, ending today or yesterday, with at least one focus session. */

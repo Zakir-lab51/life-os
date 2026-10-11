@@ -4,6 +4,7 @@ import {
   BlockedError,
   ValidationError,
   completeTaskById,
+  createGoal,
   createHabit,
   createTask,
   deleteTasks,
@@ -102,7 +103,8 @@ describe("persistence", () => {
   it("round-trips a full backup", async () => {
     await ensurePrefs()
     await seedDemo()
-    const before = { tasks: await db.tasks.count(), logs: await db.habitLogs.count(), sessions: await db.focusSessions.count() }
+    const before = { tasks: await db.tasks.count(), logs: await db.habitLogs.count(), sessions: await db.focusSessions.count(), goals: await db.goals.count(), goalLogs: await db.goalLogs.count() }
+    expect(before.goals).toBeGreaterThan(0)
     const json = JSON.stringify(await exportBackup())
 
     await wipeAllData()
@@ -112,6 +114,8 @@ describe("persistence", () => {
     expect(await db.tasks.count()).toBe(before.tasks)
     expect(await db.habitLogs.count()).toBe(before.logs)
     expect(await db.focusSessions.count()).toBe(before.sessions)
+    expect(await db.goals.count()).toBe(before.goals)
+    expect(await db.goalLogs.count()).toBe(before.goalLogs)
   })
 
   it("rejects files that aren't LIFE OS backups", () => {
@@ -123,10 +127,23 @@ describe("persistence", () => {
     const mine = await createTask({ title: "My real task" })
     await seedDemo()
     expect(await db.tasks.count()).toBeGreaterThan(10)
+    // the demo's goals hang together: every link points at a demo record
+    const goals = await db.goals.toArray()
+    const ids = new Set(goals.map((g) => g.id))
+    expect(goals.length).toBeGreaterThan(5)
+    expect(goals.every((g) => g.demo && (!g.parentId || ids.has(g.parentId)))).toBe(true)
+    expect((await db.tasks.toArray()).filter((t) => t.goalId).every((t) => ids.has(t.goalId!))).toBe(true)
+    // link the user's own records to demo goals; removing the demo must keep them, unlinked
+    const demoGoal = goals.find((g) => g.horizon === "five-year")!
+    await updateTask(mine.id, { goalId: demoGoal.id })
+    const ownGoal = await createGoal({ title: "My own goal", horizon: "year", startDate: todayISO(), parentId: demoGoal.id })
     await removeDemo()
     const left = await db.tasks.toArray()
     expect(left.map((t) => t.id)).toEqual([mine.id])
+    expect(left[0].goalId).toBeNull()
     expect(await db.habits.count()).toBe(0)
     expect(await db.focusSessions.count()).toBe(0)
+    expect((await db.goals.toArray()).map((g) => [g.id, g.parentId])).toEqual([[ownGoal.id, null]])
+    expect(await db.goalLogs.count()).toBe(0)
   })
 })

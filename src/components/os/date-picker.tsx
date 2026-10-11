@@ -5,10 +5,18 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { addDays, fromISODate, relativeDayLabel, toISODate } from "@/lib/domain/dates"
+import { addDays, daysBetween, fromISODate, relativeDayLabel, toISODate } from "@/lib/domain/dates"
 import type { ISODate } from "@/lib/domain/types"
 import { useToday } from "@/lib/db/hooks"
 import { cn } from "@/lib/utils"
+
+/** "Today · 11 Oct", "Friday · 16 Oct", then just the date (with the year when it isn't this year). */
+function pickerLabel(value: ISODate, today: ISODate) {
+  const d = fromISODate(value)
+  const date = d.toLocaleDateString(undefined, { day: "numeric", month: "short", ...(d.getFullYear() !== fromISODate(today).getFullYear() && { year: "numeric" }) })
+  const diff = daysBetween(today, value)
+  return diff >= -1 && diff < 7 ? `${relativeDayLabel(value, today)} · ${date}` : date
+}
 
 export function DatePicker({
   value,
@@ -37,7 +45,7 @@ export function DatePicker({
         <PopoverTrigger asChild>
           <Button id={id} type="button" variant="outline" aria-invalid={invalid} className={cn("h-10 flex-1 justify-start rounded-xl font-normal", !value && "text-muted-foreground")}>
             <CalendarDays className="size-4" />
-            {value ? `${relativeDayLabel(value, today)} · ${fromISODate(value).toLocaleDateString(undefined, { day: "numeric", month: "short" })}` : placeholder}
+            {value ? pickerLabel(value, today) : placeholder}
           </Button>
         </PopoverTrigger>
         {allowClear && value && (

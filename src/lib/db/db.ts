@@ -5,6 +5,8 @@ import type {
   AppNotification,
   Block,
   FocusSession,
+  Goal,
+  GoalLog,
   Habit,
   HabitLog,
   Prefs,
@@ -30,6 +32,8 @@ export class LifeDB extends Dexie {
   notifications!: EntityTable<AppNotification, "id">
   achievements!: EntityTable<AchievementUnlock, "id">
   prefs!: EntityTable<Prefs, "id">
+  goals!: EntityTable<Goal, "id">
+  goalLogs!: EntityTable<GoalLog, "id">
 
   constructor(name = "life-os") {
     super(name)
@@ -45,6 +49,12 @@ export class LifeDB extends Dexie {
       notifications: "id, at, read",
       achievements: "id",
       prefs: "id",
+    })
+    // Phase 2: goals, their logged values, and a goal link on tasks
+    this.version(2).stores({
+      tasks: "id, status, dueDate, area, completedAt, order, seriesId, *tags, goalId",
+      goals: "id, status, horizon, parentId, order",
+      goalLogs: "id, goalId, date",
     })
   }
 }
@@ -63,4 +73,6 @@ export const BACKUP_TABLES = [
   "routineChecks",
   "activity",
   "achievements",
+  "goals",
+  "goalLogs",
 ] as const

@@ -1,5 +1,5 @@
 import { DEFAULT_DESIGN } from "@/lib/design/design"
-import { QUICK_ACTIONS, RADAR_DIMS, WIDGET_IDS, type Prefs, type ProductivityStyle } from "@/lib/domain/types"
+import { QUICK_ACTIONS, RADAR_DIMS, WIDGET_IDS, type Prefs, type ProductivityStyle, type QuickActionId } from "@/lib/domain/types"
 
 export const FOCUS_STYLES: Record<ProductivityStyle, { label: string; description: string; focusMin: number; shortBreakMin: number; longBreakMin: number; longEvery: number }> = {
   classic: { label: "Classic Pomodoro", description: "25 min focus, 5 min breaks", focusMin: 25, shortBreakMin: 5, longBreakMin: 15, longEvery: 4 },
@@ -33,6 +33,7 @@ export function defaultPrefs(now = new Date()): Prefs {
     widgets: WIDGET_IDS.map((id) => ({ id, visible: true })),
     radarDims: [...RADAR_DIMS],
     quickActions: [...QUICK_ACTIONS].filter((a) => a !== "reflection"),
+    seenQuickActions: [...QUICK_ACTIONS],
     notifications: { browser: false, reminders: true, focus: true, achievements: true },
     weeklyTargets: { tasks: 20, focusMin: 600, habitRate: 0.8 },
     lifeGoals: [],
@@ -59,5 +60,11 @@ export function migratePrefs(saved: Partial<Prefs>): Prefs {
   merged.design = { ...base.design, ...(saved.design ?? {}) }
   const known = new Set(merged.widgets?.map((w) => w.id) ?? [])
   merged.widgets = [...(merged.widgets ?? []), ...base.widgets.filter((w) => !known.has(w.id))]
+  // quick actions added since these prefs were saved start switched on, once; switching one off later sticks.
+  // Prefs saved before this was tracked knew every action except "goal" (added with Goals).
+  const seen = new Set<QuickActionId>(saved.seenQuickActions ?? QUICK_ACTIONS.filter((a) => a !== "goal"))
+  const on = new Set([...merged.quickActions, ...base.quickActions.filter((a) => !seen.has(a))])
+  merged.quickActions = QUICK_ACTIONS.filter((a) => on.has(a))
+  merged.seenQuickActions = [...QUICK_ACTIONS]
   return merged
 }

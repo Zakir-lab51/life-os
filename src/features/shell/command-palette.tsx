@@ -81,7 +81,7 @@ export function CommandPalette() {
                 <CommandItem key={n.key} value={`go ${n.label}`} onSelect={close(() => navigate(n.href))}>
                   <I />
                   <span>{n.label}</span>
-                  {n.phase > 1 && <span className="text-xs text-muted-foreground">Planned · Phase {n.phase}</span>}
+                  {!n.ready && <span className="text-xs text-muted-foreground">Planned · Phase {n.phase}</span>}
                   {n.shortcut && <CommandShortcut>G {n.shortcut.toUpperCase()}</CommandShortcut>}
                 </CommandItem>
               )

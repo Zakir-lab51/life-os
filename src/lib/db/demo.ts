@@ -1,6 +1,7 @@
 import { db } from "./db"
-import { addDays, fromISODate, todayISO, weekday } from "@/lib/domain/dates"
-import type { ActivityEvent, Area, Block, FocusSession, Habit, HabitLog, ISODate, Reflection, Task } from "@/lib/domain/types"
+import { addDays, fromISODate, toISODate, todayISO, weekday } from "@/lib/domain/dates"
+import { defaultDueDate } from "@/lib/domain/goals"
+import type { ActivityEvent, Area, Block, FocusSession, Goal, GoalLog, Habit, HabitLog, ISODate, Milestone, Reflection, Task } from "@/lib/domain/types"
 import { uid } from "@/lib/utils"
 
 /** Deterministic PRNG so the demo looks the same every time it's loaded. */
@@ -17,12 +18,13 @@ function mulberry32(seed: number) {
 const at = (date: ISODate, minutes: number) => new Date(fromISODate(date).getTime() + minutes * 60_000).toISOString()
 
 export async function hasDemoData() {
-  return (await db.tasks.filter((t) => !!t.demo).count()) > 0 || (await db.habits.filter((h) => !!h.demo).count()) > 0
+  return (await db.tasks.filter((t) => !!t.demo).count()) > 0 || (await db.habits.filter((h) => !!h.demo).count()) > 0 || (await db.goals.filter((g) => !!g.demo).count()) > 0
 }
 
 /**
  * Loads a clearly-labelled sample life: tasks, habits with ~9 weeks of
- * history, focus sessions, reflections and today's timeline. Every record
+ * history, focus sessions, reflections, today's timeline and a small tree of
+ * goals linked to those tasks and habits. Every record
  * carries `demo: true` so "Remove demo data" can delete exactly these.
  */
 export async function seedDemo(now = new Date()) {
@@ -213,6 +215,129 @@ export async function seedDemo(now = new Date()) {
     block({ date: addDays(T, 1), start: 9 * 60, end: 12 * 60, title: "Anatomy dissection", kind: "event" }),
   ]
 
+  /* goals: a five-year ambition with the yearly, quarterly, monthly and weekly goals that serve it */
+  const goalTasks: Task[] = []
+  const goals: Goal[] = []
+  const goalLogs: GoalLog[] = []
+  const ms = (title: string, due: number | null, doneOn?: number): Milestone => ({ id: uid("m_"), title, due: due === null ? null : addDays(T, due), doneAt: doneOn === undefined ? null : at(addDays(T, doneOn), 18 * 60) })
+  const goal = (g: Pick<Goal, "title" | "why" | "horizon" | "area" | "startDate" | "dueDate" | "measure"> & Partial<Goal>): Goal => {
+    const made: Goal = { id: uid("g_"), milestones: [], habitIds: [], parentId: null, status: "active", completedAt: null, order: goals.length + 1, createdAt: at(g.startDate, 9 * 60), updatedAt: stamp, demo: true, ...g }
+    goals.push(made)
+    return made
+  }
+  const doctor = goal({
+    title: "Graduate as a confident doctor",
+    why: "The reason for every late night: to be someone patients can trust.",
+    horizon: "five-year",
+    area: "study",
+    startDate: addDays(T, -120),
+    dueDate: addDays(T, 5 * 365 - 120),
+    measure: { kind: "milestones" },
+    milestones: [ms("Clear first-prof exams", -30, -30), ms("Clear second-prof exams", 420), ms("Final-year clinical postings", 1100), ms("Finish internship", 1600)],
+  })
+  goal({
+    title: "Clear first-prof exams",
+    why: "",
+    horizon: "quarter",
+    area: "study",
+    startDate: addDays(T, -150),
+    dueDate: addDays(T, -25),
+    measure: { kind: "milestones" },
+    milestones: [ms("Finish syllabus revision", -70, -70), ms("Complete 3 mock tests", -45, -44), ms("Sit the exams", -30, -30)],
+    parentId: doctor.id,
+    status: "done",
+    completedAt: at(addDays(T, -30), 17 * 60),
+  })
+  const physio = goal({
+    title: "Top the class in physiology",
+    why: "Physiology is the base for everything clinical; getting it solid now saves years.",
+    horizon: "year",
+    area: "study",
+    startDate: addDays(T, -60),
+    dueDate: addDays(T, 305),
+    measure: { kind: "tasks" },
+    habitIds: [read.id],
+    parentId: doctor.id,
+  })
+  for (const t of [tasks[0], readings, tasks[2]]) t.goalId = physio.id
+  for (const [title, d] of [["Physiology MCQs set 1", -20], ["Physiology MCQs set 2", -12], ["Renal physiology summary", -5]] as const) {
+    goalTasks.push(task({ title, area: "study", priority: 2, status: "done", dueDate: addDays(T, d), completedAt: at(addDays(T, d), 17 * 60), goalId: physio.id }))
+  }
+  goal({
+    title: "Be viva-ready on the cardiac cycle",
+    why: "",
+    horizon: "week",
+    area: "study",
+    // a rolling week, so the milestones below always fit inside it
+    startDate: addDays(T, -2),
+    dueDate: addDays(T, 4),
+    measure: { kind: "milestones" },
+    milestones: [ms("Wiggers diagram", 0, -1), ms("Heart sounds & murmurs", 0), ms("Pressure–volume loop", 1), ms("Mock viva with a friend", 2)],
+    parentId: physio.id,
+  })
+  const fit = goal({
+    title: "Get properly fit",
+    why: "More energy for long ward days.",
+    horizon: "year",
+    area: "health",
+    startDate: addDays(T, -60),
+    dueDate: addDays(T, 305),
+    measure: { kind: "habit", habitId: workout.id, target: 160 },
+    habitIds: [water.id],
+  })
+  const run = goal({
+    title: "Run a 10K",
+    why: "",
+    horizon: "quarter",
+    area: "health",
+    startDate: addDays(T, -56),
+    dueDate: addDays(T, 35),
+    measure: { kind: "target", unit: "km", start: 3, target: 10 },
+    habitIds: [workout.id],
+    parentId: fit.id,
+  })
+  for (const [d, value] of [[-49, 3.5], [-40, 4], [-32, 5], [-24, 5.5], [-15, 6.5], [-6, 7.2]] as const) {
+    const date = addDays(T, d)
+    goalLogs.push({ id: `${run.id}:${date}`, goalId: run.id, date, value, note: "", createdAt: at(date, 7 * 60), demo: true })
+  }
+  const monthStart = toISODate(new Date(fromISODate(T).getFullYear(), fromISODate(T).getMonth(), 1))
+  goal({
+    title: "Meditate 25 days this month",
+    why: "",
+    horizon: "month",
+    area: "mind",
+    startDate: monthStart,
+    dueDate: defaultDueDate("month", monthStart, 1),
+    measure: { kind: "habit", habitId: meditate.id, target: 25 },
+  })
+  const fund = goal({
+    title: "Build an emergency fund",
+    why: "So a surprise bill never derails a semester.",
+    horizon: "year",
+    area: "finance",
+    startDate: addDays(T, -60),
+    dueDate: addDays(T, 305),
+    measure: { kind: "target", unit: "rupees", start: 0, target: 30000 },
+    habitIds: [spend.id],
+  })
+  for (const [d, value] of [[-55, 4000], [-40, 7000], [-26, 9500], [-10, 12500]] as const) {
+    const date = addDays(T, d)
+    goalLogs.push({ id: `${fund.id}:${date}`, goalId: fund.id, date, value, note: "", createdAt: at(date, 20 * 60), demo: true })
+  }
+  const internship = goal({
+    title: "Land a research internship",
+    why: "",
+    horizon: "quarter",
+    area: "work",
+    startDate: addDays(T, -45),
+    dueDate: addDays(T, 45),
+    measure: { kind: "milestones" },
+    milestones: [ms("Shortlist 5 labs", -10), ms("Update CV", 6), ms("Send 3 applications", 30)],
+  })
+  const cv = tasks.find((t) => t.title === "Update CV with internship")
+  if (cv) cv.goalId = internship.id
+  tasks.push(...goalTasks)
+
   /* history feed, derived from the records above */
   const activity: ActivityEvent[] = [
     ...tasks
@@ -233,10 +358,25 @@ export async function seedDemo(now = new Date()) {
       demo: true,
     })),
     ...reflections.map((r) => ({ id: uid("ev_"), type: "reflection.saved" as const, at: r.createdAt, title: "Daily reflection", refId: r.id, area: "mind" as const, dedupeKey: `reflection:${r.id}`, demo: true })),
+    ...goals.flatMap((g) =>
+      g.milestones
+        .filter((m) => m.doneAt)
+        .map((m) => ({ id: uid("ev_"), type: "milestone.completed" as const, at: m.doneAt!, title: `${m.title} · ${g.title}`, refId: g.id, area: g.area, dedupeKey: `milestone:${g.id}:${m.id}`, demo: true })),
+    ),
+    ...goals.filter((g) => g.completedAt).map((g) => ({ id: uid("ev_"), type: "goal.completed" as const, at: g.completedAt!, title: g.title, refId: g.id, area: g.area, dedupeKey: `goal:${g.id}`, demo: true })),
+    ...goalLogs.map((l) => {
+      const g = goals.find((x) => x.id === l.goalId)!
+      const unit = g.measure.kind === "target" && g.measure.unit ? ` ${g.measure.unit}` : ""
+      return { id: uid("ev_"), type: "goal.logged" as const, at: l.createdAt, title: `${g.title}: ${l.value}${unit}`, refId: g.id, area: g.area, dedupeKey: `goal.log:${l.id}`, demo: true }
+    }),
   ]
 
-  await db.transaction("rw", [db.tasks, db.habits, db.habitLogs, db.focusSessions, db.reflections, db.blocks, db.activity], async () => {
+  await db.transaction("rw", [db.tasks, db.habits, db.habitLogs, db.focusSessions, db.reflections, db.blocks, db.goals, db.goalLogs, db.activity], async () => {
     await db.tasks.bulkAdd(tasks)
+    // demo goals sit after the user's own in the list
+    const lastOrder = (await db.goals.orderBy("order").last())?.order ?? 0
+    await db.goals.bulkAdd(goals.map((g) => ({ ...g, order: g.order + lastOrder })))
+    await db.goalLogs.bulkPut(goalLogs)
     await db.habits.bulkAdd(habits)
     await db.habitLogs.bulkPut(logs)
     await db.focusSessions.bulkAdd(sessions)
@@ -249,9 +389,18 @@ export async function seedDemo(now = new Date()) {
 
 /** Deletes every record created by `seedDemo`, leaving the user's own data untouched. */
 export async function removeDemo() {
-  await db.transaction("rw", [db.tasks, db.habits, db.habitLogs, db.focusSessions, db.reflections, db.blocks, db.activity, db.routineChecks], async () => {
+  await db.transaction("rw", [db.tasks, db.habits, db.habitLogs, db.focusSessions, db.reflections, db.blocks, db.goals, db.goalLogs, db.activity, db.routineChecks], async () => {
     const demoHabitIds = (await db.habits.filter((h) => !!h.demo).primaryKeys()) as string[]
+    const demoGoalIds = (await db.goals.filter((g) => !!g.demo).primaryKeys()) as string[]
     await db.tasks.filter((t) => !!t.demo).delete()
+    // the user's own tasks and goals may point at demo goals: keep them, just unlink
+    await db.tasks.filter((t) => !!t.goalId && demoGoalIds.includes(t.goalId)).modify({ goalId: null })
+    await db.goals.filter((g) => !g.demo && !!g.parentId && demoGoalIds.includes(g.parentId)).modify({ parentId: null })
+    await db.goals.filter((g) => !g.demo).modify((g) => {
+      g.habitIds = g.habitIds.filter((id) => !demoHabitIds.includes(id))
+    })
+    await db.goals.bulkDelete(demoGoalIds)
+    await db.goalLogs.filter((l) => !!l.demo || demoGoalIds.includes(l.goalId)).delete()
     await db.habits.bulkDelete(demoHabitIds)
     await db.habitLogs.filter((l) => !!l.demo || demoHabitIds.includes(l.habitId)).delete()
     await db.focusSessions.filter((s) => !!s.demo).delete()

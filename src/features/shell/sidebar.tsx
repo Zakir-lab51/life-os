@@ -61,7 +61,7 @@ function useStatuses(): Partial<Record<NavKey, Status>> {
 
 function NavLink({ item, active, collapsed, status, onNavigate }: { item: NavItem; active: boolean; collapsed: boolean; status: Status | undefined; onNavigate?: () => void }) {
   const I = item.icon
-  const planned = item.phase > 1
+  const planned = !item.ready
   const link = (
     <Link
       href={item.href}

@@ -17,36 +17,39 @@ Other scripts:
 
 | Command | What it does |
 | --- | --- |
-| `npm test` | Vitest suite: recurrence, streaks, timer accuracy, scoring, planner, persistence and backups |
+| `npm test` | Vitest suite: recurrence, streaks, timer accuracy, scoring, planner, goals and forecasts, persistence and backups |
 | `npm run typecheck` | TypeScript, no emit |
 | `npm run lint` | ESLint (Next.js core web vitals + TypeScript rules) |
 | `npm run build` / `npm start` | Production build / serve it |
 
-## What works (Phase 1)
+## What works
 
 - **Overview**: time-aware greeting, live clock, daily productivity score (with its breakdown), a rule-based daily briefing that explains every recommendation, Life Balance radar computed from your records, today's tasks, habits, focus, timeline, deadlines, weekly targets, level and data-driven insights. Widgets can be hidden and reordered.
-- **Tasks**: create, edit, duplicate and delete (with undo); priorities, due dates and times, reminders, tags, life areas, subtasks, recurring tasks (daily / weekly on chosen days / monthly), dependencies with cycle prevention; list (smart, due, priority, manual drag-sort) and Kanban board with drag-and-drop; search, filters, built-in views; bulk actions; transparent "Do next" recommendations.
+- **Tasks**: create, edit, duplicate and delete (with undo); priorities, due dates and times, reminders, tags, life areas, subtasks, recurring tasks (daily / weekly on chosen days / monthly), dependencies with cycle prevention; a goal each task moves forward; list (smart, due, priority, manual drag-sort) and Kanban board with drag-and-drop; search, filters, built-in views; bulk actions; transparent "Do next" recommendations.
 - **My Day**: drag-and-drop timeline (move, resize, keyboard arrows), drag tasks from the side list, conflict detection, overdue rescheduling, morning/evening routines, daily reflection, and **Plan my day**, an editable suggestion that only fills free time and never moves existing blocks.
 - **Calendar**: month view of deadlines and time blocks with a day panel.
+- **Goals** (Phase 2): weekly, monthly, quarterly, yearly and five-year goals, each measured by milestones, linked tasks, a number to reach (log the running total) or a habit's check-ins. Every goal shows its progress ring, a progress-over-time chart with an even-pace line, milestone timeline, linked tasks and supporting habits, and a plain-language forecast ("At your recent pace you'll finish around 8 Nov, 277 days before the deadline"). Goals can serve a bigger goal, building a tree from this week up to five years out. Filter by horizon and status; archive, reopen or delete with undo.
+- **Life Roadmap** (Goals → Roadmap): every goal as a bar on a 3-month, 1-year or 5-year timeline, one lane per horizon, with progress fill, milestone diamonds and a line to the goal it serves. The bottom lane lists today's tasks and habits for those goals; pointing at an action or goal lights up its whole chain up to the long-term ambition and dims the rest.
 - **Habits**: daily, specific-weekday and N-per-week habits; check-ins; kind streaks (one missed day per week counts as rest); best streaks; GitHub-style heatmaps; consistency stats; XP, levels and achievements.
 - **Focus**: Pomodoro, custom and stopwatch modes; task-linked sessions; generated ambient sound (no audio files); distraction-free fullscreen; weekly chart, streak and session history. Timing comes from timestamps, so it stays exact in background tabs and across reloads, and a session that finished while the tab was closed is still recorded once.
 - **Analytics**: 7/30/90-day range, KPIs with period-over-period change, score/tasks/focus/habit trends, area breakdowns, Life Balance and an activity heatmap. Each chart can switch to a table of the same numbers; heatmap cells show their value on hover.
 - **Shell**: collapsible sidebar with live status, command palette (Ctrl/⌘+K), quick capture with natural syntax (Q), keyboard shortcuts (?), notification centre, quick-add menu (customisable), light/dark themes, reduced-motion support, responsive down to phones.
 - **Data**: JSON backup and validated restore, tasks CSV export, demo data load/remove, full reset.
 
-Modules for later phases (Goals, Projects, Second Brain, Study Hub, Finances) appear in the sidebar marked **P2–P4**. Their pages say plainly that they're planned and point to what already works today; nothing is faked.
+Modules still to come (Projects and weekly reviews later in Phase 2, then Second Brain and Finances) appear in the sidebar marked **P2–P4**. Their pages say plainly that they're planned and point to what already works today; nothing is faked.
 
 ## Architecture
 
 ```
 src/
   app/                 Next.js App Router: one thin page per route, (os)/layout mounts the shell
-  features/            One folder per module (overview, tasks, planner, calendar, habits,
-                       focus, analytics, settings, onboarding, planned, shell)
+  features/            One folder per module (overview, tasks, planner, calendar, goals,
+                       habits, focus, analytics, settings, onboarding, planned, shell)
   components/ui/       shadcn/ui (Radix) primitives
   components/os/       LIFE OS building blocks: Panel, charts, heatmap, gauges, pickers
   lib/domain/          Pure, tested logic: dates, recurrence, tasks, capture parsing,
-                       scheduling, planner, habits/streaks, focus timer, scores, XP, insights
+                       scheduling, planner, goals/forecasts, habits/streaks, focus timer,
+                       scores, XP, insights
   lib/db/              Dexie database, repository (the only writer), live-query hooks,
                        demo data, backup/restore
   lib/validation/      Zod schemas for every input and for backups
@@ -67,7 +70,11 @@ Key decisions:
 - **Daily score (0–100)**: tasks finished ÷ (finished + still due by that day), weighted 45%; focus minutes ÷ daily target (only once you've used Focus), 30%; due daily/weekday habits kept, 25%. Missing parts are left out and the weights re-balanced.
 - **Life Balance (last 7 days)**: Productivity = due-task completion blended with focus vs. target; Learning = study-area focus + finished study tasks + study habits against a 5-hour weekly baseline; Health = health-habit consistency; Finance = finance tasks and habits; Personal Growth = reflections (5 per week = full) blended with mind/personal habits; Consistency = overall habit consistency blended with active days. Areas with nothing tracked show as "not tracked" rather than zero.
 - **Streaks**: a missed due day is forgiven as a rest day if no other rest was used in the previous 7 days; today never breaks a streak until it's over. Weekly-count habits streak in weeks.
-- **XP**: task 10 (+5 urgent/high), habit check-in 5, focus 1 per 5 minutes capped at 4 hours a day, reflection 10. Nothing is ever deducted for missed days.
+- **XP**: task 10 (+5 urgent/high), habit check-in 5, focus 1 per 5 minutes capped at 4 hours a day, reflection 10, milestone 15, achieved goal 20 (week) / 40 (month) / 60 (quarter) / 100 (year) / 150 (five years). Nothing is ever deducted for missed days.
+- **Goal progress**: milestones reached ÷ milestones; linked tasks finished ÷ linked tasks; for a number, (latest total − start) ÷ (target − start); for a habit, check-ins since the start ÷ the target.
+- **Goal outlook**: progress is compared with an even pace from start to deadline; within ±10 points is on track, above is ahead, below is behind. During the first tenth of a goal's time it's never called behind.
+- **Forecast**: the recent pace is progress over the last 28 days (or since the start, counting the first day), and the finish date is when that pace reaches 100%. No date is predicted in a goal's first three days or without recent progress.
+- **Default deadlines**: the end of the chosen week, month, quarter or year (five years for a five-year goal); if less than a quarter of that period is left, the end of the next one.
 
 ## Changing the design
 

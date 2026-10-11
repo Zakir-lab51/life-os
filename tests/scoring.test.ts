@@ -5,7 +5,7 @@ import { recommendTasks } from "@/lib/domain/scheduling"
 import { localDate, makeHabit, makeSession, makeTask } from "./helpers"
 
 const prefs = { focus: { focusMin: 25, shortBreakMin: 5, longBreakMin: 15, longEvery: 4, autoStartBreaks: true, dailyTargetMin: 120 } }
-const empty: LifeData = { tasks: [], habits: [], habitLogs: [], sessions: [], reflections: [] }
+const empty: LifeData = { tasks: [], habits: [], habitLogs: [], sessions: [], reflections: [], goals: [], goalLogs: [] }
 const day = "2026-03-10"
 
 describe("daily productivity score", () => {

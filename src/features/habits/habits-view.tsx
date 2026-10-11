@@ -343,6 +343,7 @@ function ProgressSection({ life }: { life: Life }) {
               ["Habit check-ins", xp.habits],
               ["Focus time", xp.focus],
               ["Reflections", xp.reflections],
+              ["Goals & milestones", xp.goals],
             ] as const
           ).map(([k, v]) => (
             <div key={k} className="flex justify-between">

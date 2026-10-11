@@ -2,12 +2,16 @@ import type { ZodError } from "zod"
 import { db } from "./db"
 import { defaultPrefs, migratePrefs } from "./defaults"
 import { daysBetween, todayISO } from "@/lib/domain/dates"
+import { horizonRank } from "@/lib/domain/goals"
 import { blockingTasks, completeTask, createsCycle, normalizeTag, reopenTask } from "@/lib/domain/tasks"
 import type {
   ActivityEvent,
   AppNotification,
   Block,
   FocusSession,
+  Goal,
+  GoalLog,
+  GoalStatus,
   Habit,
   HabitLog,
   ID,
@@ -21,11 +25,14 @@ import type { PlanSuggestion } from "@/lib/domain/planner"
 import {
   blockInputSchema,
   fieldErrors,
+  goalInputSchema,
+  goalLogInputSchema,
   habitInputSchema,
   prefsSchema,
   reflectionInputSchema,
   taskInputSchema,
   type BlockInput,
+  type GoalInput,
   type HabitInput,
   type TaskInput,
 } from "@/lib/validation/schemas"
@@ -144,6 +151,7 @@ function editableFields(t: Task): TaskInput {
     subtasks: t.subtasks,
     recurrence: t.recurrence,
     dependsOn: t.dependsOn,
+    goalId: t.goalId ?? null,
   }
 }
 
@@ -524,6 +532,154 @@ export async function toggleRoutine(date: ISODate, itemId: ID): Promise<boolean>
   }
   await db.routineChecks.add({ id, date, itemId, createdAt: nowISO() })
   return true
+}
+
+/* ── goals ──────────────────────────────────────────── */
+
+/** A parent must exist, have a longer horizon, and not be the goal itself or one of its descendants. */
+async function checkParent(goalId: ID | null, horizon: Goal["horizon"], parentId: ID | null) {
+  if (!parentId) return
+  const all = await db.goals.toArray()
+  const byId = new Map(all.map((g) => [g.id, g]))
+  const parent = byId.get(parentId)
+  if (!parent) throw new ValidationError({ parentId: "That goal no longer exists" })
+  if (horizonRank(parent.horizon) <= horizonRank(horizon)) throw new ValidationError({ parentId: "A goal can only serve a goal with a longer horizon" })
+  for (let p: Goal | undefined = parent; p; p = p.parentId ? byId.get(p.parentId) : undefined) {
+    if (p.id === goalId) throw new ValidationError({ parentId: "That would make the goal serve itself" })
+  }
+}
+
+export async function createGoal(input: GoalInput, opts: { demo?: boolean } = {}): Promise<Goal> {
+  const parsed = goalInputSchema.safeParse(input)
+  if (!parsed.success) throw new ValidationError(parsed.error)
+  await checkParent(null, parsed.data.horizon, parsed.data.parentId)
+  const stamp = nowISO()
+  const last = await db.goals.orderBy("order").last()
+  const goal: Goal = {
+    id: uid("g_"),
+    ...parsed.data,
+    status: "active",
+    completedAt: null,
+    order: (last?.order ?? 0) + 1,
+    createdAt: stamp,
+    updatedAt: stamp,
+    ...(opts.demo ? { demo: true } : {}),
+  }
+  await db.goals.add(goal)
+  return goal
+}
+
+function goalFields(g: Goal): GoalInput {
+  return { title: g.title, why: g.why, horizon: g.horizon, area: g.area, startDate: g.startDate, dueDate: g.dueDate, measure: g.measure, milestones: g.milestones, habitIds: g.habitIds, parentId: g.parentId }
+}
+
+export async function updateGoal(id: ID, patch: Partial<GoalInput>): Promise<Goal> {
+  const current = await db.goals.get(id)
+  if (!current) throw new NotFoundError("This goal")
+  const parsed = goalInputSchema.safeParse({ ...goalFields(current), ...patch })
+  if (!parsed.success) throw new ValidationError(parsed.error)
+  await checkParent(id, parsed.data.horizon, parsed.data.parentId)
+  const children = await db.goals.where("parentId").equals(id).toArray()
+  if (children.some((c) => horizonRank(c.horizon) >= horizonRank(parsed.data.horizon))) {
+    throw new ValidationError({ horizon: "Goals that serve this one need a shorter horizon than it" })
+  }
+  const next: Goal = { ...current, ...parsed.data, updatedAt: nowISO() }
+  await db.goals.put(next)
+  return next
+}
+
+/** Achieves, reopens or archives a goal. Achieving it logs it in your history (once). */
+export async function setGoalStatus(id: ID, status: GoalStatus): Promise<Goal> {
+  return db.transaction("rw", db.goals, db.activity, async () => {
+    const goal = await db.goals.get(id)
+    if (!goal) throw new NotFoundError("This goal")
+    const stamp = nowISO()
+    const next: Goal = { ...goal, status, completedAt: status === "done" ? (goal.completedAt ?? stamp) : null, updatedAt: stamp }
+    await db.goals.put(next)
+    if (status === "done") await logActivity({ type: "goal.completed", title: goal.title, refId: id, area: goal.area, dedupeKey: `goal:${id}` })
+    else await unlogActivity(`goal:${id}`)
+    return next
+  })
+}
+
+export async function toggleMilestone(goalId: ID, milestoneId: ID): Promise<boolean> {
+  return db.transaction("rw", db.goals, db.activity, async () => {
+    const goal = await db.goals.get(goalId)
+    if (!goal) throw new NotFoundError("This goal")
+    const ms = goal.milestones.find((m) => m.id === milestoneId)
+    if (!ms) throw new NotFoundError("This milestone")
+    const done = !ms.doneAt
+    const stamp = nowISO()
+    await db.goals.put({ ...goal, milestones: goal.milestones.map((m) => (m.id === milestoneId ? { ...m, doneAt: done ? stamp : null } : m)), updatedAt: stamp })
+    const key = `milestone:${goalId}:${milestoneId}`
+    if (done) await logActivity({ type: "milestone.completed", title: `${ms.title} · ${goal.title}`, refId: goalId, area: goal.area, dedupeKey: key })
+    else await unlogActivity(key)
+    return done
+  })
+}
+
+/** Records the value a number-target goal has reached on a day (one per day; the latest wins). */
+export async function logGoalValue(goalId: ID, input: { date: ISODate; value: number; note?: string }): Promise<GoalLog> {
+  const parsed = goalLogInputSchema.safeParse(input)
+  if (!parsed.success) throw new ValidationError(parsed.error)
+  if (daysBetween(todayISO(), parsed.data.date) > 0) throw new ValidationError({ date: "You can't log progress for a future day" })
+  return db.transaction("rw", db.goals, db.goalLogs, db.activity, async () => {
+    const goal = await db.goals.get(goalId)
+    if (!goal) throw new NotFoundError("This goal")
+    if (goal.measure.kind !== "target") throw new ValidationError({ value: "This goal isn't measured by a number" })
+    const log: GoalLog = { id: `${goalId}:${parsed.data.date}`, goalId, ...parsed.data, createdAt: nowISO() }
+    await db.goalLogs.put(log)
+    const unit = goal.measure.unit ? ` ${goal.measure.unit}` : ""
+    await unlogActivity(`goal.log:${log.id}`)
+    await logActivity({ type: "goal.logged", title: `${goal.title}: ${log.value}${unit}`, refId: goalId, area: goal.area, dedupeKey: `goal.log:${log.id}` })
+    return log
+  })
+}
+
+export async function deleteGoalLog(id: string) {
+  await db.transaction("rw", db.goalLogs, db.activity, async () => {
+    await db.goalLogs.delete(id)
+    await unlogActivity(`goal.log:${id}`)
+  })
+}
+
+export interface GoalSnapshot {
+  goal: Goal
+  logs: GoalLog[]
+  taskIds: ID[]
+  childIds: ID[]
+}
+
+/** Deletes a goal and its logged values; linked tasks and sub-goals are kept but unlinked. Returns a snapshot for undo. */
+export async function deleteGoal(id: ID): Promise<GoalSnapshot> {
+  return db.transaction("rw", db.goals, db.goalLogs, db.tasks, db.activity, async () => {
+    const goal = await db.goals.get(id)
+    if (!goal) throw new NotFoundError("This goal")
+    const logs = await db.goalLogs.where("goalId").equals(id).toArray()
+    const taskIds = (await db.tasks.where("goalId").equals(id).primaryKeys()) as ID[]
+    const childIds = (await db.goals.where("parentId").equals(id).primaryKeys()) as ID[]
+    for (const t of taskIds) await db.tasks.update(t, { goalId: null })
+    for (const c of childIds) await db.goals.update(c, { parentId: null })
+    await db.goalLogs.where("goalId").equals(id).delete()
+    await db.goals.delete(id)
+    await unlogActivity(`goal:${id}`)
+    return { goal, logs, taskIds, childIds }
+  })
+}
+
+export async function restoreGoal(s: GoalSnapshot) {
+  await db.transaction("rw", db.goals, db.goalLogs, db.tasks, async () => {
+    await db.goals.put(s.goal)
+    await db.goalLogs.bulkPut(s.logs)
+    for (const t of s.taskIds) await db.tasks.update(t, { goalId: s.goal.id })
+    for (const c of s.childIds) await db.goals.update(c, { parentId: s.goal.id })
+  })
+}
+
+export async function reorderGoals(ids: ID[]) {
+  await db.transaction("rw", db.goals, async () => {
+    for (const [i, id] of ids.entries()) await db.goals.update(id, { order: i + 1 })
+  })
 }
 
 /* ── notifications & achievements ───────────────────── */

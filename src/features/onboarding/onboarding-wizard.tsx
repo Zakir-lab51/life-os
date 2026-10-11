@@ -34,7 +34,6 @@ const STARTER_HABITS: (Omit<HabitInput, "startDate"> & { key: string })[] = [
   { key: "skill", name: "Practise a skill", icon: "Target", color: "rose", area: "personal", schedule: { kind: "weekly", times: 3 }, timeOfDay: "afternoon" },
 ]
 
-const STUDY = ["Anatomy", "Physiology", "Biochemistry", "Programming", "Mathematics", "Languages", "Design", "Music", "History", "Finance"]
 
 const DIM_AREAS: Record<RadarDim, Area[]> = {
   productivity: ["work"],
@@ -71,8 +70,6 @@ export function OnboardingWizard() {
   const [style, setStyle] = useState<ProductivityStyle>("classic")
   const [dims, setDims] = useState<RadarDim[]>([...RADAR_DIMS])
   const [habits, setHabits] = useState<string[]>(["water", "read"])
-  const [study, setStudy] = useState<string[]>([])
-  const [customStudy, setCustomStudy] = useState("")
 
   const toggle = <T,>(list: T[], v: T) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v])
   const startMin = hhmmToMinutes(dayStart) ?? 480
@@ -96,7 +93,6 @@ export function OnboardingWizard() {
               focus: { focusMin: f.focusMin, shortBreakMin: f.shortBreakMin, longBreakMin: f.longBreakMin, longEvery: f.longEvery, autoStartBreaks: true, dailyTargetMin: 120 },
               radarDims: dims.length >= 3 ? dims : [...RADAR_DIMS],
               focusAreas: [...new Set(dims.flatMap((d) => DIM_AREAS[d]))],
-              studyInterests: study.slice(0, 20),
             },
       )
       if (mode === "demo") await quietly(() => seedDemo())
@@ -259,35 +255,6 @@ export function OnboardingWizard() {
               </button>
             )
           })}
-        </div>
-      ),
-    },
-    {
-      title: "What are you learning?",
-      body: "Saved for the Study Hub (Phase 3). For now, tag study work with the Study area and it counts toward Learning.",
-      content: (
-        <div className="space-y-4">
-          <div className="flex flex-wrap gap-2">
-            {[...STUDY, ...study.filter((s) => !STUDY.includes(s))].map((s) => (
-              <ChipToggle key={s} on={study.includes(s)} onClick={() => setStudy(toggle(study, s))}>
-                {s}
-              </ChipToggle>
-            ))}
-          </div>
-          <form
-            className="flex gap-2"
-            onSubmit={(e) => {
-              e.preventDefault()
-              const s = customStudy.trim()
-              if (s && !study.includes(s)) setStudy([...study, s.slice(0, 60)])
-              setCustomStudy("")
-            }}
-          >
-            <Input value={customStudy} onChange={(e) => setCustomStudy(e.target.value)} placeholder="Add a subject" className="h-10 rounded-xl" maxLength={60} />
-            <Button type="submit" variant="secondary" size="icon" aria-label="Add subject" className="size-10">
-              <Plus />
-            </Button>
-          </form>
         </div>
       ),
     },

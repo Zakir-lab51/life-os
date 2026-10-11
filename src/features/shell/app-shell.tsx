@@ -10,6 +10,8 @@ import { SPRING } from "@/lib/motion"
 import { setThemeColor } from "@/lib/theme-color"
 import { TaskEditorDialog } from "@/features/tasks/task-editor"
 import { HabitEditorDialog } from "@/features/habits/habit-editor"
+import { GoalDetailDialog } from "@/features/goals/goal-detail"
+import { GoalEditorDialog } from "@/features/goals/goal-editor"
 import { BlockEditorDialog } from "@/features/planner/block-editor"
 import { PlanMyDayDialog } from "@/features/planner/plan-dialog"
 import { ReflectionDialog } from "@/features/planner/reflection-dialog"
@@ -78,6 +80,8 @@ function Shell({ children }: { children: ReactNode }) {
       <QuickCapture />
       <TaskEditorDialog />
       <HabitEditorDialog />
+      <GoalDetailDialog />
+      <GoalEditorDialog />
       <BlockEditorDialog />
       <PlanMyDayDialog />
       <ReflectionDialog />

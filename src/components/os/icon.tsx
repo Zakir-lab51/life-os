@@ -9,6 +9,7 @@ import {
   Crown,
   Droplets,
   Dumbbell,
+  Flag,
   Flame,
   GraduationCap,
   Guitar,
@@ -33,6 +34,7 @@ import {
   Footprints,
   type LucideIcon,
   type LucideProps,
+  Trophy,
 } from "lucide-react"
 
 /** Icons a habit can use, by stored name. */
@@ -72,6 +74,8 @@ const OTHER: Record<string, LucideIcon> = {
   Rocket,
   Sunrise,
   Timer,
+  Trophy,
+  Flag,
 }
 
 export function Icon({ name, ...props }: { name: string } & LucideProps) {

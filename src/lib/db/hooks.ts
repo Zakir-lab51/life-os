@@ -14,14 +14,16 @@ import type { LifeData } from "@/lib/domain/scores"
  */
 export function useLifeData(): LifeData | undefined {
   return useLiveQuery(async () => {
-    const [tasks, habits, habitLogs, sessions, reflections] = await Promise.all([
+    const [tasks, habits, habitLogs, sessions, reflections, goals, goalLogs] = await Promise.all([
       db.tasks.toArray(),
       db.habits.orderBy("order").toArray(),
       db.habitLogs.toArray(),
       db.focusSessions.toArray(),
       db.reflections.toArray(),
+      db.goals.orderBy("order").toArray(),
+      db.goalLogs.toArray(),
     ])
-    return { tasks, habits, habitLogs, sessions, reflections }
+    return { tasks, habits, habitLogs, sessions, reflections, goals, goalLogs }
   }, [])
 }
 
@@ -45,6 +47,10 @@ function useKeyedQuery<T>(key: string, query: () => Promise<T>): T | undefined {
 /** One record for an editor: `undefined` while loading, `null` if it doesn't exist (or no id). */
 export function useTask(id: string | null) {
   return useKeyedQuery(`task:${id}`, async () => (id ? ((await db.tasks.get(id)) ?? null) : null))
+}
+
+export function useGoal(id: string | null) {
+  return useKeyedQuery(`goal:${id}`, async () => (id ? ((await db.goals.get(id)) ?? null) : null))
 }
 
 export function useHabit(id: string | null) {

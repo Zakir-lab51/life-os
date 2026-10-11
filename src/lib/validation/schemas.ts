@@ -1,6 +1,6 @@
 import { z } from "zod"
 import { FONTS, MATERIALS, PHOTOS, type FontId, type MaterialId, type PhotoId } from "@/lib/design/design"
-import { AREAS, QUICK_ACTIONS, RADAR_DIMS, WIDGET_IDS } from "@/lib/domain/types"
+import { AREAS, GOAL_HORIZONS, QUICK_ACTIONS, RADAR_DIMS, WIDGET_IDS } from "@/lib/domain/types"
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use a valid date")
 const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use HH:mm")
@@ -37,6 +37,7 @@ export const taskInputSchema = z.object({
   subtasks: z.array(subtaskSchema).max(50).default([]),
   recurrence: recurrenceSchema.default(null),
   dependsOn: z.array(id).max(20).default([]),
+  goalId: id.nullable().default(null),
 })
 export type TaskInput = z.input<typeof taskInputSchema>
 
@@ -78,6 +79,47 @@ export const reflectionInputSchema = z.object({
   improve: z.string().max(2000).default(""),
 })
 
+/* ── goals ── */
+
+export const milestoneSchema = z.object({
+  id,
+  title: z.string().trim().min(1, "Give the milestone a name").max(120, "Keep it under 120 characters"),
+  due: isoDate.nullable(),
+  doneAt: isoDateTime.nullable(),
+})
+
+export const goalMeasureSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("milestones") }),
+  z.object({ kind: z.literal("tasks") }),
+  z.object({ kind: z.literal("target"), unit: z.string().trim().max(20), start: z.number().finite(), target: z.number().finite() }),
+  z.object({ kind: z.literal("habit"), habitId: id, target: z.number().int().min(1, "At least 1 check-in").max(10000) }),
+])
+
+export const goalInputSchema = z
+  .object({
+    title: z.string().trim().min(1, "Name your goal").max(160, "Keep the name under 160 characters"),
+    why: z.string().max(2000).default(""),
+    horizon: z.enum(GOAL_HORIZONS).default("month"),
+    area: area.default("personal"),
+    startDate: isoDate,
+    dueDate: isoDate.nullable().default(null),
+    measure: goalMeasureSchema.default({ kind: "milestones" }),
+    milestones: z.array(milestoneSchema).max(50, "Up to 50 milestones").default([]),
+    habitIds: z.array(id).max(20).default([]),
+    parentId: id.nullable().default(null),
+  })
+  .superRefine((g, ctx) => {
+    if (g.dueDate && g.dueDate < g.startDate) ctx.addIssue({ code: "custom", message: "The deadline is before the start", path: ["dueDate"] })
+    if (g.measure.kind === "target" && g.measure.target === g.measure.start) ctx.addIssue({ code: "custom", message: "The target must differ from where you start", path: ["measure", "target"] })
+  })
+export type GoalInput = z.input<typeof goalInputSchema>
+
+export const goalLogInputSchema = z.object({
+  date: isoDate,
+  value: z.number({ message: "Enter a number" }).finite("Enter a number"),
+  note: z.string().max(500).default(""),
+})
+
 export const designSchema = z.object({
   preset: z.string().max(40),
   hue: z.number().min(0).max(360),
@@ -116,6 +158,7 @@ export const prefsSchema = z
     widgets: z.array(z.object({ id: z.enum(WIDGET_IDS), visible: z.boolean() })),
     radarDims: z.array(z.enum(RADAR_DIMS)).min(3, "Keep at least 3 dimensions"),
     quickActions: z.array(z.enum(QUICK_ACTIONS)),
+    seenQuickActions: z.array(z.enum(QUICK_ACTIONS)).optional(),
     notifications: z.object({ browser: z.boolean(), reminders: z.boolean(), focus: z.boolean(), achievements: z.boolean() }),
     weeklyTargets: z.object({
       tasks: z.number().int().min(1).max(500),
@@ -157,10 +200,31 @@ export const taskRecordSchema = z.object({
   seriesId: id.nullable(),
   nextId: id.nullable().optional(),
   dependsOn: z.array(id),
+  goalId: id.nullable().optional(),
   order: z.number(),
   completedAt: isoDateTime.nullable(),
   ...stamps,
 })
+
+const goalRecordSchema = z.object({
+  id,
+  title: z.string().max(160),
+  why: z.string().max(2000),
+  horizon: z.enum(GOAL_HORIZONS),
+  area,
+  startDate: isoDate,
+  dueDate: isoDate.nullable(),
+  measure: goalMeasureSchema,
+  milestones: z.array(milestoneSchema),
+  habitIds: z.array(id),
+  parentId: id.nullable(),
+  status: z.enum(["active", "done", "archived"]),
+  completedAt: isoDateTime.nullable(),
+  order: z.number(),
+  ...stamps,
+})
+
+const goalLogRecordSchema = z.object({ id: z.string(), goalId: id, date: isoDate, value: z.number(), note: z.string().max(500), createdAt: isoDateTime, demo: z.boolean().optional() })
 
 export const habitRecordSchema = z.object({
   id,
@@ -238,6 +302,9 @@ export const backupSchema = z.object({
       }),
     ),
     achievements: z.array(z.object({ id: z.string(), unlockedAt: isoDateTime })),
+    // added in Phase 2; older backups don't have them
+    goals: z.array(goalRecordSchema).default([]),
+    goalLogs: z.array(goalLogRecordSchema).default([]),
   }),
 })
 export type Backup = z.infer<typeof backupSchema>

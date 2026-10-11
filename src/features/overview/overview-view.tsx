@@ -18,6 +18,7 @@ import { attempt } from "@/lib/feedback"
 import { useUI } from "@/lib/stores/ui"
 import { useLife, type Life } from "@/features/shell/use-life"
 import { evaluateProgress } from "@/features/shell/progress"
+import { GoalsWidget } from "@/features/goals/goals-widget"
 import {
   BriefingWidget,
   DeadlinesWidget,
@@ -44,6 +45,7 @@ export const WIDGET_META: Record<WidgetId, { label: string; description: string 
   weekly: { label: "Weekly targets", description: "Tasks, focus and habit consistency" },
   xp: { label: "Level & XP", description: "Progress and the next achievement" },
   insight: { label: "Insight", description: "A pattern from your own data" },
+  goals: { label: "Goals", description: "Your active goals and whether they're on track" },
 }
 
 function OverviewSkeleton() {
@@ -104,6 +106,8 @@ function Dashboard({ life, blocks }: { life: Life; blocks: NonNullable<ReturnTyp
         return <XPWidget key={id} xp={computed.progress.xp} level={computed.progress.level} stats={computed.progress.stats} />
       case "insight":
         return <InsightWidget key={id} insights={computed.insights} />
+      case "goals":
+        return <GoalsWidget key={id} life={life} />
     }
   }
 

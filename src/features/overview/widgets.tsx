@@ -691,6 +691,7 @@ export function XPWidget({ xp, level, stats }: { xp: XPBreakdown; level: LevelIn
               ["Habits", xp.habits],
               ["Focus", xp.focus],
               ["Reflect", xp.reflections],
+              ["Goals", xp.goals],
             ] as const
           ).map(([k, v]) => (
             <div key={k} className="flex justify-between">

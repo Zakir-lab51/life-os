@@ -14,20 +14,6 @@ interface PlannedModule {
 }
 
 const MODULES: Partial<Record<NavKey, PlannedModule>> = {
-  goals: {
-    summary: "Weekly to five-year goals with milestones, measurable targets and a visual Life Roadmap that connects daily actions to long-term ambitions.",
-    coming: [
-      "Goals across weekly, monthly, quarterly, yearly and five-year horizons",
-      "Milestones, deadlines and measurable targets",
-      "Linked tasks, habits and projects feeding goal progress automatically",
-      "Completion forecasts from your recorded pace",
-      "A Life Roadmap timeline",
-    ],
-    today: [
-      { label: "Weekly targets", href: "/settings#targets", detail: "Set weekly task, focus and habit targets; the dashboard tracks them." },
-      { label: "Life goals from setup", href: "/settings#profile", detail: "Saved now, used to seed Goals when it ships." },
-    ],
-  },
   projects: {
     summary: "A workspace for long-running work: milestones, a board per project, linked tasks, notes, resources and an activity history.",
     coming: ["Project cards with progress and deadlines", "Milestones and per-project Kanban", "Task linking and archives", "Activity history per project"],
@@ -40,14 +26,6 @@ const MODULES: Partial<Record<NavKey, PlannedModule>> = {
     summary: "A second brain: rich-text notes, folders, tags, backlinks, a knowledge graph, daily journal, idea inbox and templates, with Markdown import and export.",
     coming: ["Rich-text editor with backlinks and linked notes", "Knowledge graph of note relationships", "Daily journal and idea inbox", "Markdown import / export", "Full-text search across notes"],
     today: [{ label: "Daily reflection", href: "/today", detail: "Wins and lessons for each day, kept in your history." }],
-  },
-  study: {
-    summary: "Study intelligence: subjects and topics, a genuine spaced-repetition scheduler for flashcards, practice quizzes, revision calendar, weak-topic detection and exam countdowns.",
-    coming: ["Subjects, topics and study sessions", "Flashcards with real spaced repetition", "Practice quizzes and accuracy reports", "Revision calendar and exam countdowns", "Weak-topic identification"],
-    today: [
-      { label: "Study area", href: "/tasks", detail: "Tasks, habits and focus sessions in the Study area already count toward Learning on your radar." },
-      { label: "Focus timer", href: "/focus", detail: "Link study tasks to focus sessions to log study time." },
-    ],
   },
   finance: {
     summary: "A personal finance overview with manual transactions, categories, monthly budgets, savings goals, recurring expenses, subscriptions and CSV import/export. INR by default.",

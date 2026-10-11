@@ -40,15 +40,17 @@ export async function quietly<T>(fn: () => Promise<T>): Promise<T> {
  * progress they didn't just make.
  */
 export async function syncProgressSilently() {
-  const [tasks, habits, habitLogs, sessions, reflections, unlocks] = await Promise.all([
+  const [tasks, habits, habitLogs, sessions, reflections, goals, goalLogs, unlocks] = await Promise.all([
     db.tasks.toArray(),
     db.habits.toArray(),
     db.habitLogs.toArray(),
     db.focusSessions.toArray(),
     db.reflections.toArray(),
+    db.goals.toArray(),
+    db.goalLogs.toArray(),
     db.achievements.toArray(),
   ])
-  const { earned, level } = evaluateProgress({ tasks, habits, habitLogs, sessions, reflections }, todayISO())
+  const { earned, level } = evaluateProgress({ tasks, habits, habitLogs, sessions, reflections, goals, goalLogs }, todayISO())
   const have = new Set(unlocks.map((u) => u.id))
   const fresh = earned.filter((a) => !have.has(a.id)).map((a) => a.id)
   if (fresh.length) await recordUnlocks(fresh)

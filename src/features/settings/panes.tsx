@@ -108,9 +108,6 @@ export function ProfilePane({ prefs }: { prefs: Prefs }) {
       <Group id="s-goals" title="Life goals" footer="Saved to your profile. They'll seed the Goals module when it arrives in Phase 2.">
         <ChipEditor values={prefs.lifeGoals} onChange={(v) => void save({ lifeGoals: v })} placeholder="Add a goal" max={12} label="Add a life goal" />
       </Group>
-      <Group id="s-study" title="Study interests" footer="Saved for the Study Hub (Phase 3).">
-        <ChipEditor values={prefs.studyInterests} onChange={(v) => void save({ studyInterests: v })} placeholder="Add a subject" max={20} label="Add a study interest" />
-      </Group>
     </>
   )
 }
@@ -473,7 +470,7 @@ export function QuickAddPane({ prefs }: { prefs: Prefs }) {
 const PHASES = [
   { n: 1, label: "Foundation", items: "Dashboard, tasks, habits, My Day, focus, calendar, analytics, settings", done: true },
   { n: 2, label: "Personal growth", items: "Goals, life roadmap, projects, weekly reviews", done: false },
-  { n: 3, label: "Knowledge & learning", items: "Second brain, study hub, flashcards, spaced repetition", done: false },
+  { n: 3, label: "Knowledge", items: "Second brain: notes, backlinks, daily journal", done: false },
   { n: 4, label: "Finance & sync", items: "Finance tracker, accounts and cloud sync", done: false },
   { n: 5, label: "Polish", items: "Performance and deployment", done: false },
 ]

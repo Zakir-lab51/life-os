@@ -49,6 +49,7 @@ export function backupCounts(b: Backup) {
     focusSessions: b.data.focusSessions.length,
     blocks: b.data.blocks.length,
     reflections: b.data.reflections.length,
+    goals: b.data.goals.length,
   }
 }
 

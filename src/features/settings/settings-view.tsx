@@ -58,7 +58,6 @@ const SIDEBAR_GROUPS: PaneId[][] = [
 const SEARCH: { pane: PaneId; label: string; anchor?: string; keywords: string }[] = [
   { pane: "profile", label: "Name", anchor: "s-name", keywords: "profile you me" },
   { pane: "profile", label: "Life goals", anchor: "s-goals", keywords: "goals ambitions" },
-  { pane: "profile", label: "Study interests", anchor: "s-study", keywords: "subjects learning study" },
   { pane: "appearance", label: "Theme", anchor: "s-theme", keywords: "dark light auto system mode" },
   { pane: "appearance", label: "Reduce motion", anchor: "s-motion", keywords: "animation motion accessibility" },
   { pane: "appearance", label: "Looks", anchor: "s-looks", keywords: "preset violet ocean aurora ember rose mono accent colour color hue roundness size" },

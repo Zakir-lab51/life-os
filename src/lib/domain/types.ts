@@ -58,6 +58,8 @@ export interface Task {
   nextId?: ID | null
   /** Ids of tasks that must be finished first. */
   dependsOn: ID[]
+  /** The goal this task moves forward, if any. */
+  goalId?: ID | null
   /** Manual ordering for list and board views. */
   order: number
   completedAt: ISODateTime | null
@@ -166,6 +168,9 @@ export type ActivityType =
   | "plan.applied"
   | "achievement.unlocked"
   | "level.up"
+  | "goal.completed"
+  | "milestone.completed"
+  | "goal.logged"
 
 export interface ActivityEvent {
   id: ID
@@ -196,6 +201,67 @@ export interface AchievementUnlock {
   unlockedAt: ISODateTime
 }
 
+/* ── goals (Phase 2) ───────────────────────────────── */
+
+/** Goal time horizons, shortest first. A goal can serve a parent with a longer horizon. */
+export const GOAL_HORIZONS = ["week", "month", "quarter", "year", "five-year"] as const
+export type GoalHorizon = (typeof GOAL_HORIZONS)[number]
+export type GoalStatus = "active" | "done" | "archived"
+
+export interface Milestone {
+  id: ID
+  title: string
+  due: ISODate | null
+  doneAt: ISODateTime | null
+}
+
+/**
+ * How a goal's progress is measured:
+ * - milestones: share of milestones reached
+ * - tasks: share of linked tasks finished
+ * - target: a number you log, from `start` towards `target` (e.g. 0 → 24 books)
+ * - habit: check-ins of one habit since the goal started, out of `target`
+ */
+export type GoalMeasure =
+  | { kind: "milestones" }
+  | { kind: "tasks" }
+  | { kind: "target"; unit: string; start: number; target: number }
+  | { kind: "habit"; habitId: ID; target: number }
+
+export interface Goal {
+  id: ID
+  title: string
+  /** Why it matters; shown when you open the goal. */
+  why: string
+  horizon: GoalHorizon
+  area: Area
+  startDate: ISODate
+  dueDate: ISODate | null
+  measure: GoalMeasure
+  milestones: Milestone[]
+  /** Habits that support this goal (shown with it on the roadmap). */
+  habitIds: ID[]
+  /** The longer-horizon goal this one serves (Life Roadmap). */
+  parentId: ID | null
+  status: GoalStatus
+  completedAt: ISODateTime | null
+  order: number
+  createdAt: ISODateTime
+  updatedAt: ISODateTime
+  demo?: boolean
+}
+
+/** A logged value for a number-target goal; one per goal per day (`${goalId}:${date}`). */
+export interface GoalLog {
+  id: string
+  goalId: ID
+  date: ISODate
+  value: number
+  note: string
+  createdAt: ISODateTime
+  demo?: boolean
+}
+
 export interface RoutineItem {
   id: ID
   label: string
@@ -213,6 +279,7 @@ export const WIDGET_IDS = [
   "weekly",
   "xp",
   "insight",
+  "goals",
 ] as const
 export type WidgetId = (typeof WIDGET_IDS)[number]
 
@@ -226,7 +293,7 @@ export const RADAR_DIMS = [
 ] as const
 export type RadarDim = (typeof RADAR_DIMS)[number]
 
-export const QUICK_ACTIONS = ["task", "capture", "habit", "block", "focus", "plan", "reflection"] as const
+export const QUICK_ACTIONS = ["task", "capture", "habit", "goal", "block", "focus", "plan", "reflection"] as const
 export type QuickActionId = (typeof QUICK_ACTIONS)[number]
 
 export type ProductivityStyle = "classic" | "deep" | "flow" | "flexible"
@@ -250,11 +317,14 @@ export interface Prefs {
   widgets: { id: WidgetId; visible: boolean }[]
   radarDims: RadarDim[]
   quickActions: QuickActionId[]
+  /** Every quick action that existed when these prefs were last saved; ones added later start switched on, once. */
+  seenQuickActions?: QuickActionId[]
   notifications: { browser: boolean; reminders: boolean; focus: boolean; achievements: boolean }
   weeklyTargets: { tasks: number; focusMin: number; habitRate: number }
   lifeGoals: string[]
   productivityStyle: ProductivityStyle
   focusAreas: Area[]
+  /** No longer shown (the Study Hub was dropped); kept so older data and backups stay valid. */
   studyInterests: string[]
   currency: string
   motion: "system" | "reduced"

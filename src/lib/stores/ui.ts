@@ -3,7 +3,7 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import { safeStorage } from "./safe-storage"
-import type { HabitInput, TaskInput } from "@/lib/validation/schemas"
+import type { GoalInput, HabitInput, TaskInput } from "@/lib/validation/schemas"
 import type { ID, ISODate } from "@/lib/domain/types"
 
 export type TaskView = "list" | "board"
@@ -17,6 +17,9 @@ interface UIState {
   taskEditor: { open: boolean; taskId: ID | null; defaults: Partial<TaskInput> | null }
   habitEditor: { open: boolean; habitId: ID | null; defaults: Partial<HabitInput> | null }
   blockEditor: { open: boolean; blockId: ID | null; date: ISODate | null; start: number | null }
+  goalEditor: { open: boolean; goalId: ID | null; defaults: Partial<GoalInput> | null }
+  /** The goal shown in the goal detail sheet. */
+  openGoalId: ID | null
   planOpen: boolean
   reflectionOpen: boolean
   /** null = today */
@@ -34,6 +37,9 @@ interface UIState {
   closeHabitEditor: () => void
   openBlockEditor: (opts: { blockId?: ID | null; date?: ISODate | null; start?: number | null }) => void
   closeBlockEditor: () => void
+  openGoalEditor: (goalId?: ID | null, defaults?: Partial<GoalInput>) => void
+  closeGoalEditor: () => void
+  showGoal: (goalId: ID | null) => void
   setPlanOpen: (open: boolean) => void
   setReflectionOpen: (open: boolean) => void
   setPlannerDate: (date: ISODate | null) => void
@@ -51,6 +57,8 @@ export const useUI = create<UIState>()(
       taskEditor: { open: false, taskId: null, defaults: null },
       habitEditor: { open: false, habitId: null, defaults: null },
       blockEditor: { open: false, blockId: null, date: null, start: null },
+      goalEditor: { open: false, goalId: null, defaults: null },
+      openGoalId: null,
       planOpen: false,
       reflectionOpen: false,
       plannerDate: null,
@@ -67,6 +75,9 @@ export const useUI = create<UIState>()(
       closeHabitEditor: () => set((s) => ({ habitEditor: { ...s.habitEditor, open: false } })),
       openBlockEditor: ({ blockId = null, date = null, start = null }) => set({ blockEditor: { open: true, blockId, date, start }, paletteOpen: false }),
       closeBlockEditor: () => set((s) => ({ blockEditor: { ...s.blockEditor, open: false } })),
+      openGoalEditor: (goalId = null, defaults) => set({ goalEditor: { open: true, goalId, defaults: defaults ?? null }, paletteOpen: false }),
+      closeGoalEditor: () => set((s) => ({ goalEditor: { ...s.goalEditor, open: false } })),
+      showGoal: (goalId) => set({ openGoalId: goalId, paletteOpen: false }),
       setPlanOpen: (open) => set({ planOpen: open, paletteOpen: false }),
       setReflectionOpen: (open) => set({ reflectionOpen: open, paletteOpen: false }),
       setPlannerDate: (date) => set({ plannerDate: date }),

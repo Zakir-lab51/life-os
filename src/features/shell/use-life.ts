@@ -23,7 +23,7 @@ export function useLife(): Life | undefined {
 export function useXP(data: LifeData | undefined) {
   return useMemo(() => {
     if (!data) return undefined
-    const xp = computeXP({ tasks: data.tasks, habitLogs: data.habitLogs, sessions: data.sessions, reflections: data.reflections })
+    const xp = computeXP({ tasks: data.tasks, habitLogs: data.habitLogs, sessions: data.sessions, reflections: data.reflections, goals: data.goals })
     return { xp, level: levelFromXP(xp.total) }
   }, [data])
 }

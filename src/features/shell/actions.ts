@@ -1,6 +1,6 @@
 "use client"
 
-import { CalendarPlus, NotebookPen, Plus, Repeat, Timer, WandSparkles, Zap, type LucideIcon } from "lucide-react"
+import { CalendarPlus, NotebookPen, Plus, Repeat, Target, Timer, WandSparkles, Zap, type LucideIcon } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useTheme } from "next-themes"
 import { useCallback } from "react"
@@ -17,6 +17,7 @@ export const QUICK_ACTION_META: Record<QuickActionId, { label: string; descripti
   task: { label: "New task", description: "Full task editor", icon: Plus, keys: "N" },
   capture: { label: "Quick capture", description: "Type it, tag it, done", icon: Zap, keys: "Q" },
   habit: { label: "New habit", description: "Start tracking a habit", icon: Repeat },
+  goal: { label: "New goal", description: "Set a goal and its milestones", icon: Target },
   block: { label: "Time block", description: "Add to today's timeline", icon: CalendarPlus },
   focus: { label: "Start focus", description: "Begin a focus session", icon: Timer },
   plan: { label: "Plan my day", description: "Suggest a schedule for free time", icon: WandSparkles },
@@ -41,6 +42,9 @@ export function useActions() {
           break
         case "habit":
           ui.openHabitEditor(null)
+          break
+        case "goal":
+          ui.openGoalEditor(null)
           break
         case "block":
           ui.openBlockEditor({ date: ui.plannerDate ?? todayISO() })
