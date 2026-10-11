@@ -21,6 +21,7 @@ import { CommandPalette } from "./command-palette"
 import { FocusEngine, ProgressWatcher, ReminderEngine } from "./engines"
 import { GlassPointer } from "./glass-pointer"
 import { OfflineSupport } from "./offline"
+import { QualityMonitor } from "./quality-monitor"
 import { QuickCapture } from "./quick-capture"
 import { Backdrop } from "./refraction"
 import { ShortcutsDialog, useGlobalShortcuts } from "./shortcuts"
@@ -68,6 +69,7 @@ function Shell({ children }: { children: ReactNode }) {
       <Aurora />
       <Backdrop liquid={prefs?.design.material === "liquid"} photo={prefs?.design.photo ?? "none"} hue={prefs?.design.hue ?? 0} saturation={prefs?.design.saturation ?? 1} />
       <GlassPointer />
+      <QualityMonitor />
       <SmoothScroll reduced={prefs?.motion === "reduced"} />
       <OfflineSupport />
       <div className="flex min-h-dvh">

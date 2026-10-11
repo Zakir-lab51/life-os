@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { PHOTOS, type PhotoId } from "@/lib/design/design"
 import { bezelFor, lensShift, maxLensShift } from "@/lib/design/lens"
+import { QUALITY, useQuality } from "@/lib/design/quality"
 import { CanvasRefraction } from "./canvas-refraction"
 
 /*
@@ -20,10 +21,18 @@ import { CanvasRefraction } from "./canvas-refraction"
   canvas-refraction.tsx instead, which bends the background (photo or animated scene)
   itself as it draws it. The animated scene is drawn by that canvas in every browser.
   localStorage "life-os.refraction" = "svg" or "webgl" forces one or the other.
+
+  Cost: re-filtering a bent surface is the most expensive thing on screen (measured: it
+  halved the frame rate while scrolling a page of tiles). So tiles in the page bend only
+  while the page is at rest: scrolling straightens them and the bend eases back in once
+  it stops. The sidebar, top bar and dialogs don't move with the page and always bend.
+  How much bends at all follows the rendering quality level (lib/design/quality.ts).
 */
 
 const MAP_MAX = 512 // maps are drawn at most this big and stretched to fit
 const DISPERSION = 0.09 // red bends this much less than green, blue this much more
+const SCROLL_IDLE = 140 // ms without scroll events that counts as stopped
+const BEND_IN = 450 // ms for tiles' bend to ease back in after scrolling
 
 interface Lens {
   id: string
@@ -32,6 +41,8 @@ interface Lens {
   href: string
   scale: number
   dispersive: boolean
+  /** A tile in the page (bends only at rest), not the sidebar, top bar or a dialog. */
+  tile: boolean
 }
 
 const supported = () => typeof navigator !== "undefined" && /\bChrome\//.test(navigator.userAgent)
@@ -52,12 +63,13 @@ function refractionMode(): "svg" | "webgl" {
  */
 export function Backdrop({ liquid, photo, hue, saturation }: { liquid: boolean; photo: PhotoId; hue: number; saturation: number }) {
   const [mode] = useState(refractionMode)
+  const quality = QUALITY[useQuality((s) => s.level)]
   const canvasBends = liquid && mode === "webgl"
   const canvas = !!PHOTOS[photo]?.scene || (canvasBends && photo !== "none")
   return (
     <>
-      {canvas && <CanvasRefraction photo={photo} refract={canvasBends} hue={hue} saturation={saturation} />}
-      {mode === "svg" && <SvgRefraction enabled={liquid} />}
+      {canvas && <CanvasRefraction photo={photo} refract={canvasBends} hue={hue} saturation={saturation} quality={quality} />}
+      {mode === "svg" && <SvgRefraction enabled={liquid && (quality.tilesBend || quality.chromeBends)} tilesBend={quality.tilesBend} chromeBends={quality.chromeBends} />}
     </>
   )
 }
@@ -138,10 +150,15 @@ const CHANNEL = {
   b: "0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0",
 }
 
-function SvgRefraction({ enabled }: { enabled: boolean }) {
+const easeOut = (t: number) => 1 - Math.pow(1 - t, 3)
+
+function SvgRefraction({ enabled, tilesBend, chromeBends }: { enabled: boolean; tilesBend: boolean; chromeBends: boolean }) {
   const [lenses, setLenses] = useState<Lens[]>([])
   // surfaces waiting to be pointed at their filter once it is in the document
   const pending = useRef(new Map<HTMLElement, string>())
+  // what may bend right now, read by the long-lived effect below
+  const allow = useRef({ tilesBend, chromeBends })
+  const reapply = useRef<() => void>(() => {})
 
   useEffect(() => {
     if (!enabled) return
@@ -149,10 +166,59 @@ function SvgRefraction({ enabled }: { enabled: boolean }) {
     const cache = new Map<string, Lens>()
     const maps = new Map<string, { href: string; scale: number }>()
     const lensOf = new Map<HTMLElement, string>()
+    const tiles = new WeakMap<HTMLElement, boolean>()
     const watched = new Set<HTMLElement>()
     const dirty = new Set<HTMLElement>()
     let timer: ReturnType<typeof setTimeout> | undefined
+    let idleTimer: ReturnType<typeof setTimeout> | undefined
     let scanQueued = false
+    let scrolling = false
+    let fade = 0
+
+    const isTile = (el: HTMLElement) => {
+      let tile = tiles.get(el)
+      if (tile === undefined) {
+        tile = !!el.closest("main")
+        tiles.set(el, tile)
+      }
+      return tile
+    }
+    const mayBend = (el: HTMLElement) => (isTile(el) ? allow.current.tilesBend && !scrolling : allow.current.chromeBends)
+    const apply = (el: HTMLElement, key: string) => {
+      if (mayBend(el)) el.style.setProperty("--refract", `url(#lg-${key})`)
+      else el.style.removeProperty("--refract")
+    }
+    const applyAll = () => {
+      for (const [el, key] of lensOf) if (el.isConnected && !waiting.has(el)) apply(el, key)
+    }
+
+    /** Eases the tiles' bend back in, by growing their filters' displacement from nothing. */
+    const bendIn = () => {
+      cancelAnimationFrame(fade)
+      const maps = [...document.querySelectorAll<SVGFEDisplacementMapElement>('filter[data-tile="true"] feDisplacementMap')]
+      const start = performance.now()
+      const step = (now: number) => {
+        const t = Math.min(1, (now - start) / BEND_IN)
+        for (const m of maps) m.setAttribute("scale", String(Number(m.dataset.base) * easeOut(t)))
+        if (t < 1 && !scrolling) fade = requestAnimationFrame(step)
+      }
+      fade = requestAnimationFrame(step)
+    }
+
+    const scrolled = () => {
+      if (!allow.current.tilesBend) return
+      if (!scrolling) {
+        scrolling = true
+        cancelAnimationFrame(fade)
+        for (const [el, key] of lensOf) if (isTile(el)) apply(el, key)
+      }
+      clearTimeout(idleTimer)
+      idleTimer = setTimeout(() => {
+        scrolling = false
+        for (const [el, key] of lensOf) if (isTile(el)) apply(el, key)
+        bendIn()
+      }, SCROLL_IDLE)
+    }
 
     const flush = () => {
       for (const el of dirty) {
@@ -162,17 +228,19 @@ function SvgRefraction({ enabled }: { enabled: boolean }) {
         if (w < 8 || h < 8) continue
         const radius = cornerRadius(el)
         const dispersive = el.dataset.lens === "dispersive"
+        const tile = isTile(el)
         const shape = `${w}x${h}r${radius}`
-        const key = `${dispersive ? "d" : "n"}${shape}`
+        // tiles get their own filters, so easing their bend in leaves the rest alone
+        const key = `${tile ? "t" : "c"}${dispersive ? "d" : "n"}${shape}`
         if (!maps.has(shape)) maps.set(shape, drawMap(w, h, radius))
-        if (!cache.has(key)) cache.set(key, { id: `lg-${key}`, w, h, ...maps.get(shape)!, dispersive })
+        if (!cache.has(key)) cache.set(key, { id: `lg-${key}`, w, h, ...maps.get(shape)!, dispersive, tile })
         lensOf.set(el, key)
         waiting.set(el, key)
       }
       dirty.clear()
       const used = new Set(lensOf.values())
       for (const key of cache.keys()) if (!used.has(key)) cache.delete(key)
-      for (const shape of maps.keys()) if (!used.has(`n${shape}`) && !used.has(`d${shape}`)) maps.delete(shape)
+      for (const shape of maps.keys()) if (![...used].some((k) => k.slice(2) === shape)) maps.delete(shape)
       setLenses([...cache.values()])
     }
     const resized = (el: HTMLElement) => {
@@ -202,17 +270,33 @@ function SvgRefraction({ enabled }: { enabled: boolean }) {
     })
     scan()
     mo.observe(document.body, { childList: true, subtree: true })
+    document.addEventListener("scroll", scrolled, { capture: true, passive: true })
+    reapply.current = applyAll
     return () => {
       ro.disconnect()
       mo.disconnect()
       clearTimeout(timer)
+      clearTimeout(idleTimer)
+      cancelAnimationFrame(fade)
+      document.removeEventListener("scroll", scrolled, { capture: true })
+      reapply.current = () => {}
       waiting.clear()
       for (const el of watched) el.style.removeProperty("--refract")
     }
   }, [enabled])
 
+  // a new quality level changes what may bend
   useEffect(() => {
-    for (const [el, key] of pending.current) el.style.setProperty("--refract", `url(#lg-${key})`)
+    allow.current = { tilesBend, chromeBends }
+    reapply.current()
+  }, [tilesBend, chromeBends])
+
+  useEffect(() => {
+    for (const [el, key] of pending.current) {
+      const tile = !!el.closest("main")
+      if (tile ? allow.current.tilesBend : allow.current.chromeBends) el.style.setProperty("--refract", `url(#lg-${key})`)
+      else el.style.removeProperty("--refract")
+    }
     pending.current.clear()
   }, [lenses])
 
@@ -220,7 +304,7 @@ function SvgRefraction({ enabled }: { enabled: boolean }) {
   return (
     <svg aria-hidden width="0" height="0" style={{ position: "absolute" }}>
       {lenses.map((l) => (
-        <filter key={l.id} id={l.id} x="0" y="0" width={l.w} height={l.h} filterUnits="userSpaceOnUse" primitiveUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
+        <filter key={l.id} id={l.id} data-tile={l.tile} x="0" y="0" width={l.w} height={l.h} filterUnits="userSpaceOnUse" primitiveUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
           <feImage href={l.href} x="0" y="0" width={l.w} height={l.h} preserveAspectRatio="none" result="map" />
           {l.dispersive ? (
             <>
@@ -235,7 +319,7 @@ function SvgRefraction({ enabled }: { enabled: boolean }) {
               <feBlend in="rg" in2="blue" mode="screen" />
             </>
           ) : (
-            <feDisplacementMap in="SourceGraphic" in2="map" scale={l.scale} xChannelSelector="R" yChannelSelector="G" />
+            <feDisplacementMap in="SourceGraphic" in2="map" scale={l.scale} data-base={l.scale} xChannelSelector="R" yChannelSelector="G" />
           )}
         </filter>
       ))}

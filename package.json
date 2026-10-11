@@ -41,12 +41,14 @@
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "^4",
+    "@testing-library/react": "^16.3.3",
     "@types/node": "^24.19.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.4.0",
     "fake-indexeddb": "^6.2.5",
+    "happy-dom": "^20.14.6",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^5.0.3"

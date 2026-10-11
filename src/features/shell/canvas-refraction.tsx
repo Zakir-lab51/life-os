@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react"
 import { PHOTOS, asset, type PhotoId } from "@/lib/design/design"
 import { GLASS_IOR, bezelFor } from "@/lib/design/lens"
+import type { QualityProfile } from "@/lib/design/quality"
 import { FLOW_GLSL, flowPalette } from "@/lib/design/scene"
 
 /*
@@ -22,15 +23,16 @@ import { FLOW_GLSL, flowPalette } from "@/lib/design/scene"
   Instead, tiles in the page let go of their bend while you scroll (in about a tenth
   of a second) and it flows back once scrolling stops; the sidebar, top bar and dialogs
   don't move with the page, so they keep bending throughout. A photo is redrawn only
-  while glass moves; the flow animates continuously at up to 60 frames a second,
-  holding still when motion is reduced and pausing with the tab.
+  while glass moves; the flow animates at the rendering quality's frame rate (30 fps:
+  it drifts slowly, and every new frame makes all the glass above it re-blur), holding
+  still when motion is reduced, while a dialog or menu is open, and with the tab hidden.
+  What bends at all follows the quality level too (lib/design/quality.ts).
 */
 
 const MOST_SURFACES = 64 // glass surfaces handled at once, if the GPU allows (see surfaceLimit)
 const FADE_OUT = 120 // ms for tiles to let go of their bend when scrolling starts
 const FADE_IN = 480 // ms for it to flow back once scrolling stops
 const SCROLL_IDLE = 140 // ms without scroll events that counts as stopped
-const FRAME_MS = 1000 / 61 // the flow's frame budget (60 fps, even on 120 Hz screens)
 const STILL_TIME = 37 // s: where the flow rests when motion is reduced
 
 const VERT = "attribute vec2 a; void main() { gl_Position = vec4(a, 0.0, 1.0); }"
@@ -115,8 +117,10 @@ const surfaceLimit = (gl: WebGLRenderingContext) => {
   return Math.max(8, Math.min(MOST_SURFACES, Math.floor((vectors - 20) / 2)))
 }
 
-export function CanvasRefraction({ photo, refract, hue, saturation }: { photo: PhotoId; refract: boolean; hue: number; saturation: number }) {
+export function CanvasRefraction({ photo, refract, hue, saturation, quality }: { photo: PhotoId; refract: boolean; hue: number; saturation: number; quality: QualityProfile }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  // the quality level changes what bends and how fast the flow moves, without a restart
+  const level = useRef(quality)
   // the flow's colours follow the accent without restarting the renderer
   const colour = useRef({ hue, saturation, changed: true })
   const redraw = useRef<() => void>(() => {})
@@ -124,6 +128,10 @@ export function CanvasRefraction({ photo, refract, hue, saturation }: { photo: P
     colour.current = { hue, saturation, changed: true }
     redraw.current()
   }, [hue, saturation])
+  useEffect(() => {
+    level.current = quality
+    redraw.current()
+  }, [quality])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -195,7 +203,7 @@ export function CanvasRefraction({ photo, refract, hue, saturation }: { photo: P
     let scrolling = false
     let idleTimer: ReturnType<typeof setTimeout> | undefined
 
-    const animating = () => flow && root.dataset.motion !== "reduced" && !reducedQuery.matches
+    const animating = () => flow && level.current.flowFps > 0 && root.dataset.motion !== "reduced" && !reducedQuery.matches && !document.body.hasAttribute("data-scroll-locked")
 
     const collect = () => {
       let n = 0
@@ -209,7 +217,7 @@ export function CanvasRefraction({ photo, refract, hue, saturation }: { photo: P
           inPage.set(el, tile)
         }
         // a tile that has let go of its bend isn't drawn, so its movement needs no redraw
-        if (tile && tileBend === 0) continue
+        if (tile ? !level.current.tilesBend || tileBend === 0 : !level.current.chromeBends) continue
         const r = el.getBoundingClientRect()
         if (r.width < 8 || r.height < 8 || r.bottom < 0 || r.right < 0 || r.top > innerHeight || r.left > innerWidth) continue
         if (el.checkVisibility && !el.checkVisibility({ visibilityProperty: true })) continue
@@ -272,7 +280,7 @@ export function CanvasRefraction({ photo, refract, hue, saturation }: { photo: P
       raf = 0
       if (!ready || disposed) return
       const moving = animating()
-      if (moving && now - lastFrame < FRAME_MS) {
+      if (moving && now - lastFrame < 1000 / (level.current.flowFps + 1)) {
         raf = requestAnimationFrame(tick)
         return
       }
@@ -357,6 +365,9 @@ export function CanvasRefraction({ photo, refract, hue, saturation }: { photo: P
     if (refract) mo.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "style", "data-state"] })
     const rootMo = new MutationObserver(rootChanged)
     rootMo.observe(root, { attributes: true, attributeFilter: ["class", "data-motion"] })
+    // the flow pauses while a dialog or menu holds the page; this wakes it after
+    const lockMo = new MutationObserver(kick)
+    lockMo.observe(document.body, { attributes: true, attributeFilter: ["data-scroll-locked"] })
     reducedQuery.addEventListener("change", kick)
     document.addEventListener("scroll", scrolled, { capture: true, passive: true })
     window.addEventListener("resize", resized)
@@ -374,6 +385,7 @@ export function CanvasRefraction({ photo, refract, hue, saturation }: { photo: P
       clearTimeout(idleTimer)
       mo.disconnect()
       rootMo.disconnect()
+      lockMo.disconnect()
       reducedQuery.removeEventListener("change", kick)
       document.removeEventListener("scroll", scrolled, { capture: true })
       window.removeEventListener("resize", resized)
