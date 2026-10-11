@@ -1,6 +1,6 @@
 "use client"
 
-import { AlarmClock, ArrowDown, ArrowUp, Check, Keyboard, Plus, Timer, Trash2, Trophy, User } from "lucide-react"
+import { AlarmClock, ArrowDown, ArrowUp, Check, Keyboard, Plus, Timer, Trash2, Trophy } from "lucide-react"
 import { useTheme } from "next-themes"
 import { useState } from "react"
 import { toast } from "sonner"
@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { Segmented } from "@/components/os/field"
 import { HatchBar } from "@/components/os/visuals"
+import { ProfileAvatar } from "@/components/os/profile-avatar"
 import { FOCUS_STYLES } from "@/lib/db/defaults"
 import { updatePrefs, ValidationError } from "@/lib/db/repo"
 import { RADAR_META } from "@/lib/domain/areas"
@@ -44,19 +45,6 @@ const minutes = (m: number) => {
 
 /* ── Profile ─────────────────────────────────────────────── */
 
-export function Avatar({ name, size = "md" }: { name: string; size?: "md" | "lg" }) {
-  const initial = name.trim().charAt(0).toUpperCase()
-  return (
-    <span
-      aria-hidden
-      className={cn("grid shrink-0 place-items-center rounded-full font-semibold text-white shadow-[inset_0_1px_0_oklch(1_0_0/0.35),0_2px_8px_-2px_oklch(0_0_0/0.3)]", size === "md" ? "size-10 text-base" : "size-16 text-2xl")}
-      style={{ background: "linear-gradient(145deg, color-mix(in oklch, var(--violet) 70%, white), var(--violet))" }}
-    >
-      {initial || <User className="size-[55%]" strokeWidth={2.2} />}
-    </span>
-  )
-}
-
 export function ProfilePane({ prefs }: { prefs: Prefs }) {
   const life = useLife()
   const xp = useXP(life?.data)
@@ -68,7 +56,7 @@ export function ProfilePane({ prefs }: { prefs: Prefs }) {
   return (
     <>
       <div className="flex items-center gap-4 rounded-[calc(var(--radius)*1.15)] bg-surface-2/60 p-4 ring-1 ring-line">
-        <Avatar name={prefs.name} size="lg" />
+        <ProfileAvatar name={prefs.name} size="lg" />
         <div className="min-w-0 flex-1">
           <p className="truncate text-lg font-semibold tracking-tight">{prefs.name || "Your profile"}</p>
           {xp && (

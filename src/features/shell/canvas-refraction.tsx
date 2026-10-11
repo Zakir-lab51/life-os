@@ -19,10 +19,9 @@ import { FLOW_GLSL, flowPalette } from "@/lib/design/scene"
 
   Scrolling: the canvas is redrawn from JavaScript, which can't keep pace with the
   browser's own scrolling, so a bend drawn under a moving tile would trail behind it.
-  Instead, tiles in the page (and in the sidebar's list, which can scroll too) let go
-  of their bend while you scroll (in about a tenth of a second) and it flows back once
-  scrolling stops; the top bar, the logo and dialogs don't move, so they keep bending
-  throughout. A photo is redrawn only
+  Instead, tiles in the page let go of their bend while you scroll (in about a tenth
+  of a second) and it flows back once scrolling stops; the sidebar, top bar and dialogs
+  don't move with the page, so they keep bending throughout. A photo is redrawn only
   while glass moves; the flow animates continuously at up to 60 frames a second,
   holding still when motion is reduced and pausing with the tab.
 */
@@ -206,7 +205,7 @@ export function CanvasRefraction({ photo, refract, hue, saturation }: { photo: P
         if (n >= MAX) break
         let tile = inPage.get(el)
         if (tile === undefined) {
-          tile = !!el.closest("main, [data-scroll-tiles]")
+          tile = !!el.closest("main")
           inPage.set(el, tile)
         }
         // a tile that has let go of its bend isn't drawn, so its movement needs no redraw

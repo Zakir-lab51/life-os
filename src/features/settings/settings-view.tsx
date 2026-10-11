@@ -6,13 +6,14 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { PageHeader, PageTransition } from "@/components/os/page-header"
 import { Panel } from "@/components/os/panel"
+import { ProfileAvatar } from "@/components/os/profile-avatar"
 import { usePrefs } from "@/lib/db/hooks"
 import type { Prefs } from "@/lib/domain/types"
 import { SPRING_SNAPPY } from "@/lib/motion"
 import { cn } from "@/lib/utils"
 import { useLife, useXP } from "@/features/shell/use-life"
 import { DataPane } from "./data-pane"
-import { AboutPane, AppearancePane, Avatar, DashboardPane, FocusPane, NotificationsPane, ProfilePane, QuickAddPane, RoutinesPane, SchedulePane, TargetsPane } from "./panes"
+import { AboutPane, AppearancePane, DashboardPane, FocusPane, NotificationsPane, ProfilePane, QuickAddPane, RoutinesPane, SchedulePane, TargetsPane } from "./panes"
 import { IconTile } from "./settings-ui"
 
 /*
@@ -257,7 +258,7 @@ export function SettingsView() {
             ) : (
               <motion.nav key="list" aria-label="Settings categories" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={SPRING_SNAPPY} className="space-y-3">
                 <SidebarItem active={pane === "profile" || (!pane && "wide")} onSelect={() => open("profile")}>
-                  <Avatar name={prefs.name} />
+                  <ProfileAvatar name={prefs.name} />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[0.95rem] font-semibold">{prefs.name || "Your profile"}</span>
                     <span className={cn("block truncate text-xs font-normal", pane === "profile" ? "text-pill-foreground/75" : cn("text-muted-foreground", !pane && "@3xl/main:text-pill-foreground/75"))}>{xp ? `Level ${xp.level.level} · ${xp.level.title}` : "Profile"}</span>

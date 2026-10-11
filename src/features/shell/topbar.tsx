@@ -308,9 +308,9 @@ export function Topbar() {
         <ProfileMenu />
       </div>
       <Sheet open={mobileOpen} onOpenChange={setMobileNav}>
-        <SheetContent side="left" className="w-[290px] border-0 bg-transparent p-3 pt-[max(0.75rem,env(safe-area-inset-top))] shadow-none [backdrop-filter:none] data-[side=left]:border-r-0">
+        <SheetContent side="left" className="glass w-[290px] rounded-r-panel border-line p-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
           <SheetTitle className="sr-only">Navigation</SheetTitle>
-          <SidebarContent onNavigate={() => setMobileNav(false)} />
+          <SidebarContent drawer onNavigate={() => setMobileNav(false)} />
         </SheetContent>
       </Sheet>
     </header>

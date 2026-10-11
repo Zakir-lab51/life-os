@@ -5,10 +5,10 @@ import { useEffect } from "react"
 /*
   Moves a soft light across whichever glass surface the pointer is over, like
   visionOS: the glass utility in globals.css draws a radial highlight at
-  (--mx, --my) that fades in on hover. One listener for the whole app, updated at
-  most once a frame. On touch screens the glass lights up where a finger rests
-  instead (data-lit), and fades as it lifts; a touch that turns into a scroll
-  within a moment doesn't light anything, so scrolling stays calm.
+  (--mx, --my) that fades in on hover. One listener for the
+  whole app, updated at most once a frame. On touch screens the glass lights up
+  where a finger rests instead (data-lit), and fades as it lifts; a touch that turns
+  into a scroll within a moment doesn't light anything, so scrolling stays calm.
 */
 const TOUCH_DELAY = 70 // ms a finger must rest before the glass lights
 
