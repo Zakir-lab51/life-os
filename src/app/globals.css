@@ -1,26 +1,541 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:is(.dark *));
+
+/*
+  LIFE OS design tokens.
+  Dark is the primary theme: near-black canvas, charcoal glass surfaces,
+  lavender-violet as the signature accent, cyan and soft blue as supporting
+  accents. The light theme keeps the same roles.
+*/
 
 @theme inline {
+  --font-sans: var(--font-ui);
+  --font-heading: var(--font-ui);
+  --font-mono: var(--font-geist-mono);
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-pill: var(--pill);
+  --color-pill-foreground: var(--pill-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  /* LIFE OS surfaces and accents */
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--line);
+  --color-violet: var(--violet);
+  --color-lilac: var(--lilac);
+  --color-cyan: var(--cyan);
+  --color-blue: var(--blue);
+  --color-mint: var(--mint);
+  --color-amber: var(--amber);
+  --color-rose: var(--rose);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+  /* LIFE OS shapes, all scaled from --radius */
+  --radius-panel: calc(var(--radius) * 1.75);
+  --radius-dialog: calc(var(--radius) * 1.625);
+  --radius-hero: calc(var(--radius) * 2);
+  /* pills at the default roundness, proportionally rounded below ~0.85rem */
+  --radius-control: max(calc(var(--radius) * 0.6), calc((var(--radius) - 0.85rem) * 9999));
+
+  --animate-aurora: aurora 18s ease-in-out infinite alternate;
+  --animate-breathe: breathe 4.5s ease-in-out infinite;
+
+  @keyframes aurora {
+    0% { transform: translate3d(0, 0, 0) scale(1); }
+    100% { transform: translate3d(3%, -2%, 0) scale(1.08); }
+  }
+  @keyframes breathe {
+    0%, 100% { opacity: 0.55; transform: scale(1); }
+    50% { opacity: 0.9; transform: scale(1.04); }
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/*
+  ── DESIGN CONTROLS ─────────────────────────────────────────────
+  The whole look derives from these eight values: every colour, corner,
+  surface and glow is calculated from them, so restyling never means
+  editing components. Settings → Appearance (the Design studio) overrides
+  them live per browser. These are the defaults; keep them in step with
+  PRESETS.violet in src/lib/design/design.ts (tests/design.test.ts checks).
+    --brand-h      accent hue, 0–360 (303 = violet, 220 = blue, 40 = amber…)
+    --brand-c      accent saturation multiplier (0 = greyscale, 1 = default)
+    --radius       corner roundness (0 = sharp; panels, dialogs and buttons scale from it)
+    --glass-blur   blur behind glass surfaces
+    --glass-alpha  glass opacity (100% = solid, lower = more see-through)
+    --glass-sheen  liquid-glass gloss and edge light (0 = frosted, 1 = liquid)
+    --glass-saturate  colour boost of whatever shows through the glass
+    --glow         background glow strength (0 = off)
+    --ui-scale     overall size of text and spacing
+    --font-ui      interface font
+    --bg-image     background photo (and --bg-image-sm, a lighter copy for phones)
+    --bg-dim       how much the page colour veils the photo (0 = clear)
+    --bg-blur      photo blur
+*/
+:root {
+  --brand-h: 303;
+  --brand-c: 1;
+  --radius: 1rem;
+  --glass-blur: 12px;
+  --glass-alpha: 28%;
+  --glass-sheen: 1;
+  --glass-saturate: 200%;
+  --glow: 1;
+  --ui-scale: 1;
+  --font-ui: var(--font-jakarta);
+  --bg-image: url("/backgrounds/mountains.webp");
+  --bg-image-sm: url("/backgrounds/mountains-sm.webp");
+  --bg-dim: 0.5;
+  --bg-blur: 0px;
+
+  /* neutrals carry a faint tint of the accent hue (none in greyscale) */
+  --tint: calc(0.012 * min(var(--brand-c), 1));
+}
+
+/*
+  ── MOTION ──────────────────────────────────────────────────────
+  Springs instead of fixed curves, like Apple's interfaces. The two linear() curves
+  trace a real damped spring (smooth: 2% overshoot; bouncy: 9.5%); src/lib/motion.ts
+  has the matching springs for animated components.
+*/
+:root {
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-spring: linear(0, 0.0411 3.8%, 0.1394 7.7%, 0.2653 11.5%, 0.3988 15.4%, 0.5266 19.2%, 0.6413 23.1%, 0.7392 26.9%, 0.8193 30.8%, 0.8823 34.6%, 0.9301 38.5%, 0.9648 42.3%, 0.9888 46.2%, 1.0045 50%, 1.0138 53.8%, 1.0184 57.7%, 1.0199 61.5%, 1.0193 65.4%, 1.0175 69.2%, 1.015 73.1%, 1.0123 76.9%, 1.0098 80.8%, 1.0074 84.6%, 1.0054 88.5%, 1.0038 92.3%, 1.0025 96.2%, 1);
+  --ease-spring-bouncy: linear(0, 0.0629 3.8%, 0.2121 7.7%, 0.3982 11.5%, 0.5859 15.4%, 0.7526 19.2%, 0.8867 23.1%, 0.9844 26.9%, 1.0479 30.8%, 1.0823 34.6%, 1.0944 38.5%, 1.091 42.3%, 1.0782 46.2%, 1.061 50%, 1.0431 53.8%, 1.0267 57.7%, 1.0133 61.5%, 1.0032 65.4%, 0.9965 69.2%, 0.9927 73.1%, 0.9912 76.9%, 0.9912 80.8%, 0.9923 84.6%, 0.9938 88.5%, 0.9956 92.3%, 0.9971 96.2%, 1);
+}
+
+:root {
+  --background: oklch(0.975 calc(var(--tint) * 0.35) var(--brand-h));
+  --foreground: oklch(0.2 var(--tint) var(--brand-h));
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.2 var(--tint) var(--brand-h));
+  --popover: oklch(1 0 0 / calc(1 - var(--glass-sheen) * 0.22));
+  --popover-foreground: oklch(0.2 var(--tint) var(--brand-h));
+  --primary: var(--violet);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.95 calc(var(--tint) * 0.5) var(--brand-h));
+  --secondary-foreground: oklch(0.25 var(--tint) var(--brand-h));
+  --muted: oklch(0.95 calc(var(--tint) * 0.5) var(--brand-h));
+  --muted-foreground: oklch(0.5 calc(var(--tint) * 1.15) var(--brand-h));
+  --accent: oklch(0.94 calc(0.02 * var(--brand-c)) var(--brand-h));
+  --accent-foreground: oklch(0.3 calc(0.06 * var(--brand-c)) var(--brand-h));
+  --destructive: oklch(0.58 0.22 22);
+  --border: oklch(0.2 calc(var(--tint) * 1.6) var(--brand-h) / 9%);
+  --input: oklch(0.2 calc(var(--tint) * 1.6) var(--brand-h) / 12%);
+  --ring: oklch(0.55 calc(0.21 * var(--brand-c)) var(--brand-h) / 60%);
+
+  --surface: oklch(1 0 0 / var(--glass-alpha));
+  --surface-2: oklch(0.965 calc(var(--tint) * 0.4) var(--brand-h));
+  --surface-3: oklch(0.94 calc(var(--tint) * 0.65) var(--brand-h));
+  --line: oklch(0.2 calc(var(--tint) * 1.6) var(--brand-h) / 8%);
+  --hatch: oklch(0.2 calc(var(--tint) * 1.6) var(--brand-h) / 10%);
+  /* "violet" is the brand accent token; it follows --brand-h */
+  --violet: oklch(0.55 calc(0.21 * var(--brand-c)) var(--brand-h));
+  --lilac: oklch(0.78 calc(0.08 * var(--brand-c)) calc(var(--brand-h) + 2));
+  --cyan: oklch(0.62 0.12 210);
+  --blue: oklch(0.56 0.16 262);
+  --mint: oklch(0.6 0.13 160);
+  --amber: oklch(0.7 0.15 70);
+  --rose: oklch(0.6 0.19 15);
+
+  --chart-1: var(--violet);
+  --chart-2: var(--cyan);
+  --chart-3: var(--blue);
+  --chart-4: var(--lilac);
+  --chart-5: oklch(0.7 0.01 286);
+
+  --sidebar: oklch(1 0 0 / calc(var(--glass-alpha) - 10%));
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--surface-3);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--line);
+  --sidebar-ring: var(--ring);
+
+  --aurora-1: oklch(0.75 calc(0.14 * var(--brand-c)) var(--brand-h) / calc(0.22 * var(--glow)));
+  --aurora-2: oklch(0.8 0.1 210 / calc(0.16 * var(--glow)));
+
+  /* Life-area series colours. Validated as a categorical set (scripts/validate_palette.js)
+     in this order: work, health, personal, mind, study, finance. Keep that order in charts.
+     They are deliberately NOT tied to the brand hue. */
+  --area-work: #2a78d6;
+  --area-health: #1baf7a;
+  --area-personal: #eda100;
+  --area-mind: #e87ba4;
+  --area-study: #4a3aa7;
+  --area-finance: #eb6834;
+
+  /* Liquid glass, scaled by --glass-sheen (0 = frosted): the glossy rim on each edge,
+     the light caught inside it, the shade where the glass bends, gloss, shadow and how
+     much brighter the scene looks through the glass. */
+  --rim-top: 1;
+  --rim-bottom: 0.9;
+  --rim-side: 0.75;
+  --rim-glow: 0.6;
+  --rim-shade: 0.08;
+  --rim-border: 0.55;
+  --sheen-top: 0.14;
+  --sheen-low: 0.1;
+  --sheen-drop: 0.22;
+  --sheen-brighten: 0.06;
+  --sheen-hover: 0.24;
+
+  /* the navigation highlighter: smoky glass with white content */
+  --pill: oklch(0.25 calc(var(--tint) * 2) var(--brand-h) / 0.6);
+  --pill-foreground: oklch(0.99 0 0);
+}
+
+.dark {
+  --background: oklch(0.135 calc(var(--tint) * 0.5) var(--brand-h));
+  --foreground: oklch(0.96 calc(var(--tint) * 0.35) var(--brand-h));
+  --card: oklch(0.185 calc(var(--tint) * 0.58) var(--brand-h));
+  --card-foreground: oklch(0.96 calc(var(--tint) * 0.35) var(--brand-h));
+  --popover: oklch(0.2 calc(var(--tint) * 0.65) var(--brand-h) / calc(1 - var(--glass-sheen) * 0.18));
+  --popover-foreground: oklch(0.96 calc(var(--tint) * 0.35) var(--brand-h));
+  --primary-foreground: oklch(0.17 calc(0.03 * var(--brand-c)) var(--brand-h));
+  --secondary: oklch(0.24 calc(var(--tint) * 0.65) var(--brand-h));
+  --secondary-foreground: oklch(0.96 calc(var(--tint) * 0.35) var(--brand-h));
+  --muted: oklch(0.24 calc(var(--tint) * 0.65) var(--brand-h));
+  --muted-foreground: oklch(0.68 var(--tint) var(--brand-h));
+  --accent: oklch(0.27 calc(0.03 * var(--brand-c)) var(--brand-h));
+  --accent-foreground: oklch(0.92 calc(0.04 * var(--brand-c)) var(--brand-h));
+  --destructive: oklch(0.68 0.19 22);
+  --border: oklch(1 0 0 / 8%);
+  --input: oklch(1 0 0 / 11%);
+  --ring: oklch(0.76 calc(0.15 * var(--brand-c)) var(--brand-h) / 55%);
+
+  --surface: oklch(0.19 calc(var(--tint) * 0.58) var(--brand-h) / calc(var(--glass-alpha) - 2%));
+  --surface-2: oklch(0.225 calc(var(--tint) * 0.65) var(--brand-h));
+  --surface-3: oklch(0.265 calc(var(--tint) * 0.75) var(--brand-h));
+  --line: oklch(1 0 0 / 7%);
+  --hatch: oklch(1 0 0 / 9%);
+  --violet: oklch(0.76 calc(0.15 * var(--brand-c)) var(--brand-h));
+  --lilac: oklch(0.83 calc(0.06 * var(--brand-c)) calc(var(--brand-h) + 2));
+  --cyan: oklch(0.86 0.11 205);
+  --blue: oklch(0.74 0.13 262);
+  --mint: oklch(0.82 0.13 165);
+  --amber: oklch(0.83 0.13 80);
+  --rose: oklch(0.72 0.16 15);
+
+  --sidebar: oklch(0.165 calc(var(--tint) * 0.5) var(--brand-h) / calc(var(--glass-alpha) - 8%));
+  --sidebar-accent: oklch(0.25 calc(var(--tint) * 0.8) var(--brand-h));
+
+  --rim-top: 0.45;
+  --rim-bottom: 0.3;
+  --rim-side: 0.22;
+  --rim-glow: 0.15;
+  --rim-shade: 0.28;
+  --rim-border: 0.18;
+  --sheen-top: 0.05;
+  --sheen-low: 0.04;
+  --sheen-drop: 0.45;
+  --sheen-brighten: 0;
+  --sheen-hover: 0.08;
+
+  --pill: oklch(0.92 var(--tint) var(--brand-h) / 0.16);
+  --pill-foreground: oklch(0.99 0 0);
+
+  --aurora-1: oklch(0.55 calc(0.2 * var(--brand-c)) var(--brand-h) / calc(0.16 * var(--glow)));
+  --aurora-2: oklch(0.6 0.12 210 / calc(0.09 * var(--glow)));
+
+  --area-work: #3987e5;
+  --area-health: #199e70;
+  --area-personal: #c98500;
+  --area-mind: #d55181;
+  --area-study: #9085e9;
+  --area-finance: #d95926;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+    font-size: calc(100% * var(--ui-scale));
+    color-scheme: light;
+    -webkit-tap-highlight-color: transparent;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  /* background photo, then a veil of the page colour so text stays readable in both themes */
+  body::before,
+  body::after {
+    content: "";
+    position: fixed;
+    z-index: -20;
+    pointer-events: none;
+  }
+  body::before {
+    inset: calc(var(--bg-blur) * -2);
+    background: var(--bg-image) center / cover no-repeat;
+    filter: blur(var(--bg-blur));
+  }
+  body::after {
+    inset: 0;
+    background: var(--background);
+    opacity: var(--bg-dim);
+  }
+  @media (max-width: 800px) {
+    body::before {
+      background-image: var(--bg-image-sm);
+    }
+  }
+  /* Safari/Firefox: the photo is drawn by canvas-refraction.tsx instead, so glass can bend it */
+  .canvas-photo-layer {
+    position: fixed;
+    inset: calc(var(--bg-blur) * -2);
+    z-index: -20;
+    pointer-events: none;
+    filter: blur(var(--bg-blur));
+  }
+  html.canvas-photo body::before {
+    opacity: 0;
+  }
+  /* menus, dialogs and sheets turn to glass too when the material is liquid */
+  :is(
+      [data-slot="popover-content"],
+      [data-slot="dropdown-menu-content"],
+      [data-slot="dropdown-menu-sub-content"],
+      [data-slot="select-content"],
+      [data-slot="dialog-content"],
+      [data-slot="alert-dialog-content"],
+      [data-slot="sheet-content"]
+    ) {
+    backdrop-filter: blur(calc(var(--glass-sheen) * 28px)) saturate(var(--glass-saturate));
+  }
+  ::selection {
+    background: color-mix(in oklch, var(--violet) 35%, transparent);
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  /* A grid without explicit columns gets one column that can shrink to its
+     container, instead of an implicit auto column that grows to fit its
+     widest content (which made phone layouts overflow). grid-cols-* utilities
+     still override this. */
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklch, var(--foreground) 16%, transparent) transparent;
+  }
+}
+
+/* Frosted surface used by every LIFE OS panel */
+/* Glass surface. With --glass-sheen at 1 (liquid glass) it is nearly clear, makes
+   what's behind it more colourful, and has a thick glossy rim: crisp bright lines
+   along the top and bottom (softer on the sides), light caught just inside them, a
+   faint shade where the glass bends, a hairline outline and a soft shadow. In
+   Chromium browsers var(--refract) adds real edge refraction (see refraction.tsx).
+   At 0 (frosted) all of that drops away. */
+@property --glass-hover {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
+}
+@utility glass {
+  background:
+    radial-gradient(320px circle at var(--mx, 50%) var(--my, 0%), oklch(1 0 0 / calc(var(--glass-hover) * var(--sheen-hover) * var(--glass-sheen))), transparent 70%),
+    linear-gradient(180deg, oklch(1 0 0 / calc(var(--sheen-top) * var(--glass-sheen))) 0%, transparent 22%, transparent 82%, oklch(1 0 0 / calc(var(--sheen-low) * var(--glass-sheen))) 100%),
+    var(--surface);
+  backdrop-filter: var(--refract,) blur(var(--glass-blur)) saturate(var(--glass-saturate)) brightness(calc(1 + var(--sheen-brighten) * var(--glass-sheen)));
+  border: 1px solid color-mix(in oklch, var(--line), oklch(1 0 0 / var(--rim-border)) calc(var(--glass-sheen) * 100%));
+  box-shadow:
+    inset 0 2px 1px -1px oklch(1 0 0 / calc(var(--rim-top) * var(--glass-sheen))),
+    inset 0 -2px 1px -1px oklch(1 0 0 / calc(var(--rim-bottom) * var(--glass-sheen))),
+    inset 2px 0 1px -1px oklch(1 0 0 / calc(var(--rim-side) * var(--glass-sheen))),
+    inset -2px 0 1px -1px oklch(1 0 0 / calc(var(--rim-side) * var(--glass-sheen))),
+    inset 0 6px 10px -7px oklch(1 0 0 / calc(var(--rim-glow) * var(--glass-sheen))),
+    inset 0 -6px 10px -7px oklch(1 0 0 / calc(var(--rim-glow) * 0.75 * var(--glass-sheen))),
+    inset 0 0 18px 0 oklch(0 0 0 / calc(var(--rim-shade) * var(--glass-sheen))),
+    0 0 0 0.5px oklch(0 0 0 / calc(0.08 * var(--glass-sheen))),
+    0 1px 2px oklch(0 0 0 / 14%),
+    0 14px 34px -16px oklch(0 0 0 / calc(var(--sheen-drop) * var(--glass-sheen)));
+  transition: --glass-hover 0.6s var(--ease-out);
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      --glass-hover: 1;
+    }
+  }
+}
+
+/* Press feedback: things dip quickly when pressed and spring back when released. */
+@utility pressable {
+  transition:
+    scale 0.45s var(--ease-spring-bouncy),
+    color 0.2s var(--ease-out),
+    background-color 0.2s var(--ease-out),
+    border-color 0.2s var(--ease-out),
+    box-shadow 0.2s var(--ease-out),
+    opacity 0.2s var(--ease-out);
+  &:active:not([aria-haspopup], :disabled) {
+    scale: var(--press-scale, 0.96);
+    transition-duration: 0.12s, 0.2s, 0.2s, 0.2s, 0.2s, 0.2s;
+    transition-timing-function: var(--ease-out);
+  }
+}
+
+/* Navigation highlighter: soft smoky glass, lit faintly along its edge. */
+@utility glass-pill {
+  background: var(--pill);
+  box-shadow:
+    inset 0 1px 1px 0 oklch(1 0 0 / calc(0.22 * var(--glass-sheen))),
+    inset 0 -1px 1px 0 oklch(1 0 0 / calc(0.1 * var(--glass-sheen))),
+    inset 0 0 0 1px oklch(1 0 0 / calc(0.04 + 0.06 * var(--glass-sheen))),
+    inset 0 0 12px 0 oklch(1 0 0 / calc(0.06 * var(--glass-sheen))),
+    0 4px 14px -8px oklch(0 0 0 / 0.4);
+}
+
+/*
+  Menus, popovers, dialogs and sheets open on a spring (a touch of overshoot as they
+  settle) and close quickly. These set the animation library's own duration/easing
+  variables, so every overlay picks it up without per-component changes.
+*/
+:is(
+    [data-slot="popover-content"],
+    [data-slot="dropdown-menu-content"],
+    [data-slot="dropdown-menu-sub-content"],
+    [data-slot="select-content"],
+    [data-slot="tooltip-content"],
+    [data-slot="dialog-content"],
+    [data-slot="alert-dialog-content"],
+    [data-slot="sheet-content"]
+  ):not([data-state="closed"]) {
+  --tw-animation-duration: 0.5s;
+  --tw-ease: var(--ease-spring);
+}
+:is([data-slot="dialog-content"], [data-slot="alert-dialog-content"]):not([data-state="closed"]) {
+  --tw-enter-blur: 6px;
+  --tw-animation-duration: 0.55s;
+}
+:is(
+    [data-slot="popover-content"],
+    [data-slot="dropdown-menu-content"],
+    [data-slot="dropdown-menu-sub-content"],
+    [data-slot="select-content"],
+    [data-slot="tooltip-content"],
+    [data-slot="dialog-content"],
+    [data-slot="alert-dialog-content"],
+    [data-slot="sheet-content"],
+    [data-slot="dialog-overlay"],
+    [data-slot="alert-dialog-overlay"],
+    [data-slot="sheet-overlay"]
+  )[data-state="closed"] {
+  --tw-animation-duration: 0.16s;
+  --tw-ease: var(--ease-in);
+}
+:is([data-slot="dialog-overlay"], [data-slot="alert-dialog-overlay"], [data-slot="sheet-overlay"])[data-state="open"] {
+  --tw-animation-duration: 0.35s;
+  --tw-ease: var(--ease-out);
+}
+
+/* Settings search: the setting you jumped to glows briefly. */
+.settings-flash {
+  animation: settings-flash 1.6s var(--ease-out);
+}
+@keyframes settings-flash {
+  0%,
+  35% {
+    background-color: color-mix(in oklch, var(--violet) 16%, transparent);
+    box-shadow: inset 0 0 0 2px color-mix(in oklch, var(--violet) 55%, transparent);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: inset 0 0 0 2px transparent;
+  }
+}
+
+/* Theme switch: the new theme spreads in a circle from the toggle (see theme-switch.ts). */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-motion="reduced"]) {
+    scroll-behavior: smooth;
+  }
+}
+
+/* Diagonal hatching, as in the reference bar charts */
+@utility hatch {
+  background-image: repeating-linear-gradient(-45deg, var(--hatch) 0 2px, transparent 2px 8px);
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Settings can force reduced motion regardless of the OS setting */
+html[data-motion="reduced"] *,
+html[data-motion="reduced"] *::before,
+html[data-motion="reduced"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
 }

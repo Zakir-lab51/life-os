@@ -1,36 +1,108 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# LIFE OS
 
-## Getting Started
+A personal operating system for your day, tasks, habits, focus and progress. Dark-first, glassy, keyboard-friendly, and **local-first**: everything is stored in your browser (IndexedDB), so it works immediately with no account, server or API key.
 
-First, run the development server:
+## Run it
+
+Requires Node.js 20.9+ (built and tested on Node 24).
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000. On first launch an onboarding wizard asks a few questions; pick **Explore with demo data** to see every screen filled with clearly labelled sample data (removable in Settings → Data).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Other scripts:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Command | What it does |
+| --- | --- |
+| `npm test` | Vitest suite: recurrence, streaks, timer accuracy, scoring, planner, persistence and backups |
+| `npm run typecheck` | TypeScript, no emit |
+| `npm run lint` | ESLint (Next.js core web vitals + TypeScript rules) |
+| `npm run build` / `npm start` | Production build / serve it |
 
-## Learn More
+## What works (Phase 1)
 
-To learn more about Next.js, take a look at the following resources:
+- **Overview**: time-aware greeting, live clock, daily productivity score (with its breakdown), a rule-based daily briefing that explains every recommendation, Life Balance radar computed from your records, today's tasks, habits, focus, timeline, deadlines, weekly targets, level and data-driven insights. Widgets can be hidden and reordered.
+- **Tasks**: create, edit, duplicate and delete (with undo); priorities, due dates and times, reminders, tags, life areas, subtasks, recurring tasks (daily / weekly on chosen days / monthly), dependencies with cycle prevention; list (smart, due, priority, manual drag-sort) and Kanban board with drag-and-drop; search, filters, built-in views; bulk actions; transparent "Do next" recommendations.
+- **My Day**: drag-and-drop timeline (move, resize, keyboard arrows), drag tasks from the side list, conflict detection, overdue rescheduling, morning/evening routines, daily reflection, and **Plan my day**, an editable suggestion that only fills free time and never moves existing blocks.
+- **Calendar**: month view of deadlines and time blocks with a day panel.
+- **Habits**: daily, specific-weekday and N-per-week habits; check-ins; kind streaks (one missed day per week counts as rest); best streaks; GitHub-style heatmaps; consistency stats; XP, levels and achievements.
+- **Focus**: Pomodoro, custom and stopwatch modes; task-linked sessions; generated ambient sound (no audio files); distraction-free fullscreen; weekly chart, streak and session history. Timing comes from timestamps, so it stays exact in background tabs and across reloads, and a session that finished while the tab was closed is still recorded once.
+- **Analytics**: 7/30/90-day range, KPIs with period-over-period change, score/tasks/focus/habit trends, area breakdowns, Life Balance and an activity heatmap. Each chart can switch to a table of the same numbers; heatmap cells show their value on hover.
+- **Shell**: collapsible sidebar with live status, command palette (Ctrl/⌘+K), quick capture with natural syntax (Q), keyboard shortcuts (?), notification centre, quick-add menu (customisable), light/dark themes, reduced-motion support, responsive down to phones.
+- **Data**: JSON backup and validated restore, tasks CSV export, demo data load/remove, full reset.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Modules for later phases (Goals, Projects, Second Brain, Study Hub, Finances) appear in the sidebar marked **P2–P4**. Their pages say plainly that they're planned and point to what already works today; nothing is faked.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Architecture
 
-## Deploy on Vercel
+```
+src/
+  app/                 Next.js App Router: one thin page per route, (os)/layout mounts the shell
+  features/            One folder per module (overview, tasks, planner, calendar, habits,
+                       focus, analytics, settings, onboarding, planned, shell)
+  components/ui/       shadcn/ui (Radix) primitives
+  components/os/       LIFE OS building blocks: Panel, charts, heatmap, gauges, pickers
+  lib/domain/          Pure, tested logic: dates, recurrence, tasks, capture parsing,
+                       scheduling, planner, habits/streaks, focus timer, scores, XP, insights
+  lib/db/              Dexie database, repository (the only writer), live-query hooks,
+                       demo data, backup/restore
+  lib/validation/      Zod schemas for every input and for backups
+  lib/stores/          Zustand: UI state and the persisted focus timer
+tests/                 Vitest (runs the real Dexie code against fake-indexeddb)
+prisma/schema.prisma   Relational model for the planned Phase 4 sync backend (not wired yet)
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Key decisions:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Local-first.** Dexie + `useLiveQuery` means every screen reads the same live data, so finishing a task updates the dashboard, analytics, XP and sidebar at once. `lib/db/repo.ts` is the single write path, which keeps a future sync layer to one seam.
+- **Derived, not duplicated.** Scores, streaks, XP and insights are computed from the records themselves. Undoing an action undoes its XP, and nothing can double-count. Activity events carry unique `dedupeKey`s.
+- **Client-rendered app shell.** Data lives in the browser, so the server prerenders only a boot screen (`ClientGate`). That's also why the whole app can be exported as static files: `GITHUB_PAGES=1 next build` writes `out/` for https://zakir-lab51.github.io/life-os/.
+- **No AI, by choice.** The briefing, recommendations, Plan My Day and insights are transparent rules that show their reasoning. LIFE OS uses no AI service and sends nothing anywhere (an AI assistant was considered and dropped).
+
+### How the numbers are calculated
+
+- **Daily score (0–100)**: tasks finished ÷ (finished + still due by that day), weighted 45%; focus minutes ÷ daily target (only once you've used Focus), 30%; due daily/weekday habits kept, 25%. Missing parts are left out and the weights re-balanced.
+- **Life Balance (last 7 days)**: Productivity = due-task completion blended with focus vs. target; Learning = study-area focus + finished study tasks + study habits against a 5-hour weekly baseline; Health = health-habit consistency; Finance = finance tasks and habits; Personal Growth = reflections (5 per week = full) blended with mind/personal habits; Consistency = overall habit consistency blended with active days. Areas with nothing tracked show as "not tracked" rather than zero.
+- **Streaks**: a missed due day is forgiven as a rest day if no other rest was used in the previous 7 days; today never breaks a streak until it's over. Weekly-count habits streak in weeks.
+- **XP**: task 10 (+5 urgent/high), habit check-in 5, focus 1 per 5 minutes capped at 4 hours a day, reflection 10. Nothing is ever deducted for missed days.
+
+## Changing the design
+
+The whole look comes from the **DESIGN CONTROLS** block near the top of `src/app/globals.css`: accent hue and saturation, corner roundness, glass blur and opacity, background glow, interface size, font, and the background photo with its dimming and blur. Every colour, corner and surface is calculated from them, so a restyle never touches component code.
+
+- **Design studio** (Settings → Appearance): pick a look (Violet glass, Ocean, Aurora, Ember, Rose, Mono), then fine-tune accent colour, colour intensity, corner roundness, glass, background glow, interface size and font. Changes apply instantly and are saved with your preferences; a tiny script in `<head>` repaints your saved design before the app loads, so there's no flash.
+- **Glass**: Transparency (solid → clear) and Blur (sharp → frosted) are separate sliders, and picking a look never changes them. Material is the finish: Liquid glass (default) is nearly clear with a thick glossy rim, richer colour behind the glass, glass menus and dialogs, and, in Chrome and Edge, real refraction at the edges (`src/features/shell/refraction.tsx` draws an SVG displacement map per surface size); Frosted is matte. Every bit of the effect is scaled by `--glass-sheen` (the `glass` utility in `globals.css`, used by panels, the sidebar and the top bar), so Frosted simply sets it to 0. Write only the unprefixed `backdrop-filter` in CSS: the build adds the Safari prefix, and writing both makes it keep only the `-webkit-` one, which Chrome ignores.
+- **Background photo**: the default is a misty-mountains photo (Daniel Sessler on Unsplash) in `public/backgrounds`, in a full-size and a phone-size WebP. A veil of the page colour (Dimming) keeps text readable in light and dark mode. To add a photo, save both sizes there and list it in `PHOTOS` in `src/lib/design/design.ts`; choosing a look never changes the photo.
+- **Design code**: "Copy design code" gives a one-line JSON of the current look. Paste it into another LIFE OS, or hand it to Claude to make it the default.
+- **Change the default or add a look**: edit `PRESETS` / `DEFAULT_DESIGN` in `src/lib/design/design.ts`. If you change the default, update the DESIGN CONTROLS defaults in `globals.css` to match (a test checks this).
+- Life-area colours are fixed on purpose (they're validated for colour-blind readers) and don't follow the accent.
+
+## Published copy, offline and iPad
+
+- **Live at https://zakir-lab51.github.io/life-os/.** `npm run deploy:pages` runs the tests, builds the static copy (`npm run build:pages` → `out/`) and pushes it to the `gh-pages` branch, which GitHub Pages serves. Everything runs in the browser, so plain files are enough. For automatic deploys on every push, see `scripts/pages-workflow.yml`.
+- **Works offline.** A service worker (`scripts/sw.template.js`, written to `out/sw.js` with the list of every file) keeps the whole app on the device, so it opens instantly and without a connection. New versions download in the background and a toast offers to reload.
+- **iPad and iPhone.** Open the link in Safari, then Share → Add to Home Screen for a full-screen app with its own icon.
+- **Your data stays on each device.** Nothing syncs: the published app, your PC's copy and the home-screen app each keep their own data (the home-screen app's storage is separate from Safari's). To move it, use Settings → Data & backup → Download backup on one device and Restore from backup on the other.
+- **Glass refraction everywhere.** Chromium browsers bend everything behind the glass with an SVG filter (`refraction.tsx`). Safari and Firefox can't, so there the background photo is drawn with WebGL and bent under each glass edge (`canvas-refraction.tsx`).
+
+## Motion
+
+Movement uses springs, tuned to feel like Apple's interfaces. `src/lib/motion.ts` has the springs for animated components (`SPRING`, `SPRING_SNAPPY`, `SPRING_BOUNCY`) and the MOTION block in `globals.css` has the matching CSS curves (`--ease-spring`, `--ease-spring-bouncy`, which trace a real damped spring with `linear()`).
+
+- **Pages**: the title and each tile rise into place one after another (`PageTransition` + `Panel`).
+- **Glass**: a soft light follows the pointer across glass surfaces (`glass-pointer.tsx`).
+- **Press**: buttons and nav items dip when pressed and spring back (the `pressable` utility).
+- **Overlays**: menus, popovers, dialogs and sheets open on a spring and close quickly.
+- **Navigation**: the highlighter pill glides between items; hover states fade in.
+- **Theme**: switching spreads the new theme in a circle from the toggle (View Transitions), and its icon rotates.
+- **Numbers**: the overview clock and score roll their digits (`RollingText`).
+- Everything respects Reduce motion (system setting or Settings → Appearance).
+
+## Notes
+
+- Reminders fire while LIFE OS is open in a tab (local mode has no background push). System notifications are optional in Settings.
+- Clearing this site's data in your browser deletes LIFE OS data. Download a backup from Settings → Data.
+- Charts use a colour-blind-validated categorical palette for life areas (see `globals.css`).
