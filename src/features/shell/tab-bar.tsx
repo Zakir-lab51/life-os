@@ -37,7 +37,7 @@ export function TabBar() {
           </Link>
         )
       })}
-      <button type="button" onClick={() => setMobileNav(true)} aria-label="More: all sections" className={cn(cell, elsewhere ? "text-pill-foreground" : "text-foreground/70")}>
+      <button type="button" onClick={() => setMobileNav(true, "right")} aria-label="More: all sections" className={cn(cell, elsewhere ? "text-pill-foreground" : "text-foreground/70")}>
         {elsewhere && <motion.span layoutId="tab-active" className="glass-pill absolute inset-0 rounded-[1.4rem]" transition={SPRING_SNAPPY} />}
         <Menu className="relative size-5" />
         <span className="relative max-w-full truncate">{elsewhere ? active.label : "More"}</span>

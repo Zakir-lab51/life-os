@@ -11,6 +11,8 @@ export type TaskView = "list" | "board"
 interface UIState {
   sidebarCollapsed: boolean
   mobileNavOpen: boolean
+  /** The edge the navigation drawer slides in from: the side of the button that opened it. */
+  mobileNavSide: "left" | "right"
   paletteOpen: boolean
   captureOpen: boolean
   shortcutsOpen: boolean
@@ -27,7 +29,7 @@ interface UIState {
   taskView: TaskView
 
   toggleSidebar: () => void
-  setMobileNav: (open: boolean) => void
+  setMobileNav: (open: boolean, side?: "left" | "right") => void
   setPalette: (open: boolean) => void
   setCapture: (open: boolean) => void
   setShortcuts: (open: boolean) => void
@@ -51,6 +53,7 @@ export const useUI = create<UIState>()(
     (set) => ({
       sidebarCollapsed: false,
       mobileNavOpen: false,
+      mobileNavSide: "left",
       paletteOpen: false,
       captureOpen: false,
       shortcutsOpen: false,
@@ -65,7 +68,7 @@ export const useUI = create<UIState>()(
       taskView: "list",
 
       toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
-      setMobileNav: (open) => set({ mobileNavOpen: open }),
+      setMobileNav: (open, side) => set(side ? { mobileNavOpen: open, mobileNavSide: side } : { mobileNavOpen: open }),
       setPalette: (open) => set({ paletteOpen: open }),
       setCapture: (open) => set({ captureOpen: open }),
       setShortcuts: (open) => set({ shortcutsOpen: open }),

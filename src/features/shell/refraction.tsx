@@ -33,6 +33,7 @@ const MAP_MAX = 512 // maps are drawn at most this big and stretched to fit
 const DISPERSION = 0.09 // red bends this much less than green, blue this much more
 const SCROLL_IDLE = 140 // ms without scroll events that counts as stopped
 const BEND_IN = 450 // ms for tiles' bend to ease back in after scrolling
+const KEEP_MAPS = 24 // maps kept for surfaces that come and go (drawers, dialogs), so reopening costs nothing
 
 interface Lens {
   id: string
@@ -173,6 +174,10 @@ function SvgRefraction({ enabled, tilesBend, chromeBends }: { enabled: boolean; 
     let idleTimer: ReturnType<typeof setTimeout> | undefined
     let scanQueued = false
     let scrolling = false
+    // a dialog or drawer covers the page (Radix locks scrolling): tiles don't bend under
+    // it, since the dim overlay hides the bend and every bent tile under a moving or fading
+    // surface is re-filtered each frame (measured: the drawer's open went from 60 to 120 fps)
+    let covered = document.body.hasAttribute("data-scroll-locked")
     let fade = 0
 
     const isTile = (el: HTMLElement) => {
@@ -183,7 +188,7 @@ function SvgRefraction({ enabled, tilesBend, chromeBends }: { enabled: boolean; 
       }
       return tile
     }
-    const mayBend = (el: HTMLElement) => (isTile(el) ? allow.current.tilesBend && !scrolling : allow.current.chromeBends)
+    const mayBend = (el: HTMLElement) => (isTile(el) ? allow.current.tilesBend && !scrolling && !covered : allow.current.chromeBends)
     const apply = (el: HTMLElement, key: string) => {
       if (mayBend(el)) el.style.setProperty("--refract", `url(#lg-${key})`)
       else el.style.removeProperty("--refract")
@@ -220,6 +225,30 @@ function SvgRefraction({ enabled, tilesBend, chromeBends }: { enabled: boolean; 
       }, SCROLL_IDLE)
     }
 
+    // a surface sliding or fading in gets its lens once it has settled: building a map
+    // mid-animation stalls it (measured: 71 ms in the middle of the drawer's slide)
+    // only animations that will end count (a slide or fade in time); scroll-driven ones
+    // (the tiles' rise into view) run as long as the page does
+    const settling = (el: HTMLElement) =>
+      el.getAnimations().filter((a) => a.playState === "running" && a.timeline === document.timeline && Number.isFinite(a.effect?.getComputedTiming().endTime ?? Infinity))
+    let idle = 0
+    let disposed = false
+    const flushWhenStill = () => {
+      for (const el of dirty) {
+        const anims = el.isConnected ? settling(el) : []
+        if (!anims.length) continue
+        // build this one's lens once it stops moving; the others go ahead now
+        dirty.delete(el)
+        void Promise.allSettled(anims.map((a) => a.finished)).then(() => {
+          if (disposed || !el.isConnected) return
+          resized(el)
+        })
+      }
+      if (!dirty.size) return
+      if (typeof requestIdleCallback === "function") idle = requestIdleCallback(flush, { timeout: 500 })
+      else flush()
+    }
+    const recent: string[] = []
     const flush = () => {
       for (const el of dirty) {
         if (!el.isConnected) continue
@@ -238,15 +267,24 @@ function SvgRefraction({ enabled, tilesBend, chromeBends }: { enabled: boolean; 
         waiting.set(el, key)
       }
       dirty.clear()
+      // forget lenses no surface uses, except the most recent few (a drawer that closes
+      // keeps its lens, so opening it again needs no new map)
       const used = new Set(lensOf.values())
-      for (const key of cache.keys()) if (!used.has(key)) cache.delete(key)
-      for (const shape of maps.keys()) if (![...used].some((k) => k.slice(2) === shape)) maps.delete(shape)
+      for (const key of used) {
+        const at = recent.indexOf(key)
+        if (at !== -1) recent.splice(at, 1)
+        recent.push(key)
+      }
+      recent.splice(0, Math.max(0, recent.length - KEEP_MAPS))
+      const keep = new Set([...used, ...recent])
+      for (const key of cache.keys()) if (!keep.has(key)) cache.delete(key)
+      for (const shape of maps.keys()) if (![...keep].some((k) => k.slice(2) === shape)) maps.delete(shape)
       setLenses([...cache.values()])
     }
     const resized = (el: HTMLElement) => {
       dirty.add(el)
       clearTimeout(timer)
-      timer = setTimeout(flush, 120)
+      timer = setTimeout(flushWhenStill, 120)
     }
     const ro = new ResizeObserver((entries) => entries.forEach((e) => resized(e.target as HTMLElement)))
     const scan = () => {
@@ -268,13 +306,26 @@ function SvgRefraction({ enabled, tilesBend, chromeBends }: { enabled: boolean; 
       scanQueued = true
       requestAnimationFrame(scan)
     })
+    const lock = new MutationObserver(() => {
+      const now = document.body.hasAttribute("data-scroll-locked")
+      if (now === covered) return
+      covered = now
+      if (covered) cancelAnimationFrame(fade)
+      for (const [el, key] of lensOf) if (isTile(el)) apply(el, key)
+      // uncovered: the bend eases back in, as after scrolling
+      if (!covered && allow.current.tilesBend && !scrolling) bendIn()
+    })
     scan()
     mo.observe(document.body, { childList: true, subtree: true })
+    lock.observe(document.body, { attributes: true, attributeFilter: ["data-scroll-locked"] })
     document.addEventListener("scroll", scrolled, { capture: true, passive: true })
     reapply.current = applyAll
     return () => {
+      disposed = true
+      if (idle && typeof cancelIdleCallback === "function") cancelIdleCallback(idle)
       ro.disconnect()
       mo.disconnect()
+      lock.disconnect()
       clearTimeout(timer)
       clearTimeout(idleTimer)
       cancelAnimationFrame(fade)

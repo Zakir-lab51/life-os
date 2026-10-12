@@ -760,9 +760,68 @@
   --tw-animation-duration: 0.16s;
   --tw-ease: var(--ease-in);
 }
+
+/*
+  The navigation drawer travels its full width from the edge it was opened from and back
+  out the same way, staying opaque: a drawer, not a fade. Ease-out with no overshoot (an
+  overshoot would open a gap at the screen edge).
+  Its own keyframes animate transform only. The animation library's keyframes also animate
+  filter and opacity (even when they don't change), which keeps the browser from handing
+  the slide to the compositor: every frame then repainted the drawer's contents (measured
+  in the phone layout: 44% of frames over 20 ms; transform only: 4%).
+*/
+[data-slot="sheet-content"].nav-drawer[data-side="right"][data-state="open"] {
+  animation: nav-drawer-in-right 0.42s var(--ease-out) both;
+}
+[data-slot="sheet-content"].nav-drawer[data-side="right"][data-state="closed"] {
+  animation: nav-drawer-out-right 0.26s var(--ease-in) both;
+}
+[data-slot="sheet-content"].nav-drawer[data-side="left"][data-state="open"] {
+  animation: nav-drawer-in-left 0.42s var(--ease-out) both;
+}
+[data-slot="sheet-content"].nav-drawer[data-side="left"][data-state="closed"] {
+  animation: nav-drawer-out-left 0.26s var(--ease-in) both;
+}
+@keyframes nav-drawer-in-right {
+  from {
+    transform: translate3d(100%, 0, 0);
+  }
+}
+@keyframes nav-drawer-out-right {
+  to {
+    transform: translate3d(100%, 0, 0);
+  }
+}
+@keyframes nav-drawer-in-left {
+  from {
+    transform: translate3d(-100%, 0, 0);
+  }
+}
+@keyframes nav-drawer-out-left {
+  to {
+    transform: translate3d(-100%, 0, 0);
+  }
+}
+/* the drawer drops its own bend as it slides out (a bent surface on the move is re-filtered every frame) */
+[data-slot="sheet-content"].nav-drawer[data-state="closed"] {
+  --refract: initial !important;
+}
+/* the dimmed backdrop behind dialogs and drawers fades with opacity alone, for the same reason */
 :is([data-slot="dialog-overlay"], [data-slot="alert-dialog-overlay"], [data-slot="sheet-overlay"])[data-state="open"] {
-  --tw-animation-duration: 0.35s;
-  --tw-ease: var(--ease-out);
+  animation: overlay-in 0.35s var(--ease-out) both;
+}
+:is([data-slot="dialog-overlay"], [data-slot="alert-dialog-overlay"], [data-slot="sheet-overlay"])[data-state="closed"] {
+  animation: overlay-out 0.2s var(--ease-in) both;
+}
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes overlay-out {
+  to {
+    opacity: 0;
+  }
 }
 
 /* Settings search: the setting you jumped to glows briefly. */

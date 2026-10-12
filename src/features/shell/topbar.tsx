@@ -25,7 +25,7 @@ import { centreOf, switchTheme } from "./theme-switch"
 import { cn } from "@/lib/utils"
 import { QUICK_ACTION_META, useActions } from "./actions"
 import { navForPath } from "./nav"
-import { SidebarContent } from "./sidebar"
+import { LifeMark, SidebarContent } from "./sidebar"
 import { useLife, useXP } from "./use-life"
 
 function Breadcrumbs() {
@@ -41,6 +41,16 @@ function Breadcrumbs() {
         {item.label}
       </span>
     </nav>
+  )
+}
+
+/** Phones have no sidebar or breadcrumb: the bar opens with the logo and name, like the sidebar's top row. */
+function PhoneBrand() {
+  return (
+    <Link href="/" aria-label="LIFE OS, overview" className="flex min-w-0 shrink-0 items-center gap-2 rounded-control pr-1 outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden">
+      <LifeMark className="size-8" />
+      <span className="text-sm font-semibold tracking-[0.06em] max-[374px]:hidden">LIFE OS</span>
+    </Link>
   )
 }
 
@@ -104,7 +114,7 @@ function QuickAdd() {
       <Tooltip>
         <TooltipTrigger asChild>
           <DropdownMenuTrigger asChild>
-            <Button size="icon" className="size-10" aria-label="Quick add">
+            <Button size="icon" className="size-9 sm:size-10" aria-label="Quick add">
               <Plus className="size-5" />
             </Button>
           </DropdownMenuTrigger>
@@ -159,7 +169,7 @@ function NotificationCenter() {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="icon" className="relative size-10 rounded-full bg-surface" aria-label={unread ? `Notifications, ${unread} unread` : "Notifications"}>
+        <Button variant="outline" size="icon" className="relative size-9 rounded-full bg-surface sm:size-10" aria-label={unread ? `Notifications, ${unread} unread` : "Notifications"}>
           <Bell className="size-[18px]" />
           {unread > 0 && <UnreadBadge count={unread} />}
         </Button>
@@ -229,7 +239,7 @@ function ThemeToggle() {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Button variant="outline" size="icon" className="size-10 overflow-hidden rounded-full bg-surface" aria-label={dark ? "Switch to light theme" : "Switch to dark theme"} onClick={toggle}>
+        <Button variant="outline" size="icon" className="size-9 overflow-hidden rounded-full bg-surface sm:size-10" aria-label={dark ? "Switch to light theme" : "Switch to dark theme"} onClick={toggle}>
           <AnimatePresence mode="popLayout" initial={false}>
             <motion.span key={dark ? "sun" : "moon"} className="grid place-items-center" initial={{ rotate: -90, scale: 0.4, opacity: 0 }} animate={{ rotate: 0, scale: 1, opacity: 1 }} exit={{ rotate: 90, scale: 0.4, opacity: 0 }} transition={SPRING_BOUNCY}>
               {dark ? <Sun className="size-[18px]" /> : <Moon className="size-[18px]" />}
@@ -254,7 +264,7 @@ function ProfileMenu() {
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
-        <button type="button" className="flex h-10 items-center gap-2.5 rounded-control border border-line bg-surface py-1 pr-3 pl-1 transition-colors hover:bg-surface-2" aria-label="Profile menu">
+        <button type="button" className="flex h-9 items-center gap-2.5 rounded-control border border-line bg-surface p-px transition-colors hover:bg-surface-2 sm:h-10 sm:py-1 sm:pr-3 sm:pl-1" aria-label="Profile menu">
           <span className="grid size-8 place-items-center rounded-full bg-gradient-to-br from-violet to-blue text-sm font-semibold text-primary-foreground">{initial}</span>
           <span className="hidden text-left leading-tight sm:block">
             <span className="block text-sm font-medium">{name}</span>
@@ -294,18 +304,20 @@ export function Topbar() {
   const setPalette = useUI((s) => s.setPalette)
   const mobileOpen = useUI((s) => s.mobileNavOpen)
   const setMobileNav = useUI((s) => s.setMobileNav)
+  const drawerSide = useUI((s) => s.mobileNavSide)
   return (
     // a floating glass bar, lined up with the page content below it
     <header className="sticky top-0 z-20 mx-auto w-full max-w-[1400px] px-4 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-6 lg:px-8">
-      <div data-lens="dispersive" className="glass flex h-[60px] items-center gap-2 rounded-panel px-3 sm:gap-3 sm:px-4">
-        <Button variant="outline" size="icon" className="hidden size-10 rounded-full bg-surface md:inline-flex lg:hidden" aria-label="Open navigation" onClick={() => setMobileNav(true)}>
+      <div data-lens="dispersive" className="glass flex h-[60px] items-center gap-1.5 rounded-panel px-2.5 sm:gap-3 sm:px-4">
+        <Button variant="outline" size="icon" className="hidden size-10 rounded-full bg-surface md:inline-flex lg:hidden" aria-label="Open navigation" onClick={() => setMobileNav(true, "left")}>
           <Menu className="size-[18px]" />
         </Button>
+        <PhoneBrand />
         <Breadcrumbs />
         <div className="flex-1" />
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="outline" size="icon" className="size-10 rounded-full bg-surface" aria-label="Search and commands" aria-keyshortcuts="Control+K" onClick={() => setPalette(true)}>
+            <Button variant="outline" size="icon" className="size-9 rounded-full bg-surface sm:size-10" aria-label="Search and commands" aria-keyshortcuts="Control+K" onClick={() => setPalette(true)}>
               <Search className="size-[18px]" />
             </Button>
           </TooltipTrigger>
@@ -322,8 +334,9 @@ export function Topbar() {
         <ThemeToggle />
         <ProfileMenu />
       </div>
-      <Sheet open={mobileOpen} onOpenChange={setMobileNav}>
-        <SheetContent side="left" className="glass w-[290px] rounded-r-panel border-line p-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+      {/* the drawer slides in from the side of the button that opened it: More (phone tab bar) is on the right, ☰ on the left */}
+      <Sheet open={mobileOpen} onOpenChange={(o) => setMobileNav(o)}>
+        <SheetContent side={drawerSide} className={cn("nav-drawer glass w-[290px] border-line p-3 pt-[max(0.75rem,env(safe-area-inset-top))]", drawerSide === "right" ? "rounded-l-panel" : "rounded-r-panel")}>
           <SheetTitle className="sr-only">Navigation</SheetTitle>
           <SidebarContent onNavigate={() => setMobileNav(false)} />
         </SheetContent>

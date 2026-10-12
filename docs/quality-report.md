@@ -297,3 +297,51 @@ scrolling and isn't a fair measure of input delay, so it's left out.
 - Not exercised in a browser: the page error state (covered by its test), touch dragging on
   a real iPad, and the close guard in the real editors (covered by its test with the real
   dialog component).
+
+## Increment 7: the phone navigation drawer at full frame rate
+
+More (phone tab bar) now opens the drawer from the right, the side it's on; ☰ (iPad
+portrait) still opens it from the left. The phone top bar shows the LIFE OS logo and name
+on its left (just the logo under 375 px), and its buttons are 36 px there.
+
+### Measured: opening and closing the drawer (production build, phone layout 448 px wide, 120 Hz)
+
+Frame intervals from requestAnimationFrame, four opens and closes each.
+
+| | Before | After |
+|---|---|---|
+| Opening: median frame | 16.6 ms (with frames up to 75 ms) | 8.3 ms (120 fps) in every run |
+| Opening: frames over 20 ms | 11–13 of ~35 | 2–5 of ~60, all in the first frames as the drawer mounts |
+| Opening: main-thread blocks over 50 ms | 54–69 ms on every open, one of them mid-slide | none during the slide |
+| Closing: median frame | 16.7–24.8 ms | 8.4 ms |
+| Closing: frames over 20 ms | 9–11 of ~22 | 4–7 of ~32, at the start and after the drawer is gone |
+
+### Causes and fixes
+
+1. **The animation library's keyframes kept the slide on the main thread.** tw-animate's
+   enter/exit keyframes animate `filter` and `opacity` along with `transform`, even when
+   they don't change, and that stops Chrome handing the slide to the compositor: each frame
+   repainted the drawer's contents. The drawer now has its own transform-only keyframes,
+   and the dimmed overlays fade with opacity-only keyframes. Tested alone: slow frames
+   while opening went from 47 of 106 to 9 of 200. `globals.css`.
+2. **The glass refraction built the drawer's lens mid-slide** (71 ms drawing the
+   displacement map and encoding it, about 160 ms into the slide), and threw it away on
+   every close. Lenses for moving surfaces are now built once they stop (only animations
+   that end count; the tiles' scroll-driven rise doesn't), in idle time, and the last 24
+   are kept, so reopening costs nothing. `features/shell/refraction.tsx`.
+3. **Bent tiles under the moving drawer and fading overlay were re-filtered every frame.**
+   While a dialog or drawer covers the page, tiles don't bend (the dim overlay hides it);
+   the bend eases back in when it closes, as after scrolling. The drawer drops its own bend
+   as it slides out. With this, opening went from a median 16.6 ms to 8.3 ms per frame.
+
+A first version of fix 2 waited for every surface to stop before building any lens; the
+tiles' scroll-driven animations never stop, so no surface got refraction. Caught in the
+browser (0 lenses on the page) and fixed before this was committed.
+
+### Not measured
+
+- The iPad and phones themselves (only the PC's browser at phone width). Safari draws the
+  glass with WebGL, not SVG filters; fix 1 applies there too.
+- The tap frame itself still costs about 40–60 ms (mounting the drawer, and Radix
+  restyling the page as it disables pointer events behind the drawer); it comes before the
+  slide starts, so it delays the drawer slightly rather than making it stutter.
