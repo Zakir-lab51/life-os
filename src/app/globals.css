@@ -564,92 +564,75 @@
 }
 
 /*
-  Layered 3D icons (layered-icon.tsx): a vivid tile, a glass plate and a white symbol
-  stacked in depth, like iOS 26's. --depth spreads the layers apart (more when the
-  icon's host is hovered or the icon is selected, less while pressed) and --rx/--ry
-  tilt the stack towards the pointer. The selected icon's symbol floats gently.
+  Flat app-style icons (nav-icon.tsx): a vivid two-tone tile, a crisp diagonal facet of
+  light across it and a bold white symbol with a short solid shadow in the tile's deep
+  colour. Selected: it lifts and glows in its own colour. Pointed at (pointer devices): a
+  band of light sweeps across. Pressed: it dips. Transform, opacity and colour only.
 */
 @layer components {
-  .layered-icon {
-    --depth: 1;
+  .nav-icon {
     position: relative;
+    display: grid;
     flex-shrink: 0;
+    place-items: center;
     width: var(--icon-size, 2rem);
     height: var(--icon-size, 2rem);
-    perspective: 140px;
-  }
-  .li-stack {
-    position: absolute;
-    inset: 0;
-    display: grid;
-    place-items: center;
-    transform-style: preserve-3d;
-    transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
-    transition: transform 0.35s var(--ease-out);
-  }
-  .li-back,
-  .li-plate,
-  .li-glyph {
-    grid-area: 1 / 1;
-    transition: transform 0.6s var(--ease-spring-bouncy), filter 0.3s var(--ease-out);
-  }
-  .li-back {
-    width: 100%;
-    height: 100%;
-    border-radius: 32%;
-    background: linear-gradient(150deg, var(--li-from), var(--li-to));
-    box-shadow:
-      inset 0 1px 0.5px oklch(1 0 0 / 0.5),
-      inset 0 -1.5px 1.5px oklch(0 0 0 / 0.16),
-      0 4px 10px -3px color-mix(in oklch, var(--li-to) 70%, transparent);
-  }
-  .li-plate {
-    width: 64%;
-    height: 64%;
+    overflow: hidden;
     border-radius: 30%;
-    background: linear-gradient(150deg, oklch(1 0 0 / 0.46), oklch(1 0 0 / 0.1) 70%);
-    box-shadow:
-      inset 0 0.75px 0 oklch(1 0 0 / 0.75),
-      inset 0 -0.5px 0 oklch(1 0 0 / 0.25),
-      0 2px 5px -1px oklch(0 0 0 / 0.28);
-    transform: translate3d(calc(var(--depth) * -0.5px), calc(var(--depth) * -1px), calc(var(--depth) * 5px));
-  }
-  .li-glyph {
-    width: 46%;
-    height: 46%;
+    isolation: isolate;
     color: white;
-    filter: drop-shadow(0 1px 1px oklch(0 0 0 / 0.4));
-    transform: translate3d(calc(var(--depth) * -1px), calc(var(--depth) * -2px), calc(var(--depth) * 10px));
+    background:
+      linear-gradient(150deg, oklch(1 0 0 / 0.3) 0 34%, oklch(1 0 0 / 0) 34.5%),
+      linear-gradient(145deg, var(--ni-from), var(--ni-to));
+    box-shadow:
+      inset 0 0 0 1px oklch(1 0 0 / 0.16),
+      0 3px 8px -4px color-mix(in oklch, var(--ni-to) 80%, transparent);
+    transition:
+      transform 0.45s var(--ease-spring-bouncy),
+      box-shadow 0.3s var(--ease-out),
+      filter 0.3s var(--ease-out),
+      opacity 0.3s var(--ease-out);
   }
-  .layered-icon[data-active] {
-    --depth: 1.7;
+  /* the sweep of light, parked off to the left until the icon is pointed at */
+  .nav-icon::after {
+    content: "";
+    position: absolute;
+    inset: -30%;
+    z-index: 1;
+    background: linear-gradient(110deg, transparent 38%, oklch(1 0 0 / 0.5) 50%, transparent 62%);
+    transform: translateX(-110%);
+    pointer-events: none;
   }
-  .layered-icon[data-muted] {
-    opacity: 0.72;
+  .ni-glyph {
+    position: relative;
+    z-index: 2;
+    width: 54%;
+    height: 54%;
+    /* a short, solid shadow: flat, like a printed sticker */
+    filter: drop-shadow(1.25px 1.5px 0 color-mix(in oklch, var(--ni-to) 70%, black));
   }
-  .layered-icon[data-muted] .li-back {
-    filter: saturate(0.35) brightness(0.92);
+  .nav-icon[data-active] {
+    transform: scale(1.07);
+    box-shadow:
+      inset 0 0 0 1.5px oklch(1 0 0 / 0.45),
+      0 6px 18px -5px color-mix(in oklch, var(--ni-to) 95%, transparent);
+  }
+  .nav-icon[data-muted] {
+    opacity: 0.7;
+    filter: saturate(0.3);
   }
   @media (hover: hover) and (pointer: fine) {
-    .icon-host:hover .layered-icon {
-      --depth: 2;
+    .icon-host:hover .nav-icon {
+      transform: scale(1.07) rotate(-4deg);
+    }
+    .icon-host:hover .nav-icon::after {
+      transform: translateX(110%);
+      transition: transform 0.75s var(--ease-out);
     }
   }
-  .icon-host:active .layered-icon {
-    --depth: 0.3;
-  }
-  @media (prefers-reduced-motion: no-preference) {
-    html:not([data-motion="reduced"]) .layered-icon[data-active] .li-glyph {
-      animation: li-float 3.2s ease-in-out infinite;
-    }
-  }
-  html[data-motion="reduced"] .li-stack {
-    transform: none;
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .li-stack {
-      transform: none;
-    }
+  .icon-host:active .nav-icon {
+    transform: scale(0.9);
+    transition-duration: 0.12s;
   }
 }
 /* Tick-boxes: the check draws itself when you tick one (not on load), with a soft pop */
@@ -706,19 +689,13 @@
   }
 }
 
-/* the sidebar watch's sweeping seconds (sidebar-watch.tsx) */
-@keyframes watch-sweep {
+/* the sidebar watch's seconds: a track round its screen fills once a minute, a step a second */
+@keyframes watch-seconds {
+  from {
+    stroke-dashoffset: 60;
+  }
   to {
-    rotate: 360deg;
-  }
-}
-@keyframes li-float {
-  0%,
-  100% {
-    translate: 0 0.5px;
-  }
-  50% {
-    translate: 0 -1.5px;
+    stroke-dashoffset: 0;
   }
 }
 

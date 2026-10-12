@@ -14,7 +14,7 @@ import { useFocus } from "@/lib/stores/focus"
 import { useUI } from "@/lib/stores/ui"
 import { SPRING_SNAPPY } from "@/lib/motion"
 import { cn } from "@/lib/utils"
-import { LayeredIcon, useTilt } from "./layered-icon"
+import { NavIcon } from "./nav-icon"
 import { NAV, navForPath, type NavItem, type NavKey } from "./nav"
 import { SidebarWatch } from "./sidebar-watch"
 import { useLife } from "./use-life"
@@ -81,7 +81,6 @@ function Tip({ show, label, children }: { show: boolean; label: ReactNode; child
 
 function NavLink({ item, active, collapsed, status, onNavigate }: { item: NavItem; active: boolean; collapsed: boolean; status: Status | undefined; onNavigate?: () => void }) {
   const planned = !item.ready
-  const { iconRef, onPointerMove, onPointerLeave } = useTilt()
   return (
     <Tip
       show={collapsed}
@@ -97,8 +96,6 @@ function NavLink({ item, active, collapsed, status, onNavigate }: { item: NavIte
         href={item.href}
         onNavigate={onNavigate}
         aria-current={active ? "page" : undefined}
-        onPointerMove={onPointerMove}
-        onPointerLeave={onPointerLeave}
         className={cn(
           "icon-host pressable relative flex items-center gap-3 rounded-control py-1.5 pr-2.5 pl-1.5 text-sm font-medium outline-none [--press-scale:0.98] focus-visible:ring-2 focus-visible:ring-ring",
           active ? "text-pill-foreground" : "text-foreground/85 hover:bg-foreground/[0.045]",
@@ -106,7 +103,7 @@ function NavLink({ item, active, collapsed, status, onNavigate }: { item: NavIte
         )}
       >
         {active && <motion.span layoutId="nav-active" className="glass-pill absolute inset-0 rounded-control" transition={SPRING_SNAPPY} />}
-        <LayeredIcon icon={item.icon} tint={item.tint} active={active} muted={planned && !active} iconRef={iconRef} className="[--icon-size:1.75rem]" />
+        <NavIcon icon={item.icon} tint={item.tint} active={active} muted={planned && !active} className="[--icon-size:1.75rem]" />
         {!collapsed && (
           <>
             <span className={cn("relative truncate", planned && !active && "text-muted-foreground")}>{item.label}</span>

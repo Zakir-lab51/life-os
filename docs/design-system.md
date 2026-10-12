@@ -152,10 +152,10 @@ what doesn't need JavaScript.
   navigation never waits on an animation.
 - **Feedback only on change.** Use `useJustChanged`, or for task rows that are rebuilt
   when ticked, `wasJustCompleted`.
-- **Ambient motion is rationed.** Only these move on their own: the Liquid flow (30 fps),
-  the watch's seconds, and the selected sidebar icon's float.
+- **Ambient motion is rationed.** Only these move on their own: the Liquid flow (30 fps)
+  and the watch's seconds track (one step a second).
 - **Reduce motion** (system setting or Settings → Appearance) cuts every CSS animation and
-  transition short, stops Lenis, the flow, the watch hands and the scroll effects, and
+  transition short, stops Lenis, the flow, the watch's seconds and the scroll effects, and
   tells Motion to skip its animations.
 
 ## Rendering quality
