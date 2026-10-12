@@ -137,7 +137,7 @@ what doesn't need JavaScript.
 | Progress rings | Ease to the new value (1.1 s) |
 | Charts | Series ease in over 0.55 s (`useChartMotion`), none when motion is reduced |
 | Kanban drag | The card's place follows it from column to column; it lands where it stays (0.22 s) |
-| Navigation drawer | Slides its full width from the side of the button that opened it (0.42 s ease-out, out in 0.26 s), transform only; the page's tiles stop bending while it covers them |
+| Navigation drawer | Floats 12 px in from the screen edges, rounded all round; slides in from the side of the button that opened it (0.42 s ease-out, out in 0.26 s), transform only; the page's tiles stop bending while it covers them |
 | New notification | Bell badge pops |
 | Theme switch | New theme spreads in a circle from the toggle (View Transitions) |
 | Glass at rest | Tiles' bend eases back in 0.45 s after scrolling stops |

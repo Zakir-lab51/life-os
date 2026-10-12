@@ -770,6 +770,20 @@
   the slide to the compositor: every frame then repainted the drawer's contents (measured
   in the phone layout: 44% of frames over 20 ms; transform only: 4%).
 */
+/* it floats like the top bar and tab bar: inset from the screen's edges, rounded all round */
+[data-slot="sheet-content"].nav-drawer {
+  top: max(0.75rem, env(safe-area-inset-top));
+  bottom: max(0.75rem, env(safe-area-inset-bottom));
+  height: auto;
+  border-width: 1px;
+  border-radius: var(--radius-panel);
+}
+[data-slot="sheet-content"].nav-drawer[data-side="right"] {
+  right: max(0.75rem, env(safe-area-inset-right));
+}
+[data-slot="sheet-content"].nav-drawer[data-side="left"] {
+  left: max(0.75rem, env(safe-area-inset-left));
+}
 [data-slot="sheet-content"].nav-drawer[data-side="right"][data-state="open"] {
   animation: nav-drawer-in-right 0.42s var(--ease-out) both;
 }
@@ -782,24 +796,25 @@
 [data-slot="sheet-content"].nav-drawer[data-side="left"][data-state="closed"] {
   animation: nav-drawer-out-left 0.26s var(--ease-in) both;
 }
+/* it travels its width plus the inset and its shadow, so nothing is left showing at the edge */
 @keyframes nav-drawer-in-right {
   from {
-    transform: translate3d(100%, 0, 0);
+    transform: translate3d(calc(100% + 2rem), 0, 0);
   }
 }
 @keyframes nav-drawer-out-right {
   to {
-    transform: translate3d(100%, 0, 0);
+    transform: translate3d(calc(100% + 2rem), 0, 0);
   }
 }
 @keyframes nav-drawer-in-left {
   from {
-    transform: translate3d(-100%, 0, 0);
+    transform: translate3d(calc(-100% - 2rem), 0, 0);
   }
 }
 @keyframes nav-drawer-out-left {
   to {
-    transform: translate3d(-100%, 0, 0);
+    transform: translate3d(calc(-100% - 2rem), 0, 0);
   }
 }
 /* the drawer drops its own bend as it slides out (a bent surface on the move is re-filtered every frame) */

@@ -336,7 +336,7 @@ export function Topbar() {
       </div>
       {/* the drawer slides in from the side of the button that opened it: More (phone tab bar) is on the right, ☰ on the left */}
       <Sheet open={mobileOpen} onOpenChange={(o) => setMobileNav(o)}>
-        <SheetContent side={drawerSide} className={cn("nav-drawer glass w-[290px] border-line p-3 pt-[max(0.75rem,env(safe-area-inset-top))]", drawerSide === "right" ? "rounded-l-panel" : "rounded-r-panel")}>
+        <SheetContent side={drawerSide} className="nav-drawer glass w-[290px] border-line p-3">
           <SheetTitle className="sr-only">Navigation</SheetTitle>
           <SidebarContent onNavigate={() => setMobileNav(false)} />
         </SheetContent>
