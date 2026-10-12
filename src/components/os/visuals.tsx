@@ -105,6 +105,12 @@ export function Kbd({ children, className }: { children: ReactNode; className?: 
   )
 }
 
+/**
+ * What a list shows when it has nothing in it. `tone="clear"` is for good news (nothing
+ * overdue, all caught up), drawn in mint; the default is for "nothing here yet", with a
+ * way to start. Still, like every surface: only the flow, the watch and the selected nav
+ * icon move on their own.
+ */
 export function EmptyState({
   icon: I,
   title,
@@ -112,6 +118,7 @@ export function EmptyState({
   action,
   className,
   compact = false,
+  tone = "start",
 }: {
   icon: LucideIcon
   title: string
@@ -119,12 +126,13 @@ export function EmptyState({
   action?: ReactNode
   className?: string
   compact?: boolean
+  tone?: "start" | "clear"
 }) {
   return (
     <div className={cn("flex flex-col items-center justify-center text-center", compact ? "gap-2 py-6" : "gap-3 py-12", className)}>
       <div className="relative grid place-items-center">
-        <div className="absolute size-16 animate-breathe rounded-full bg-violet/15 blur-xl" />
-        <span className={cn("relative grid place-items-center rounded-2xl border border-line bg-surface-2 text-violet", compact ? "size-10" : "size-12")}>
+        <div className={cn("absolute size-16 rounded-full blur-xl", tone === "clear" ? "bg-mint/15" : "bg-violet/15")} />
+        <span className={cn("relative grid place-items-center rounded-2xl border border-line bg-surface-2", tone === "clear" ? "text-mint" : "text-violet", compact ? "size-10" : "size-12")}>
           <I className={compact ? "size-5" : "size-6"} />
         </span>
       </div>

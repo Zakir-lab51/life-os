@@ -26,7 +26,7 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { HabitMark } from "@/components/os/habit-mark"
-import { ChartFrame, ChartTooltip, axisProps } from "@/components/os/chart"
+import { ChartFrame, ChartTooltip, axisProps, useChartMotion } from "@/components/os/chart"
 import { Icon } from "@/components/os/icon"
 import { RollingText } from "@/components/os/rolling-text"
 import { Panel, PanelHeader } from "@/components/os/panel"
@@ -313,7 +313,7 @@ export function TodayWidget({ life }: { life: Life }) {
         }
       />
       {open.length === 0 && doneToday.length === 0 ? (
-        <EmptyState compact icon={Check} title="Nothing due today" body="Add a task, or pull one forward from Tasks." />
+        <EmptyState compact tone="clear" icon={Check} title="Nothing due today" body="Add a task, or pull one forward from Tasks." />
       ) : (
         <ul className="-mx-2 space-y-0.5">
           {open.slice(0, 7).map((t) => (
@@ -351,6 +351,7 @@ function TaskLine({ task, today, onOpen }: { task: Task; today: string; onOpen: 
 /* ── life balance radar ─────────────────────────────── */
 
 export function RadarWidget({ values }: { values: RadarValue[] }) {
+  const chartMotion = useChartMotion()
   const tracked = values.filter((v) => v.value !== null)
   // short axis labels keep the chart from clipping in narrow cards; the tooltip and table use full names
   const data = values.map((v) => ({ label: v.label, axis: v.label === "Personal Growth" ? "Growth" : v.label, value: v.value ?? 0, raw: v.value }))
@@ -363,13 +364,14 @@ export function RadarWidget({ values }: { values: RadarValue[] }) {
       {tracked.length < 3 ? (
         <EmptyState compact icon={Brain} title="Not enough data yet" body="Track a few tasks, habits or focus sessions across different areas to see your balance." />
       ) : (
-        <div className="h-[230px]">
+        // long axis labels may reach a few px past the chart, into the card's padding, instead of being cut off
+        <div className="h-[230px] [&_.recharts-surface]:overflow-visible">
           <ResponsiveContainer width="100%" height="100%">
             <RadarChart data={data} outerRadius="64%" margin={{ top: 6, right: 30, bottom: 6, left: 30 }}>
               <PolarGrid stroke="var(--line)" />
               <PolarAngleAxis dataKey="axis" tick={{ fill: "var(--muted-foreground)", fontSize: 10.5 }} />
               <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
-              <Radar dataKey="value" name="Score" stroke="var(--violet)" strokeWidth={2} fill="var(--violet)" fillOpacity={0.15} dot={{ r: 3, fill: "var(--violet)", strokeWidth: 0 }} />
+              <Radar {...chartMotion} dataKey="value" name="Score" stroke="var(--violet)" strokeWidth={2} fill="var(--violet)" fillOpacity={0.15} dot={{ r: 3, fill: "var(--violet)", strokeWidth: 0 }} />
               <Tooltip
                 content={({ active, payload }) => {
                   if (!active || !payload?.length) return null
@@ -446,6 +448,7 @@ export function HabitsWidget({ life }: { life: Life }) {
 /* ── focus ──────────────────────────────────────────── */
 
 export function FocusWidget({ life }: { life: Life }) {
+  const chartMotion = useChartMotion()
   const router = useRouter()
   const timer = useFocus((s) => s.timer)
   const begin = useFocus((s) => s.begin)
@@ -490,7 +493,7 @@ export function FocusWidget({ life }: { life: Life }) {
           <BarChart data={week} margin={{ top: 4, right: 0, bottom: 0, left: 0 }} barCategoryGap="22%">
             <XAxis dataKey="label" {...axisProps} interval={0} height={16} />
             <Tooltip cursor={{ fill: "var(--surface-3)", opacity: 0.5 }} content={<ChartTooltip format={(v) => `${v} min`} labelFormat={(_, p) => formatDay(String(p?.date))} />} />
-            <Bar dataKey="minutes" name="Focus" fill="var(--cyan)" radius={[4, 4, 0, 0]} maxBarSize={24} />
+            <Bar {...chartMotion} dataKey="minutes" name="Focus" fill="var(--cyan)" radius={[4, 4, 0, 0]} maxBarSize={24} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -578,7 +581,7 @@ export function DeadlinesWidget({ life }: { life: Life }) {
     <Panel>
       <PanelHeader title="Upcoming deadlines" subtitle="Next two weeks" icon={CalendarClock} tone="lilac" />
       {items.length === 0 ? (
-        <EmptyState compact icon={CalendarClock} title="No deadlines ahead" />
+        <EmptyState compact tone="clear" icon={CalendarClock} title="No deadlines ahead" />
       ) : (
         <ul className="divide-y divide-line">
           {items.map((t) => (

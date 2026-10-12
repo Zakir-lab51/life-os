@@ -1,6 +1,7 @@
 "use client"
 
 import { ChartColumn, Table2 } from "lucide-react"
+import { useReducedMotionConfig } from "motion/react"
 import { useState, type ReactNode } from "react"
 import { cn } from "@/lib/utils"
 
@@ -45,7 +46,7 @@ export function ChartFrame({
             aria-pressed={view === "chart"}
             aria-label="Chart view"
             onClick={() => setView("chart")}
-            className={cn("grid size-7 place-items-center rounded-full transition-colors", view === "chart" ? "bg-surface-3 text-foreground" : "text-muted-foreground hover:text-foreground")}
+            className={cn("hit-area relative grid size-7 place-items-center rounded-full transition-colors", view === "chart" ? "bg-surface-3 text-foreground" : "text-muted-foreground hover:text-foreground")}
           >
             <ChartColumn className="size-3.5" />
           </button>
@@ -54,7 +55,7 @@ export function ChartFrame({
             aria-pressed={view === "table"}
             aria-label="Table view"
             onClick={() => setView("table")}
-            className={cn("grid size-7 place-items-center rounded-full transition-colors", view === "table" ? "bg-surface-3 text-foreground" : "text-muted-foreground hover:text-foreground")}
+            className={cn("hit-area relative grid size-7 place-items-center rounded-full transition-colors", view === "table" ? "bg-surface-3 text-foreground" : "text-muted-foreground hover:text-foreground")}
           >
             <Table2 className="size-3.5" />
           </button>
@@ -91,6 +92,16 @@ export function ChartFrame({
       )}
     </section>
   )
+}
+
+/**
+ * Recharts animates in JavaScript, so the stylesheet's reduce-motion rule can't reach it.
+ * Spread this on every series: a short ease-out like the rest of the app, and no animation
+ * when motion is reduced (the system setting or Settings → Appearance, via MotionConfig).
+ */
+export function useChartMotion() {
+  const reduced = useReducedMotionConfig()
+  return { isAnimationActive: !reduced, animationDuration: 550, animationEasing: "ease-out" } as const
 }
 
 export function LegendItem({ color, label, kind = "box" }: { color: string; label: string; kind?: "box" | "line" }) {

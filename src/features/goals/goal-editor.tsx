@@ -4,6 +4,7 @@ import { useLiveQuery } from "dexie-react-hooks"
 import { Check, Plus, X } from "lucide-react"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
+import { DiscardBar, revealFirstError, useCloseGuard, useUnsaved, type CloseGuard } from "@/components/os/editor-guard"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -90,12 +91,13 @@ function toMeasure(d: Draft): GoalMeasure | { error: string; path: string } {
 export function GoalEditorDialog() {
   const { open, goalId, defaults } = useUI((s) => s.goalEditor)
   const close = useUI((s) => s.closeGoalEditor)
+  const guard = useCloseGuard(close)
   const goal = useGoal(goalId)
   const prefs = usePrefs()
   const ready = (!goalId || goal !== undefined) && !!prefs
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && close()}>
+    <Dialog open={open} onOpenChange={(o) => !o && guard.requestClose()}>
       <DialogContent className="max-h-[92dvh] gap-0 overflow-hidden rounded-dialog p-0 sm:max-w-2xl">
         {open && ready &&
           (goal === null && goalId ? (
@@ -104,17 +106,18 @@ export function GoalEditorDialog() {
               <DialogDescription className="mt-2">It may have been deleted.</DialogDescription>
             </div>
           ) : (
-            <GoalForm key={goalId ?? "new"} goal={goal ?? null} defaults={defaults} weekStartsOn={prefs!.weekStartsOn} onDone={close} />
+            <GoalForm key={goalId ?? "new"} goal={goal ?? null} defaults={defaults} weekStartsOn={prefs!.weekStartsOn} onDone={guard.close} guard={guard} />
           ))}
       </DialogContent>
     </Dialog>
   )
 }
 
-function GoalForm({ goal, defaults, weekStartsOn, onDone }: { goal: Goal | null; defaults: Partial<GoalInput> | null; weekStartsOn: 0 | 1; onDone: () => void }) {
+function GoalForm({ goal, defaults, weekStartsOn, onDone, guard }: { goal: Goal | null; defaults: Partial<GoalInput> | null; weekStartsOn: 0 | 1; onDone: () => void; guard: CloseGuard }) {
   const [d, setD] = useState<Draft>(() => toDraft(goal, defaults, weekStartsOn))
   const [dueTouched, setDueTouched] = useState(!!goal)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  useUnsaved(guard, d)
   const [saving, setSaving] = useState(false)
   const [newMilestone, setNewMilestone] = useState({ title: "", due: null as string | null })
   const allHabits = useLiveQuery(() => db.habits.orderBy("order").toArray(), [])
@@ -167,8 +170,10 @@ function GoalForm({ goal, defaults, weekStartsOn, onDone }: { goal: Goal | null;
       }
       onDone()
     } catch (e) {
-      if (e instanceof ValidationError) setErrors(e.fields)
-      else reportError(e)
+      if (e instanceof ValidationError) {
+        setErrors(e.fields)
+        revealFirstError()
+      } else reportError(e)
     } finally {
       setSaving(false)
     }
@@ -176,7 +181,7 @@ function GoalForm({ goal, defaults, weekStartsOn, onDone }: { goal: Goal | null;
 
   return (
     <form
-      className="flex max-h-[92dvh] flex-col"
+      className="relative flex max-h-[92dvh] flex-col"
       onSubmit={(e) => {
         e.preventDefault()
         void save()
@@ -375,6 +380,7 @@ function GoalForm({ goal, defaults, weekStartsOn, onDone }: { goal: Goal | null;
           {goal ? "Save" : "Set goal"}
         </Button>
       </DialogFooter>
+      <DiscardBar guard={guard} />
     </form>
   )
 }

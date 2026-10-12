@@ -268,7 +268,7 @@ export function Timeline({ date, isToday, blocks, tasksById }: { date: string; i
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <button type="button" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()} aria-label={`Actions for ${b.title}`} className="grid size-6 shrink-0 place-items-center rounded-md opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 hover:bg-foreground/10">
+                      <button type="button" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()} aria-label={`Actions for ${b.title}`} className="grid size-6 shrink-0 place-items-center rounded-md transition-opacity pointer-fine:opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-foreground/10">
                         <MoreHorizontal className="size-3.5" />
                       </button>
                     </DropdownMenuTrigger>

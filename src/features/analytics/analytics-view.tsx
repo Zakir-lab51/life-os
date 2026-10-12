@@ -4,7 +4,7 @@ import { Activity, CalendarRange, Check, Flame, Gauge, Timer } from "lucide-reac
 import { useMemo, useState } from "react"
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import { Skeleton } from "@/components/ui/skeleton"
-import { ChartFrame, ChartTooltip, axisProps } from "@/components/os/chart"
+import { ChartFrame, ChartTooltip, axisProps, useChartMotion } from "@/components/os/chart"
 import { Segmented } from "@/components/os/field"
 import { Heatmap } from "@/components/os/heatmap"
 import { PageHeader, PageTransition } from "@/components/os/page-header"
@@ -47,6 +47,7 @@ function delta(cur: number | null, prev: number | null, unit: "%" | "pts" = "%")
 }
 
 function Analytics({ life }: { life: Life }) {
+  const chartMotion = useChartMotion()
   const { data, today, prefs } = life
   const [range, setRange] = useState<Range>(30)
   const from = addDays(today, -(range - 1))
@@ -116,7 +117,7 @@ function Analytics({ life }: { life: Life }) {
               <XAxis dataKey="label" {...axisProps} interval={tickInterval} minTickGap={24} />
               <YAxis {...axisProps} domain={[0, 100]} ticks={[0, 25, 50, 75, 100]} width={44} />
               <Tooltip cursor={{ stroke: "var(--muted-foreground)", strokeWidth: 1 }} content={<ChartTooltip labelFormat={label} />} />
-              <Area dataKey="score" name="Score" type="monotone" stroke="var(--violet)" strokeWidth={2} fill="var(--violet)" fillOpacity={0.1} connectNulls={false} dot={false} activeDot={{ r: 4, strokeWidth: 2, stroke: "var(--card)" }} />
+              <Area {...chartMotion} dataKey="score" name="Score" type="monotone" stroke="var(--violet)" strokeWidth={2} fill="var(--violet)" fillOpacity={0.1} connectNulls={false} dot={false} activeDot={{ r: 4, strokeWidth: 2, stroke: "var(--card)" }} />
             </AreaChart>
           </ChartBox>
         </ChartFrame>
@@ -132,7 +133,7 @@ function Analytics({ life }: { life: Life }) {
               <XAxis dataKey="label" {...axisProps} interval={tickInterval} minTickGap={24} />
               <YAxis {...axisProps} allowDecimals={false} width={44} />
               <Tooltip cursor={{ fill: "var(--surface-3)", opacity: 0.5 }} content={<ChartTooltip labelFormat={label} format={(v) => `${v} task${v === 1 ? "" : "s"}`} />} />
-              <Bar dataKey="tasksDone" name="Finished" fill="var(--violet)" radius={[4, 4, 0, 0]} maxBarSize={24} />
+              <Bar {...chartMotion} dataKey="tasksDone" name="Finished" fill="var(--violet)" radius={[4, 4, 0, 0]} maxBarSize={24} />
             </BarChart>
           </ChartBox>
         </ChartFrame>
@@ -148,7 +149,7 @@ function Analytics({ life }: { life: Life }) {
               <XAxis dataKey="label" {...axisProps} interval={tickInterval} minTickGap={24} />
               <YAxis {...axisProps} allowDecimals={false} width={44} />
               <Tooltip cursor={{ fill: "var(--surface-3)", opacity: 0.5 }} content={<ChartTooltip labelFormat={label} format={(v) => `${v} min`} />} />
-              <Bar dataKey="focusMin" name="Focus" fill="var(--cyan)" radius={[4, 4, 0, 0]} maxBarSize={24} />
+              <Bar {...chartMotion} dataKey="focusMin" name="Focus" fill="var(--cyan)" radius={[4, 4, 0, 0]} maxBarSize={24} />
             </BarChart>
           </ChartBox>
         </ChartFrame>
@@ -164,7 +165,7 @@ function Analytics({ life }: { life: Life }) {
               <XAxis dataKey="label" {...axisProps} interval={tickInterval} minTickGap={24} />
               <YAxis {...axisProps} domain={[0, 100]} ticks={[0, 50, 100]} tickFormatter={(v) => `${v}%`} width={44} />
               <Tooltip cursor={{ stroke: "var(--muted-foreground)", strokeWidth: 1 }} content={<ChartTooltip labelFormat={label} format={(v) => `${v}%`} />} />
-              <Line dataKey="habitRate" name="Kept" type="monotone" stroke="var(--mint)" strokeWidth={2} dot={range === 7 ? { r: 4, strokeWidth: 2, stroke: "var(--card)", fill: "var(--mint)" } : false} activeDot={{ r: 4, strokeWidth: 2, stroke: "var(--card)" }} connectNulls={false} />
+              <Line {...chartMotion} dataKey="habitRate" name="Kept" type="monotone" stroke="var(--mint)" strokeWidth={2} dot={range === 7 ? { r: 4, strokeWidth: 2, stroke: "var(--card)", fill: "var(--mint)" } : false} activeDot={{ r: 4, strokeWidth: 2, stroke: "var(--card)" }} connectNulls={false} />
             </LineChart>
           </ChartBox>
         </ChartFrame>
@@ -230,8 +231,8 @@ function AreaBars({ title, unit, rows, format }: { title: string; unit: string; 
               <span className="size-2 rounded-full" style={{ background: AREA_META[r.area].color }} />
               {AREA_META[r.area].label}
             </span>
-            <span className="relative h-5 rounded-[4px] bg-surface-2/70">
-              <span className="absolute inset-y-0 left-0 rounded-r-[4px] bg-violet transition-[width] duration-700 group-hover:brightness-110" style={{ width: `${(r.value / max) * 100}%` }} />
+            <span className="relative h-5 overflow-hidden rounded-[4px] bg-surface-2/70">
+              <span className="absolute inset-0 origin-left bg-violet transition-transform duration-700 ease-[var(--ease-out)] group-hover:brightness-110" style={{ transform: `scaleX(${r.value / max})` }} />
             </span>
             <span className="text-right text-sm font-medium tabular">{format(r.value)}</span>
           </li>

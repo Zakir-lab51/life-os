@@ -1,21 +1,37 @@
-import type { ReactNode } from "react"
+import { cloneElement, isValidElement, type ReactElement, type ReactNode } from "react"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 
-/** Label + control + inline error/help, wired up for screen readers. */
+/**
+ * Label + control + inline error/help, wired up for screen readers: when the child is the
+ * control itself (its id is `htmlFor`), it gets aria-invalid and aria-describedby pointing
+ * at the error, or else the hint. A field with an error carries data-invalid, which
+ * revealFirstError (editor-guard.tsx) uses to bring it into view after a failed save.
+ */
 export function Field({ label, htmlFor, error, hint, children, className }: { label: string; htmlFor?: string; error?: string; hint?: ReactNode; children: ReactNode; className?: string }) {
+  const errorId = htmlFor && `${htmlFor}-error`
+  const hintId = htmlFor && `${htmlFor}-hint`
+  const control =
+    htmlFor && isValidElement<{ id?: string }>(children) && children.props.id === htmlFor
+      ? cloneElement(children as ReactElement<Record<string, unknown>>, {
+          "aria-invalid": error ? true : undefined,
+          "aria-describedby": error ? errorId : hint ? hintId : undefined,
+        })
+      : children
   return (
-    <div className={cn("space-y-1.5", className)}>
+    <div data-invalid={error ? "" : undefined} className={cn("space-y-1.5", className)}>
       <Label htmlFor={htmlFor} className="text-xs font-medium text-muted-foreground">
         {label}
       </Label>
-      {children}
+      {control}
       {error ? (
-        <p className="text-xs font-medium text-destructive" role="alert" id={htmlFor ? `${htmlFor}-error` : undefined}>
+        <p className="text-xs font-medium text-destructive" role="alert" id={errorId || undefined}>
           {error}
         </p>
       ) : hint ? (
-        <p className="text-xs text-muted-foreground">{hint}</p>
+        <p className="text-xs text-muted-foreground" id={hintId || undefined}>
+          {hint}
+        </p>
       ) : null}
     </div>
   )

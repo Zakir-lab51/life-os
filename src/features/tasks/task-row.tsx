@@ -149,7 +149,8 @@ export function TaskRow({
         </span>
         <TaskMeta task={task} today={today} blockedBy={blockedBy} />
       </button>
-      <div className="opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100">
+      {/* hidden until hover only where there is hover: on touch screens the menu stays visible */}
+      <div className="opacity-100 transition-opacity sm:pointer-fine:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100">
         <TaskActionsMenu task={task} today={today} />
       </div>
     </div>

@@ -312,7 +312,7 @@ function LogProgress({ goal, life }: { goal: Goal; life: Life }) {
                 {m.unit ? ` ${m.unit}` : ""}
               </span>
               <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{l.note}</span>
-              <Button size="icon-xs" variant="ghost" aria-label={`Delete the entry for ${formatDay(l.date, "d MMM")}`} className="opacity-0 group-hover/log:opacity-100 focus-visible:opacity-100" onClick={() => void attempt(() => deleteGoalLog(l.id))}>
+              <Button size="icon-xs" variant="ghost" aria-label={`Delete the entry for ${formatDay(l.date, "d MMM")}`} className="pointer-fine:opacity-0 group-hover/log:opacity-100 focus-visible:opacity-100" onClick={() => void attempt(() => deleteGoalLog(l.id))}>
                 <Trash2 />
               </Button>
             </li>

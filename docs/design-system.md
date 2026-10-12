@@ -99,7 +99,12 @@ page.
 | Selected | `glass-pill` highlighter that glides between options |
 | Disabled | 50% opacity, no pointer |
 | Done | `strike is-done`: strike and muted colour fade in over 0.3 s |
-| Touch targets | At least 44 px on coarse pointers (tick-boxes enlarge their hit area invisibly) |
+| Touch targets | At least 44 px on coarse pointers: tick-boxes and icon buttons enlarge their hit area invisibly (`hit-area`) |
+| Hover-only controls | Hidden only where there is a fine pointer (`pointer-fine:opacity-0 group-hover:opacity-100`); always visible on touch |
+| Loading | Translucent skeletons in the page's shape, shown only after 150 ms |
+| Empty | `EmptyState`: "start" (violet, with a way to begin) or "clear" (mint, good news) |
+| Error | Field errors are linked to their control and get focus after a failed save; a crashed page shows `ErrorState` inside the app |
+| Unsaved changes | Editors ask before Escape, outside click or ✕ throws typing away (`editor-guard.tsx`) |
 
 ## Motion
 
@@ -130,6 +135,8 @@ what doesn't need JavaScript.
 | Habit checked in | Mark pops with a ring in the habit's colour |
 | Numbers | Digits roll (`RollingText`): clock, score, stat tiles |
 | Progress rings | Ease to the new value (1.1 s) |
+| Charts | Series ease in over 0.55 s (`useChartMotion`), none when motion is reduced |
+| Kanban drag | The card's place follows it from column to column; it lands where it stays (0.22 s) |
 | New notification | Bell badge pops |
 | Theme switch | New theme spreads in a circle from the toggle (View Transitions) |
 | Glass at rest | Tiles' bend eases back in 0.45 s after scrolling stops |

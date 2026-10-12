@@ -197,6 +197,12 @@ function Tasks({ life, blocks }: { life: Life; blocks: NonNullable<ReturnType<ty
     : []
 
   const anyFilter = query || area !== "any" || priority !== "any" || tag !== "any"
+  const clearFilters = () => {
+    setQuery("")
+    setArea("any")
+    setPriority("any")
+    setTag("any")
+  }
   const selecting = selected.size > 0
 
   return (
@@ -312,16 +318,7 @@ function Tasks({ life, blocks }: { life: Life; blocks: NonNullable<ReturnType<ty
             </Select>
           )}
           {anyFilter && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setQuery("")
-                setArea("any")
-                setPriority("any")
-                setTag("any")
-              }}
-            >
+            <Button variant="ghost" size="sm" onClick={clearFilters}>
               <X /> Clear filters
             </Button>
           )}
@@ -334,10 +331,25 @@ function Tasks({ life, blocks }: { life: Life; blocks: NonNullable<ReturnType<ty
         <Panel>
           <EmptyState
             icon={filter === "done" ? Check : SquareCheckBig}
-            title={anyFilter ? "No tasks match these filters" : filter === "done" ? "Nothing completed yet" : filter === "overdue" ? "Nothing overdue" : "No tasks here"}
-            body={anyFilter ? "Try clearing a filter." : filter === "open" ? "Capture what's on your mind. Press Q for quick capture." : undefined}
+            tone={!anyFilter && (filter === "overdue" || filter === "today") ? "clear" : "start"}
+            title={anyFilter ? "No tasks match these filters" : filter === "done" ? "Nothing completed yet" : filter === "overdue" ? "Nothing overdue" : filter === "today" ? "Nothing due today" : "No tasks here"}
+            body={
+              anyFilter
+                ? "Every task in this view is hidden by a search or filter."
+                : filter === "overdue"
+                  ? "You're all caught up."
+                  : filter === "done"
+                    ? "Tasks you tick off collect here."
+                    : filter === "open"
+                      ? "Capture what's on your mind. Press Q for quick capture."
+                      : undefined
+            }
             action={
-              !anyFilter && filter !== "done" ? (
+              anyFilter ? (
+                <Button size="sm" variant="outline" onClick={clearFilters}>
+                  <X /> Clear filters
+                </Button>
+              ) : filter !== "done" && filter !== "overdue" ? (
                 <Button size="sm" onClick={() => openTaskEditor(null, filter === "today" ? { dueDate: today } : undefined)}>
                   <Plus /> New task
                 </Button>

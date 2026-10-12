@@ -257,3 +257,43 @@ scrolling and isn't a fair measure of input delay, so it's left out.
   timeline's tick-box hit area on touch.
 - Not started from the spec: further refinement of widgets, forms, charts, dialogs and the
   Kanban board; designed empty, loading and error states; shared-element transitions.
+
+## Increment 6: Kanban, forms, dialogs, charts, widgets; empty, loading and error states
+
+### Verified bugs
+
+| # | Severity | Bug | Reproduce | Cause | Fix | Files |
+|---|---|---|---|---|---|---|
+| 4 | High (data loss) | Escape, a click outside or ✕ closed the task, goal, habit and time-block editors and threw away unsaved typing. | Open New task, type a title, press Escape. | The dialogs closed on every close request. | A close guard: with unsaved changes the editor stays open and asks "Discard your changes?" (Keep editing / Discard). Saving, Cancel and Discard close at once. | `components/os/editor-guard.tsx`, the four editors; test `tests/editor-guard.test.tsx` (fails without the guard) |
+| 5 | High (touch) | On the iPad and phones, swiping over a Kanban card didn't scroll the page. | Board view on a touch screen, swipe up over a card. | Cards had `touch-action: none` for pointer-based dragging. | Mouse drags start after 6 px; touch drags start on a 220 ms press-and-hold, and cards use `touch-action: manipulation`. | `features/tasks/task-board.tsx` |
+| 6 | Medium | A dropped Kanban card flew back to its old column, then jumped to the new one. | Drag a card to another column. | The card stayed in its old column until the database write landed. | While dragging, the card's place moves to the column under it; after a drop the move shows at once and the write catches up (a blocked move is put back). | `task-board.tsx`, `board-layout.ts`; test `tests/board-layout.test.ts` (it also caught a sort bug: a card dropped into Done went to the bottom) |
+| 7 | Medium (accessibility) | Screen readers heard task IDs while dragging ("Picked up draggable item 3f2a…"), with no instructions; arrow keys moved cards 25 px at a time; each card was a `role=button` holding other buttons. | Tab to a card, press Space. | dnd-kit's default announcements and keyboard sensor. | Announcements and instructions with task titles and column names; arrows jump column to column; cards are labelled groups. Checked in the browser: picked up with Space, Left arrow, dropped with Space, announcements read "… moved to To do". | `task-board.tsx` |
+| 8 | Medium (touch) | On the iPad, the task row's "…" menu, the time-block actions, "Remove subtask", "Delete entry" (goal history) and "Remove session" were invisible: they only appeared on hover. | Tasks list on an iPad: no "…" on rows. | `opacity-0` until `group-hover`, and touch screens never hover. | They hide only where there is a fine pointer (`pointer-fine:opacity-0`). "Remove session" and "Remove subtask" also grew from 14 px to 32 and 28 px. | `focus-view.tsx`, `goal-detail.tsx`, `timeline.tsx`, `task-editor.tsx`, `task-row.tsx` |
+| 9 | Medium | A page that threw while rendering took the whole app down to Next's bare "Application error" screen; unknown addresses got the default unstyled 404. | — | No error boundary or not-found page. | `(os)/error.tsx` shows an in-app error state (data is safe, Try again, Overview, Copy details); `global-error.tsx` for a crash in the shell; a styled `not-found.tsx` (404.html). | `components/os/error-state.tsx`, `app/(os)/error.tsx`, `app/global-error.tsx`, `app/not-found.tsx`; test `tests/error-state.test.tsx` |
+| 10 | Low (motion) | Charts kept animating with Reduce motion on, for 1.5 s each time. | Settings → Reduce motion, open Analytics. | Recharts animates in JavaScript, which the CSS rule can't reach. | `useChartMotion()`: off when motion is reduced (system or Settings), otherwise 0.55 s ease-out. Analytics' area bars scale instead of animating their width. | `components/os/chart.tsx`, analytics, focus, overview widgets |
+| 11 | Low | The Life balance radar cut off "Consistency" in narrow cards. | Overview at about 1430 px wide. | The chart's svg clipped its own axis labels. | The labels may draw into the card's padding. A page audit found no clipped chart labels after the fix. | `overview/widgets.tsx` |
+
+### Refinements
+
+- Forms: `Field` links its control to the error (or hint) with `aria-describedby`, sets
+  `aria-invalid`, and after a failed save focus moves to the first field with an error,
+  scrolled into view (`revealFirstError`).
+- Touch targets: icon buttons (`icon`, `icon-sm`, `icon-xs`) and the chart/table switch
+  answer to a 44 px square on touch screens (`hit-area`), without changing how they look.
+- Empty states: an "all clear" tone in mint for good news (nothing overdue, nothing due
+  today, no deadlines, everything scheduled); a filtered-out task list offers Clear
+  filters; Kanban columns explain themselves and say "Drop it here" while dragging. The
+  breathing glow stopped (ambient motion is rationed).
+- Loading: skeletons are translucent (they suit the clear glass), fade in only after
+  150 ms so a quick load never flashes them, and pulse softly (opacity only).
+
+### Checked in the browser (production build, about 1430 px wide)
+
+- Kanban: a mouse drag moved a card to In progress ("Do next" then read "Already in
+  progress"); the keyboard moved it back. Focus stayed on the card.
+- 404 page renders; no page overflows sideways; no clipped chart labels; the remaining
+  "small targets" the audit reported are full-width text rows and inline links, which meet
+  WCAG's spacing exception.
+- Not exercised in a browser: the page error state (covered by its test), touch dragging on
+  a real iPad, and the close guard in the real editors (covered by its test with the real
+  dialog component).

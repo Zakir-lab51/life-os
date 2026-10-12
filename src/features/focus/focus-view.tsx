@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Slider } from "@/components/ui/slider"
-import { ChartFrame, ChartTooltip, axisProps } from "@/components/os/chart"
+import { ChartFrame, ChartTooltip, axisProps, useChartMotion } from "@/components/os/chart"
 import { PageHeader, PageTransition } from "@/components/os/page-header"
 import { Panel, PanelHeader } from "@/components/os/panel"
 import { EmptyState, StatTile } from "@/components/os/visuals"
@@ -352,6 +352,7 @@ function AmbientControls({ kind, volume, onPlay, onVolume, compact }: { kind: Am
 }
 
 function FocusSidebar({ life, today }: { life: Life; today: string }) {
+  const chartMotion = useChartMotion()
   const sessions = life.data.sessions
   const tasksById = new Map(life.data.tasks.map((t) => [t.id, t]))
   const week = useMemo(
@@ -388,7 +389,7 @@ function FocusSidebar({ life, today }: { life: Life; today: string }) {
               <XAxis dataKey="label" {...axisProps} interval={0} />
               <YAxis {...axisProps} width={44} allowDecimals={false} />
               <Tooltip cursor={{ fill: "var(--surface-3)", opacity: 0.5 }} content={<ChartTooltip format={(v) => `${v} min`} labelFormat={(_, p) => formatDay(String(p?.date), "EEEE d MMM")} />} />
-              <Bar dataKey="minutes" name="Focus" fill="var(--violet)" radius={[4, 4, 0, 0]} maxBarSize={24} />
+              <Bar {...chartMotion} dataKey="minutes" name="Focus" fill="var(--violet)" radius={[4, 4, 0, 0]} maxBarSize={24} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -412,7 +413,7 @@ function FocusSidebar({ life, today }: { life: Life; today: string }) {
                     </p>
                   </div>
                   <span className="text-sm font-semibold tabular">{formatDuration(Math.round(s.actualSec / 60))}</span>
-                  <button type="button" onClick={() => void remove(s)} aria-label="Remove session" className="text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 hover:text-destructive">
+                  <button type="button" onClick={() => void remove(s)} aria-label="Remove session" className="relative grid size-8 shrink-0 place-items-center rounded-full text-muted-foreground transition-opacity outline-none hit-area pointer-fine:opacity-0 group-hover:opacity-100 hover:text-destructive focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring">
                     <Trash2 className="size-3.5" />
                   </button>
                 </li>

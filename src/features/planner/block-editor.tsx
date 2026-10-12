@@ -5,6 +5,7 @@ import { Play, Trash2, TriangleAlert } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
+import { DiscardBar, revealFirstError, useCloseGuard, useUnsaved, type CloseGuard } from "@/components/os/editor-guard"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -52,18 +53,19 @@ export function startFocusForBlock(block: Block, defaultMin: number, push: (href
 export function BlockEditorDialog() {
   const { open, blockId, date, start } = useUI((s) => s.blockEditor)
   const close = useUI((s) => s.closeBlockEditor)
+  const guard = useCloseGuard(close)
   const block = useBlock(blockId)
   const ready = !blockId || block !== undefined
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && close()}>
+    <Dialog open={open} onOpenChange={(o) => !o && guard.requestClose()}>
       <DialogContent className="max-h-[92dvh] gap-0 overflow-hidden rounded-dialog p-0 sm:max-w-lg">
-        {open && ready && <BlockForm key={blockId ?? `new-${date}-${start}`} block={block ?? null} date={date} start={start} onDone={close} />}
+        {open && ready && <BlockForm key={blockId ?? `new-${date}-${start}`} block={block ?? null} date={date} start={start} onDone={guard.close} guard={guard} />}
       </DialogContent>
     </Dialog>
   )
 }
 
-function BlockForm({ block, date, start, onDone }: { block: Block | null; date: string | null; start: number | null; onDone: () => void }) {
+function BlockForm({ block, date, start, onDone, guard }: { block: Block | null; date: string | null; start: number | null; onDone: () => void; guard: CloseGuard }) {
   const today = useToday()
   const prefs = usePrefs()
   const router = useRouter()
@@ -76,6 +78,7 @@ function BlockForm({ block, date, start, onDone }: { block: Block | null; date: 
   const [taskId, setTaskId] = useState<string | null>(block?.taskId ?? null)
   const [notes, setNotes] = useState(block?.notes ?? "")
   const [errors, setErrors] = useState<Record<string, string>>({})
+  useUnsaved(guard, { title, kind, day, from, to, taskId, notes })
 
   const openTasks = useLiveQuery(() => db.tasks.filter((t) => t.status !== "done").toArray(), [])
   const sameDay = useBlocks(day)
@@ -90,6 +93,7 @@ function BlockForm({ block, date, start, onDone }: { block: Block | null; date: 
     setErrors({})
     if (startMin === null || endMin === null) {
       setErrors({ end: "Enter both times as HH:mm" })
+      revealFirstError()
       return
     }
     const input = { date: day, start: startMin, end: endMin, title, kind, taskId, notes }
@@ -99,14 +103,16 @@ function BlockForm({ block, date, start, onDone }: { block: Block | null; date: 
       toast.success(block ? "Block updated" : "Block added", { description: `${title.trim()} · ${formatClock(startMin)}` })
       onDone()
     } catch (e) {
-      if (e instanceof ValidationError) setErrors(e.fields)
-      else reportError(e)
+      if (e instanceof ValidationError) {
+        setErrors(e.fields)
+        revealFirstError()
+      } else reportError(e)
     }
   }
 
   return (
     <form
-      className="flex max-h-[92dvh] flex-col"
+      className="relative flex max-h-[92dvh] flex-col"
       onSubmit={(e) => {
         e.preventDefault()
         void save()
@@ -207,6 +213,7 @@ function BlockForm({ block, date, start, onDone }: { block: Block | null; date: 
           <Button type="submit">{block ? "Save" : "Add block"}</Button>
         </div>
       </DialogFooter>
+      <DiscardBar guard={guard} />
     </form>
   )
 }

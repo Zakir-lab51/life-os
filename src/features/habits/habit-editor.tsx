@@ -3,6 +3,7 @@
 import { Archive, ArchiveRestore, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
+import { DiscardBar, revealFirstError, useCloseGuard, useUnsaved, type CloseGuard } from "@/components/os/editor-guard"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -34,18 +35,19 @@ export async function deleteHabitWithUndo(habit: Habit) {
 export function HabitEditorDialog() {
   const { open, habitId, defaults } = useUI((s) => s.habitEditor)
   const close = useUI((s) => s.closeHabitEditor)
+  const guard = useCloseGuard(close)
   const habit = useHabit(habitId)
   const ready = !habitId || habit !== undefined
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && close()}>
+    <Dialog open={open} onOpenChange={(o) => !o && guard.requestClose()}>
       <DialogContent className="max-h-[92dvh] gap-0 overflow-hidden rounded-dialog p-0 sm:max-w-xl">
-        {open && ready && <HabitForm key={habitId ?? "new"} habit={habit ?? null} defaults={defaults} onDone={close} />}
+        {open && ready && <HabitForm key={habitId ?? "new"} habit={habit ?? null} defaults={defaults} onDone={guard.close} guard={guard} />}
       </DialogContent>
     </Dialog>
   )
 }
 
-function HabitForm({ habit, defaults, onDone }: { habit: Habit | null; defaults: Partial<HabitInput> | null; onDone: () => void }) {
+function HabitForm({ habit, defaults, onDone, guard }: { habit: Habit | null; defaults: Partial<HabitInput> | null; onDone: () => void; guard: CloseGuard }) {
   const today = useToday()
   const [name, setName] = useState(habit?.name ?? defaults?.name ?? "")
   const [icon, setIcon] = useState(habit?.icon ?? defaults?.icon ?? "Sparkles")
@@ -55,6 +57,7 @@ function HabitForm({ habit, defaults, onDone }: { habit: Habit | null; defaults:
   const [timeOfDay, setTimeOfDay] = useState<TimeOfDay>(habit?.timeOfDay ?? defaults?.timeOfDay ?? "anytime")
   const [startDate, setStartDate] = useState(habit?.startDate ?? today)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  useUnsaved(guard, { name, icon, color, area, schedule, timeOfDay, startDate })
 
   const save = async () => {
     setErrors({})
@@ -65,14 +68,16 @@ function HabitForm({ habit, defaults, onDone }: { habit: Habit | null; defaults:
       toast.success(habit ? "Habit saved" : "Habit created", { description: name.trim() })
       onDone()
     } catch (e) {
-      if (e instanceof ValidationError) setErrors(e.fields)
-      else reportError(e)
+      if (e instanceof ValidationError) {
+        setErrors(e.fields)
+        revealFirstError()
+      } else reportError(e)
     }
   }
 
   return (
     <form
-      className="flex max-h-[92dvh] flex-col"
+      className="relative flex max-h-[92dvh] flex-col"
       onSubmit={(e) => {
         e.preventDefault()
         void save()
@@ -230,6 +235,7 @@ function HabitForm({ habit, defaults, onDone }: { habit: Habit | null; defaults:
           <Button type="submit">{habit ? "Save" : "Create habit"}</Button>
         </div>
       </DialogFooter>
+      <DiscardBar guard={guard} />
     </form>
   )
 }

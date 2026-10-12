@@ -25,11 +25,12 @@ const buttonVariants = cva(
         xs: "h-6 gap-1 px-2.5 text-xs has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3",
         sm: "h-8 gap-1 px-3 text-[0.8rem] has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3.5",
         lg: "h-10 gap-2 px-5 text-[0.95rem] has-data-[icon=inline-end]:pr-4 has-data-[icon=inline-start]:pl-4",
-        icon: "size-9",
+        // icon buttons answer to a 44 px square on touch screens (hit-area in globals.css)
+        icon: "relative size-9 hit-area",
         "icon-xs":
-          "size-6 [&_svg:not([class*='size-'])]:size-3",
+          "relative size-6 hit-area [&_svg:not([class*='size-'])]:size-3",
         "icon-sm":
-          "size-8",
+          "relative size-8 hit-area",
         "icon-lg": "size-11",
       },
     },

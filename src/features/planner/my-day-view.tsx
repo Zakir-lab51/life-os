@@ -167,7 +167,7 @@ function MyDay({ life, date, blocks }: { life: Life; date: string; blocks: NonNu
             <Panel>
               <PanelHeader title="To schedule" subtitle="Drag onto the timeline, or tap to place in the next free gap" />
               {unscheduled.length === 0 ? (
-                <EmptyState compact icon={CalendarPlus} title="Everything due is scheduled" />
+                <EmptyState compact tone="clear" icon={CalendarPlus} title="Everything due is scheduled" />
               ) : (
                 <ul className="-mx-1 space-y-1">
                   {unscheduled.map((t) => (

@@ -4,6 +4,7 @@ import { useLiveQuery } from "dexie-react-hooks"
 import { Check, Copy, Link2, Lock, Plus, Trash2, X } from "lucide-react"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
+import { DiscardBar, revealFirstError, useCloseGuard, useUnsaved, type CloseGuard } from "@/components/os/editor-guard"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -65,11 +66,12 @@ const ESTIMATES = [5, 10, 15, 25, 30, 45, 60, 90, 120, 180, 240]
 export function TaskEditorDialog() {
   const { open, taskId, defaults } = useUI((s) => s.taskEditor)
   const close = useUI((s) => s.closeTaskEditor)
+  const guard = useCloseGuard(close)
   const task = useTask(taskId)
   const ready = !taskId || task !== undefined
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && close()}>
+    <Dialog open={open} onOpenChange={(o) => !o && guard.requestClose()}>
       <DialogContent className="max-h-[92dvh] gap-0 overflow-hidden rounded-dialog p-0 sm:max-w-2xl">
         {open && ready && (task === null && taskId ? (
           <div className="p-8 text-center">
@@ -77,16 +79,17 @@ export function TaskEditorDialog() {
             <DialogDescription className="mt-2">It may have been deleted.</DialogDescription>
           </div>
         ) : (
-          <TaskForm key={`${taskId ?? "new"}`} task={task ?? null} defaults={defaults} onDone={close} />
+          <TaskForm key={`${taskId ?? "new"}`} task={task ?? null} defaults={defaults} onDone={guard.close} guard={guard} />
         ))}
       </DialogContent>
     </Dialog>
   )
 }
 
-function TaskForm({ task, defaults, onDone }: { task: Task | null; defaults: Partial<TaskInput> | null; onDone: () => void }) {
+function TaskForm({ task, defaults, onDone, guard }: { task: Task | null; defaults: Partial<TaskInput> | null; onDone: () => void; guard: CloseGuard }) {
   const [d, setD] = useState<Draft>(() => toDraft(task, defaults))
   const [errors, setErrors] = useState<Record<string, string>>({})
+  useUnsaved(guard, d)
   const [saving, setSaving] = useState(false)
   const [newSub, setNewSub] = useState("")
   const allTasks = useLiveQuery(() => db.tasks.toArray(), [])
@@ -114,8 +117,10 @@ function TaskForm({ task, defaults, onDone }: { task: Task | null; defaults: Par
       }
       onDone()
     } catch (e) {
-      if (e instanceof ValidationError) setErrors(e.fields)
-      else reportError(e)
+      if (e instanceof ValidationError) {
+        setErrors(e.fields)
+        revealFirstError()
+      } else reportError(e)
     } finally {
       setSaving(false)
     }
@@ -131,7 +136,7 @@ function TaskForm({ task, defaults, onDone }: { task: Task | null; defaults: Par
   const rec = d.recurrence
   return (
     <form
-      className="flex max-h-[92dvh] flex-col"
+      className="relative flex max-h-[92dvh] flex-col"
       onSubmit={(e) => {
         e.preventDefault()
         void save()
@@ -323,7 +328,7 @@ function TaskForm({ task, defaults, onDone }: { task: Task | null; defaults: Par
                   aria-label="Subtask title"
                   maxLength={200}
                 />
-                <button type="button" aria-label="Remove subtask" onClick={() => set("subtasks", d.subtasks.filter((_, j) => j !== i))} className="text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100">
+                <button type="button" aria-label="Remove subtask" onClick={() => set("subtasks", d.subtasks.filter((_, j) => j !== i))} className="relative grid size-7 shrink-0 place-items-center rounded-full text-muted-foreground transition-opacity hit-area pointer-fine:opacity-0 group-hover:opacity-100 focus:opacity-100">
                   <X className="size-4" />
                 </button>
               </div>
@@ -437,6 +442,7 @@ function TaskForm({ task, defaults, onDone }: { task: Task | null; defaults: Par
           </Button>
         </div>
       </DialogFooter>
+      <DiscardBar guard={guard} />
     </form>
   )
 }
