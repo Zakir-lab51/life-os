@@ -27,6 +27,7 @@ import { Backdrop } from "./refraction"
 import { ShortcutsDialog, useGlobalShortcuts } from "./shortcuts"
 import { SmoothScroll } from "./smooth-scroll"
 import { Sidebar } from "./sidebar"
+import { TabBar } from "./tab-bar"
 import { Topbar } from "./topbar"
 
 /** Soft colour behind the photo. It holds still on purpose: anything moving under the
@@ -76,11 +77,12 @@ function Shell({ children }: { children: ReactNode }) {
         <Sidebar />
         <div className="flex min-w-0 flex-1 flex-col">
           <Topbar />
-          <main id="main" tabIndex={-1} className="@container/main mx-auto w-full max-w-[1400px] flex-1 px-4 pt-6 pb-20 outline-none sm:px-6 lg:px-8">
+          <main id="main" tabIndex={-1} className="@container/main mx-auto w-full max-w-[1400px] flex-1 px-4 pt-6 pb-[calc(6.5rem+env(safe-area-inset-bottom))] outline-none sm:px-6 md:pb-20 lg:px-8">
             {children}
           </main>
         </div>
       </div>
+      <TabBar />
 
       <CommandPalette />
       <QuickCapture />
@@ -97,7 +99,7 @@ function Shell({ children }: { children: ReactNode }) {
       <FocusEngine />
       <ReminderEngine />
       <ProgressWatcher />
-      <Toaster position="bottom-right" closeButton richColors={false} />
+      <Toaster position="bottom-right" closeButton richColors={false} mobileOffset={{ bottom: "calc(env(safe-area-inset-bottom) + 5.5rem)" }} />
     </MotionConfig>
   )
 }

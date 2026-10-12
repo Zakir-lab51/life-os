@@ -101,3 +101,21 @@ Built on the existing system (Motion + CSS springs), no new animation library. S
 | Toasts are glass | `components/ui/sonner.tsx` | |
 | Tick-boxes answer to a 44 px square on touch screens | globals.css `(pointer: coarse)` | |
 
+## Increment 3: touch-first phone layout
+
+Phones (under 768 px) get a floating glass tab bar at the bottom, within thumb reach, in
+place of the desktop sidebar squeezed into a drawer: Overview, My Day, Tasks, Habits, and
+More (which opens the full drawer and shows the current section's name when you're
+elsewhere). `features/shell/tab-bar.tsx`.
+
+Checked in the production build at 375×812:
+
+- Each tab is a column about 64 × 52 px; the highlighter glides to the selected tab.
+- Switching tabs navigates and marks the tab `aria-current="page"`; More opens the drawer;
+  Escape closes it and focus returns to More (increment 1's fix, seen in the browser).
+- On Overview, My Day, Tasks and Habits, scrolled to the bottom, the last content ends
+  15–25 px above the bar, and nothing overflows sideways.
+- Toasts sit above the bar (`mobileOffset`); the page's bottom padding includes the
+  home-indicator area.
+- At 768 px the bar hides and the top bar's ☰ returns (iPad portrait is unchanged).
+
