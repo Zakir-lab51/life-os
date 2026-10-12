@@ -42,7 +42,7 @@ export const PHOTOS = {
 } satisfies Record<string, { label: string; src: string | null; small: string | null; credit: string | null; scene: "flow" | null; preview: string | null }>
 export type PhotoId = keyof typeof PHOTOS
 
-/** How glass surfaces are finished. Transparency and blur are separate settings. */
+/** How glass surfaces are finished (fixed to liquid, see FIXED_FINISH). */
 export const MATERIALS = {
   frosted: { label: "Frosted", description: "Matte glass, no gloss" },
   liquid: { label: "Liquid glass", description: "Glossy, lit along the edges" },
@@ -83,7 +83,7 @@ export interface Design extends Look {
 export const PRESETS: Record<string, { label: string; description: string; look: Look }> = {
   violet: {
     label: "Violet glass",
-    description: "The signature look: lavender accents on frosted charcoal",
+    description: "The signature look: lavender accents on clear glass",
     look: { preset: "violet", hue: 303, saturation: 1, radius: 1, glow: 1, scale: 1, font: "jakarta" },
   },
   ocean: {
@@ -113,7 +113,15 @@ export const PRESETS: Record<string, { label: string; description: string; look:
   },
 }
 
-export const DEFAULT_DESIGN: Design = { ...PRESETS.violet.look, material: "liquid", glass: 0.8, glassBlur: 12, photo: "flow", photoDim: 0.3, photoBlur: 0 }
+/**
+ * The glass and background finish are fixed for everyone: clear liquid glass with a 1 px
+ * blur, over a background that is neither dimmed nor blurred. They stay in the Design type
+ * so older saved designs, backups and design codes still load; whatever they hold, these
+ * values win (designToVars and migratePrefs both apply them).
+ */
+export const FIXED_FINISH = { material: "liquid", glass: 1, glassBlur: 1, photoDim: 0, photoBlur: 0 } as const satisfies Partial<Design>
+
+export const DEFAULT_DESIGN: Design = { ...PRESETS.violet.look, ...FIXED_FINISH, photo: "flow" }
 
 export const DESIGN_LIMITS = {
   hue: [0, 360],
@@ -130,11 +138,11 @@ export const DESIGN_LIMITS = {
 const clamp = (n: number, [lo, hi]: readonly [number, number]) => Math.min(hi, Math.max(lo, Number.isFinite(n) ? n : lo))
 
 /**
- * The CSS variables for a design. Transparency and blur are independent, so glass
- * can be clear and sharp, or solid and soft. Liquid glass turns on the sheen
- * (gloss and edge light, see the glass utility in globals.css) and richer colour.
+ * The CSS variables for a design, with the fixed finish applied. Liquid glass turns on
+ * the sheen (gloss and edge light, see the glass utility in globals.css) and richer colour.
  */
-export function designToVars(d: Design): Record<string, string> {
+export function designToVars(design: Design): Record<string, string> {
+  const d = { ...design, ...FIXED_FINISH }
   const glass = clamp(d.glass, DESIGN_LIMITS.glass)
   const liquid = d.material === "liquid"
   const photo = PHOTOS[d.photo] ?? PHOTOS.none

@@ -49,8 +49,8 @@ dialogs `--radius-dialog` (1.625×), heroes `--radius-hero` (2×).
 
 | Level | What | Material |
 |---|---|---|
-| 0 | Page background | Liquid flow (WebGL) or photo, veiled by `--bg-dim` |
-| 1 | Tiles, sidebar, top bar | `.glass`: blur + saturation, refraction at the rim, specular glint, rim light |
+| 0 | Page background | Liquid flow (WebGL) or photo, shown as it is (no dimming or blur) |
+| 1 | Tiles, sidebar, top bar | `.glass`: clear, 1 px blur + saturation, refraction at the rim, specular glint, rim light |
 | 2 | Menus, popovers, dialogs, sheets, toasts | Glass with stronger blur (28 px) and a deeper shadow |
 | Inline | Selected item, chips | `glass-pill` / tinted fills; never a glass surface inside another (it can't blur through it) |
 
@@ -61,21 +61,26 @@ soft light at the pointer (`--glass-hover`, `glass-pointer.tsx`).
 Borders: 1 px `--line` (7–10% of the foreground colour). Dense data never sits directly on
 the background: always on a level-1 surface.
 
-Glass tunes what shows through it for the text on top: dark glass dims the background
-(brightness 0.72, `--sheen-brighten`), light glass lifts it slightly (1.06).
+The glass finish is fixed (`FIXED_FINISH`): clear (a 10% surface tint), a 1 px blur, over
+a background that is neither dimmed nor blurred. Glass tunes what shows through it for the
+text on top: dark glass darkens the background (brightness 0.5, `--sheen-brighten`), light
+glass lifts it slightly (1.06). Menus, dialogs and sheets keep their own heavier frosting
+(28 px over a mostly solid fill), since they sit over the page's own text.
 
 ## Readability
 
-Every text meets WCAG AA (4.5:1, or 3:1 for large text) over the Liquid flow at its
-darkest and brightest, in both themes and every colour preset. `tests/text-contrast.test.ts`
-checks this from the real tokens; `scripts/contrast-probe.js` and
-`scripts/contrast-measure.py` measure a live page.
+With the clear glass, secondary text meets WCAG AA (4.5:1) over the body of every Liquid
+flow ribbon on dark-mode tiles and straight on the background, in every colour preset; thin
+edge highlights and shadow bands can dip below it. Light-mode tiles fall short over the two
+darkest ribbons (see the quality report). `tests/text-contrast.test.ts` checks this from the
+real tokens; `scripts/contrast-probe.js` and `scripts/contrast-measure.py` measure a live
+page.
 
 | Text | Colour | Light / dark lightness |
 |---|---|---|
 | Main | `--foreground` | 0.2 / 0.96 |
 | Secondary, on glass | `--muted-foreground` | 0.37 / 0.77 |
-| Secondary, straight on the background | `--muted-backdrop`, plus `on-backdrop` (a soft halo in the page colour) | 0.34 / 0.86 |
+| Secondary, straight on the background | `--muted-backdrop`, plus `on-backdrop` (a soft halo in the page colour) | 0.32 / 0.88 |
 | Selected item's label | `--pill-foreground` on `glass-pill` (70% in light mode) | white |
 
 - **Fade with colour, not opacity.** Past, planned or done things switch to the secondary

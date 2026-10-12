@@ -1,4 +1,4 @@
-import { DEFAULT_DESIGN } from "@/lib/design/design"
+import { DEFAULT_DESIGN, FIXED_FINISH } from "@/lib/design/design"
 import { QUICK_ACTIONS, RADAR_DIMS, WIDGET_IDS, type Prefs, type ProductivityStyle, type QuickActionId } from "@/lib/domain/types"
 
 export const FOCUS_STYLES: Record<ProductivityStyle, { label: string; description: string; focusMin: number; shortBreakMin: number; longBreakMin: number; longEvery: number }> = {
@@ -67,6 +67,8 @@ export function migratePrefs(saved: Partial<Prefs>): Prefs {
   if ((saved.designVersion ?? 1) < 2 && merged.design.photo === "mountains") {
     merged.design = { ...merged.design, photo: DEFAULT_DESIGN.photo, photoDim: DEFAULT_DESIGN.photoDim, photoBlur: DEFAULT_DESIGN.photoBlur }
   }
+  // the glass and background finish are no longer settings: every design gets the fixed one
+  merged.design = { ...merged.design, ...FIXED_FINISH }
   merged.designVersion = DESIGN_VERSION
   const known = new Set(merged.widgets?.map((w) => w.id) ?? [])
   merged.widgets = [...(merged.widgets ?? []), ...base.widgets.filter((w) => !known.has(w.id))]

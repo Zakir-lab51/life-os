@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs"
 import { describe, expect, it } from "vitest"
 import { migratePrefs } from "@/lib/db/defaults"
-import { DEFAULT_DESIGN, PHOTOS, PRESETS, designToVars } from "@/lib/design/design"
+import { DEFAULT_DESIGN, FIXED_FINISH, PHOTOS, PRESETS, designToVars } from "@/lib/design/design"
 import type { Prefs } from "@/lib/domain/types"
 import { designSchema } from "@/lib/validation/schemas"
 
@@ -41,19 +41,24 @@ describe("design system", () => {
     expect(migratePrefs({ design: looksOnly as Prefs["design"] }).design).toEqual({ ...DEFAULT_DESIGN, ...PRESETS.ocean.look })
   })
 
-  it("controls glass transparency and blur separately", () => {
-    const clear = designToVars({ ...DEFAULT_DESIGN, glass: 1, glassBlur: 0 })
-    const solid = designToVars({ ...DEFAULT_DESIGN, glass: 0, glassBlur: 0 })
-    expect(parseFloat(clear["--glass-alpha"])).toBeLessThan(parseFloat(solid["--glass-alpha"]))
-    expect([clear["--glass-blur"], solid["--glass-blur"]]).toEqual(["0px", "0px"])
-    expect(designToVars({ ...DEFAULT_DESIGN, glassBlur: 30 })["--glass-alpha"]).toBe(designToVars(DEFAULT_DESIGN)["--glass-alpha"])
+  // an older saved design, backup or pasted design code with its own glass and background finish
+  const custom = { ...DEFAULT_DESIGN, ...PRESETS.ember.look, material: "frosted", glass: 0.2, glassBlur: 30, photoDim: 0.7, photoBlur: 12 } as const
+
+  it("paints every design with the fixed finish: clear liquid glass, 1 px blur, background untouched", () => {
+    const vars = designToVars(custom)
+    expect(vars["--glass-alpha"]).toBe("10%")
+    expect(vars["--glass-blur"]).toBe("1px")
+    expect(vars["--glass-sheen"]).toBe("1")
+    expect(vars["--bg-dim"]).toBe("0.00")
+    expect(vars["--bg-blur"]).toBe("0px")
+    // the look itself still applies
+    expect(vars["--brand-h"]).toBe(String(PRESETS.ember.look.hue))
   })
 
-  it("lets the material switch only the gloss, not the transparency", () => {
-    const liquid = designToVars({ ...DEFAULT_DESIGN, material: "liquid" })
-    const frosted = designToVars({ ...DEFAULT_DESIGN, material: "frosted" })
-    expect([liquid["--glass-sheen"], frosted["--glass-sheen"]]).toEqual(["1", "0"])
-    expect(liquid["--glass-alpha"]).toBe(frosted["--glass-alpha"])
+  it("brings saved designs to the fixed finish and keeps their look, photo and font", () => {
+    const { design } = migratePrefs({ design: { ...custom, photo: "mountains" }, designVersion: 2 })
+    expect(design).toMatchObject(FIXED_FINISH)
+    expect(design).toMatchObject({ ...PRESETS.ember.look, photo: "mountains" })
   })
 
   it("keeps the glass when a look is picked", () => {

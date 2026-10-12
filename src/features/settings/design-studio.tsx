@@ -1,38 +1,17 @@
 "use client"
 
 import { Check, ClipboardCopy, ClipboardPaste, RotateCcw } from "lucide-react"
-import { useEffect, useState, type ReactNode } from "react"
+import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
-import { Slider } from "@/components/ui/slider"
 import { Textarea } from "@/components/ui/textarea"
 import { updatePrefs } from "@/lib/db/repo"
-import { asset, DESIGN_LIMITS, FONTS, MATERIALS, PHOTOS, PRESETS, applyDesign, sameDesign, sameLook, type Design, type FontId, type Look, type MaterialId, type PhotoId } from "@/lib/design/design"
+import { asset, FIXED_FINISH, FONTS, PHOTOS, PRESETS, applyDesign, sameDesign, sameLook, type Design, type FontId, type Look, type PhotoId } from "@/lib/design/design"
 import { reportError } from "@/lib/feedback"
 import { designSchema } from "@/lib/validation/schemas"
 import { cn } from "@/lib/utils"
 
 const swatch = (d: Pick<Look, "hue" | "saturation">) => `oklch(0.72 ${(0.15 * d.saturation).toFixed(3)} ${d.hue})`
-
-type SliderSpec = { key: keyof typeof DESIGN_LIMITS; label: string; ariaLabel?: string; step: number; left?: string; right?: string; format: (v: number) => string }
-
-const LOOK_SLIDERS: SliderSpec[] = [
-  { key: "hue", label: "Accent colour", step: 1, format: (v) => `${Math.round(v)}°` },
-  { key: "saturation", label: "Colour intensity", step: 0.05, left: "Greyscale", right: "Vivid", format: (v) => `${Math.round(v * 100)}%` },
-  { key: "radius", label: "Corner roundness", step: 0.05, left: "Sharp", right: "Round", format: (v) => `${Math.round(v * 16)}px` },
-  { key: "glow", label: "Background glow", step: 0.05, left: "Off", right: "Strong", format: (v) => (v === 0 ? "Off" : `${Math.round(v * 100)}%`) },
-  { key: "scale", label: "Interface size", step: 0.0125, left: "Compact", right: "Large", format: (v) => `${Math.round(v * 100)}%` },
-]
-
-const GLASS_SLIDERS: SliderSpec[] = [
-  { key: "glass", label: "Transparency", ariaLabel: "Glass transparency", step: 0.05, left: "Solid", right: "Clear", format: (v) => `${Math.round(v * 100)}%` },
-  { key: "glassBlur", label: "Blur", ariaLabel: "Glass blur", step: 1, left: "Sharp", right: "Frosted", format: (v) => (v === 0 ? "Off" : `${Math.round(v)}px`) },
-]
-
-const PHOTO_SLIDERS: SliderSpec[] = [
-  { key: "photoDim", label: "Dimming", ariaLabel: "Background dimming", step: 0.05, left: "Clear", right: "Faint", format: (v) => `${Math.round(v * 100)}%` },
-  { key: "photoBlur", label: "Blur", ariaLabel: "Background blur", step: 1, left: "Sharp", right: "Soft", format: (v) => (v === 0 ? "Off" : `${Math.round(v)}px`) },
-]
 
 // a design waiting to be saved; flushed after a short pause or when the studio unmounts
 let pending: Design | null = null
@@ -43,7 +22,10 @@ function flush() {
   updatePrefs({ design }).catch(reportError)
 }
 
-/** Live editor for the design controls. Changes apply instantly and save after a short pause. */
+/**
+ * Live editor for the design: looks, font and background. The glass and background finish
+ * are fixed (FIXED_FINISH). Changes apply instantly and save after a short pause.
+ */
 export function DesignStudio({ saved }: { saved: Design }) {
   const [draft, setDraft] = useState<Design>(saved)
   const [seen, setSeen] = useState(saved)
@@ -99,7 +81,7 @@ export function DesignStudio({ saved }: { saved: Design }) {
       toast.error("That design code has a value out of range")
       return
     }
-    update(parsed.data)
+    update({ ...parsed.data, ...FIXED_FINISH })
     setPasteOpen(false)
     setPasted("")
     toast.success("Design applied")
@@ -137,43 +119,6 @@ export function DesignStudio({ saved }: { saved: Design }) {
               </button>
             )
           })}
-        </div>
-      </div>
-
-      <div className="grid gap-x-8 gap-y-5 @2xl:grid-cols-2">
-        {LOOK_SLIDERS.map((spec) => (
-          <SliderRow key={spec.key} spec={spec} value={draft[spec.key]} onChange={(v) => update({ [spec.key]: v })}>
-            {spec.key === "hue" && (
-              <div
-                aria-hidden
-                className="mb-2 h-2 rounded-full"
-                style={{ background: `linear-gradient(90deg, ${Array.from({ length: 13 }, (_, i) => `oklch(0.72 ${(0.15 * Math.max(draft.saturation, 0.4)).toFixed(3)} ${i * 30})`).join(", ")})` }}
-              />
-            )}
-          </SliderRow>
-        ))}
-      </div>
-
-      <div>
-        <h3 id="s-glass" className="mb-2 scroll-mt-28 text-sm font-medium">Glass</h3>
-        <div className="grid grid-cols-2 gap-2">
-          {(Object.keys(MATERIALS) as MaterialId[]).map((m) => (
-            <button
-              key={m}
-              type="button"
-              aria-pressed={draft.material === m}
-              onClick={() => update({ material: m })}
-              className={cn("rounded-xl border p-3 text-left transition-colors", draft.material === m ? "border-foreground/40 bg-surface-3" : "border-line hover:border-foreground/25")}
-            >
-              <span className="block text-sm font-semibold">{MATERIALS[m].label}</span>
-              <span className="text-[11px] text-muted-foreground">{MATERIALS[m].description}</span>
-            </button>
-          ))}
-        </div>
-        <div className="mt-4 grid gap-x-8 gap-y-5 @2xl:grid-cols-2">
-          {GLASS_SLIDERS.map((spec) => (
-            <SliderRow key={spec.key} spec={spec} value={draft[spec.key]} onChange={(v) => update({ [spec.key]: v })} />
-          ))}
         </div>
       </div>
 
@@ -225,16 +170,7 @@ export function DesignStudio({ saved }: { saved: Design }) {
             )
           })}
         </div>
-        {draft.photo !== "none" && (
-          <>
-            <div className="mt-4 grid gap-x-8 gap-y-5 @2xl:grid-cols-2">
-              {PHOTO_SLIDERS.map((spec) => (
-                <SliderRow key={spec.key} spec={spec} value={draft[spec.key]} onChange={(v) => update({ [spec.key]: v })} />
-              ))}
-            </div>
-            {PHOTOS[draft.photo].credit && <p className="mt-3 text-[11px] text-muted-foreground">Photo: {PHOTOS[draft.photo].credit}</p>}
-          </>
-        )}
+        {PHOTOS[draft.photo].credit && <p className="mt-3 text-[11px] text-muted-foreground">Photo: {PHOTOS[draft.photo].credit}</p>}
       </div>
 
       <div className="flex flex-wrap gap-2 border-t border-line pt-5">
@@ -254,26 +190,6 @@ export function DesignStudio({ saved }: { saved: Design }) {
           <Button size="sm" onClick={applyCode} disabled={!pasted.trim()}>
             Apply design code
           </Button>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function SliderRow({ spec, value, onChange, children }: { spec: SliderSpec; value: number; onChange: (v: number) => void; children?: ReactNode }) {
-  const [min, max] = DESIGN_LIMITS[spec.key]
-  return (
-    <div>
-      <div className="mb-2 flex items-center justify-between text-xs">
-        <span className="font-medium">{spec.label}</span>
-        <span className="text-muted-foreground tabular">{spec.format(value)}</span>
-      </div>
-      {children}
-      <Slider min={min} max={max} step={spec.step} value={[value]} onValueChange={([v]) => onChange(v)} aria-label={spec.ariaLabel ?? spec.label} />
-      {spec.left && (
-        <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
-          <span>{spec.left}</span>
-          <span>{spec.right}</span>
         </div>
       )}
     </div>

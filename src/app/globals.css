@@ -90,9 +90,10 @@
   ── DESIGN CONTROLS ─────────────────────────────────────────────
   The whole look derives from these eight values: every colour, corner,
   surface and glow is calculated from them, so restyling never means
-  editing components. Settings → Appearance (the Design studio) overrides
-  them live per browser. These are the defaults; keep them in step with
-  PRESETS.violet in src/lib/design/design.ts (tests/design.test.ts checks).
+  editing components. Settings → Appearance (looks, font, background)
+  overrides some of them live per browser; the glass and background finish
+  are fixed (FIXED_FINISH). These are the defaults; keep them in step with
+  DEFAULT_DESIGN in src/lib/design/design.ts (tests/design.test.ts checks).
     --brand-h      accent hue, 0–360 (303 = violet, 220 = blue, 40 = amber…)
     --brand-c      accent saturation multiplier (0 = greyscale, 1 = default)
     --radius       corner roundness (0 = sharp; panels, dialogs and buttons scale from it)
@@ -112,8 +113,8 @@
   --brand-h: 303;
   --brand-c: 1;
   --radius: 1rem;
-  --glass-blur: 12px;
-  --glass-alpha: 28%;
+  --glass-blur: 1px;
+  --glass-alpha: 10%;
   --glass-sheen: 1;
   --glass-saturate: 200%;
   --glow: 1;
@@ -121,7 +122,7 @@
   --font-ui: var(--font-jakarta);
   --bg-image: none;
   --bg-image-sm: none;
-  --bg-dim: 0.3;
+  --bg-dim: 0;
   --bg-blur: 0px;
 
   /* neutrals carry a faint tint of the accent hue (none in greyscale) */
@@ -155,7 +156,7 @@
   --muted: oklch(0.95 calc(var(--tint) * 0.5) var(--brand-h));
   --muted-foreground: oklch(0.37 calc(var(--tint) * 1.15) var(--brand-h));
   /* secondary text straight on the background (page headers, filter chips), with no glass behind it; see on-backdrop */
-  --muted-backdrop: oklch(0.34 calc(var(--tint) * 1.15) var(--brand-h));
+  --muted-backdrop: oklch(0.32 calc(var(--tint) * 1.15) var(--brand-h));
   --backdrop-halo: color-mix(in oklab, var(--background) 70%, transparent);
   --accent: oklch(0.94 calc(0.02 * var(--brand-c)) var(--brand-h));
   --accent-foreground: oklch(0.3 calc(0.06 * var(--brand-c)) var(--brand-h));
@@ -243,7 +244,7 @@
   --secondary-foreground: oklch(0.96 calc(var(--tint) * 0.35) var(--brand-h));
   --muted: oklch(0.24 calc(var(--tint) * 0.65) var(--brand-h));
   --muted-foreground: oklch(0.77 var(--tint) var(--brand-h));
-  --muted-backdrop: oklch(0.86 var(--tint) var(--brand-h));
+  --muted-backdrop: oklch(0.88 var(--tint) var(--brand-h));
   --backdrop-halo: color-mix(in oklab, var(--background) 65%, transparent);
   --accent: oklch(0.27 calc(0.03 * var(--brand-c)) var(--brand-h));
   --accent-foreground: oklch(0.92 calc(0.04 * var(--brand-c)) var(--brand-h));
@@ -277,8 +278,9 @@
   --sheen-top: 0.05;
   --sheen-low: 0.04;
   --sheen-drop: 0.45;
-  /* dark glass dims what shows through it, so text on it stays readable over the vivid flow */
-  --sheen-brighten: -0.28;
+  /* dark glass dims what shows through it, so text on it stays readable over the vivid flow
+     (the glass itself is clear, with a 1 px blur: FIXED_FINISH in lib/design/design.ts) */
+  --sheen-brighten: -0.5;
   --sheen-hover: 0.08;
   --spec-key: 0.62;
   --spec-back: 0.26;

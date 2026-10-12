@@ -179,3 +179,81 @@ exempts.
   timing meaningless. This increment changes colour values, one value in a filter the
   glass already ran, and a text shadow on a few header lines per page, so no cost is
   expected, but it is not measured. The numbers in increment 1 are the latest real ones.
+
+## Increment 5: a fixed glass finish
+
+The user's choice: remove the design studio's sliders (accent colour, colour intensity,
+corner roundness, background glow, interface size), the Frosted / Liquid glass choice and
+the glass Transparency and Blur sliders, and keep the glass always at 100% transparency
+with a 1 px blur, the background with no dimming and no blur.
+
+- `FIXED_FINISH` in `lib/design/design.ts` (liquid, transparency 1, blur 1 px, dimming 0,
+  background blur 0). `designToVars` and `migratePrefs` both apply it, so older saved
+  designs, backups and pasted design codes still load; their glass and background values
+  are replaced. Looks, font and background choice stay in Settings → Appearance.
+- Menus, dialogs and sheets keep their own heavier frosting (28 px over a mostly solid
+  fill): they sit on top of the page's own text.
+- Tests: `tests/design.test.ts` checks that any design paints with the fixed finish and that
+  saved designs are brought to it while keeping their look, photo and font.
+
+### Effect on readability, and what was done
+
+Clear glass with a 1 px blur and no dimming lets the vivid flow through almost untouched.
+Measured on Overview (1100×760) straight after the change: 18 of 47 texts below AA in dark
+mode (secondary text: lowest 2.54, median 3.82), 5 of 47 in light mode. A soft halo on all
+glass text barely helped (15 of 47). Letting dark glass darken what shows through it more
+(brightness 0.5, from 0.72) did: 3 of 47, with transparency, blur and dimming unchanged.
+The user chose that. Text straight on the background was nudged too (`--muted-backdrop`
+0.32 light, 0.88 dark).
+
+`tests/text-contrast.test.ts` was rewritten for this finish. It now enforces what the clear
+glass can promise: AA over the body of every ribbon (every preset) for dark-mode tiles and
+for text straight on the background; the highlighter's label over the brightest dark glass;
+and for light-mode tiles, a floor (2.8:1) that keeps them from getting worse. The dark-tile
+check fails at the old 0.72 brightness.
+
+| Overview, final build | Dark | Light |
+|---|---|---|
+| Texts below AA | 2 of 45 * | 5 of 45 * |
+| Secondary text, lowest / median | 3.92 / 5.85 | 2.86 / 5.51 |
+
+\* Each includes the "01" badge (see increment 4). Dark: the briefing's "Rule-based ·
+updates as you work" line at 3.92. Light: small labels in the hero tile's right column
+(Tasks, Focus, "1 of 5 due or finished") over saturated pink and blue, and the top bar's
+"LIFE OS" at 3.89.
+
+## Final validation
+
+### Frame timing, final build
+
+Same probe, page and window (Overview, 1280×860, production build, 120 Hz display),
+averaged over two runs. Conditions differ a little from the baseline: the demo data had
+changed (the page is shorter) and the sidebar was collapsed, as the user had left it.
+
+| | Before increment 1 | After increment 1 | Final (fixed finish) |
+|---|---|---|---|
+| Scroll: median frame | 26.2 ms | 12.2 ms | 14.3 ms |
+| Scroll: p95 frame | 34.0 ms | 24.0 ms | 18.4 ms |
+| Scroll: frames over 20 ms | 83% | 10% | 3.8% |
+| Scroll: frames over 33 ms | 7.5% | 0.7% | 0.3% |
+| Idle: median frame | 16.8 ms | 16.8 ms | 16.9 ms |
+| Long tasks (> 50 ms) | 0 | 0 | 0 |
+| CLS | 0.0011 | 0.0011 | 0.0028 |
+
+The quality monitor stayed at full quality. Idle still runs at 60 fps (the bent tiles
+re-filter as the flow moves); 15–18% of idle frames took 20–25 ms. The probe's input figure
+(200 ms pointer events) came from the pointer moving over the pane during the forced
+scrolling and isn't a fair measure of input delay, so it's left out.
+
+### Remaining limitations
+
+- Light-mode secondary text on tiles falls below AA over the darker ribbons (the clear glass
+  adds almost nothing there); dark mode and text straight on the background meet it over
+  ribbon bodies, but thin edge highlights can dip below.
+- The iPad (Safari, WebGL glass) wasn't measured, for frame timing or contrast.
+- Glass bending stays rest-only for page tiles; the quality levels cover slower devices.
+- `npm audit` advisories in the `shadcn` CLI's dependencies (development only).
+- Not exercised in a browser: the bell badge's pop on a new notification, and the
+  timeline's tick-box hit area on touch.
+- Not started from the spec: further refinement of widgets, forms, charts, dialogs and the
+  Kanban board; designed empty, loading and error states; shared-element transitions.
