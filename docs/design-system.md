@@ -129,7 +129,7 @@ what doesn't need JavaScript.
 |---|---|
 | Page entrance | Title and tiles rise in turn (`PageTransition`, 45 ms stagger); the wrapper never fades (it would stop the glass blurring) |
 | Scrolling | Wheel glides (Lenis); tiles rise into view from the bottom (CSS scroll-driven) |
-| Navigation | Highlighter glides to the new tab (`layoutId`) |
+| Navigation | Highlighter glides to the new tab (`layoutId`). Phone tab bar: a liquid highlighter that springs to the tab, stretching with its speed; press and slide to drag it like a lens (it lifts 12% and lights the tab beneath), let go to snap and open that tab (More opens the menu) |
 | Dialogs and menus | Open on a spring (0.5 s), close fast (0.16 s); focus returns to what opened them |
 | Task completed | Tick pops and draws its check; title's strike fades in |
 | Habit checked in | Mark pops with a ring in the habit's colour |
