@@ -117,7 +117,7 @@ function Dashboard({ life, blocks }: { life: Life; blocks: NonNullable<ReturnTyp
     <PageTransition>
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-xs font-medium tracking-[0.14em] text-muted-foreground uppercase">Command centre</p>
+          <p className="text-xs font-medium tracking-[0.14em] text-muted-backdrop uppercase on-backdrop">Command centre</p>
           <h1 className="sr-only">Overview</h1>
         </div>
         <div className="flex gap-2">

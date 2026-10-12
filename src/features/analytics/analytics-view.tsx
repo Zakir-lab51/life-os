@@ -84,7 +84,7 @@ function Analytics({ life }: { life: Life }) {
             { value: 90, label: "Last 90 days" },
           ]}
         />
-        <span className="text-xs text-muted-foreground">
+        <span className="text-xs text-muted-backdrop on-backdrop">
           {formatDay(from, "d MMM")} – {formatDay(today, "d MMM yyyy")}
         </span>
       </div>
@@ -243,7 +243,7 @@ function AreaBars({ title, unit, rows, format }: { title: string; unit: string; 
 
 function SummaryNote({ summary }: { summary: Summary }) {
   return (
-    <p className="mt-6 text-center text-xs text-muted-foreground">
+    <p className="mt-6 text-center text-xs text-muted-backdrop on-backdrop">
       {summary.activeDays > 0
         ? `Active on ${summary.activeDays} days in this range. Days with nothing to measure are left out of the average score.`
         : "Start recording and this page will fill in."}

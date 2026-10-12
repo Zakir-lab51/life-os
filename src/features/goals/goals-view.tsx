@@ -108,10 +108,10 @@ function Goals({ life }: { life: Life }) {
                         type="button"
                         aria-pressed={horizon === h}
                         onClick={() => setHorizon(h)}
-                        className={cn("pressable shrink-0 rounded-full px-3 py-1.5 text-xs font-medium ring-1 transition-colors", horizon === h ? "bg-foreground text-background ring-transparent" : "text-muted-foreground ring-line hover:text-foreground")}
+                        className={cn("pressable shrink-0 rounded-full px-3 py-1.5 text-xs font-medium ring-1 transition-colors", horizon === h ? "bg-foreground text-background ring-transparent" : "text-muted-backdrop ring-line on-backdrop hover:text-foreground")}
                       >
                         {h === "all" ? "All" : HORIZON_META[h].adjective}
-                        <span className="ml-1.5 opacity-60 tabular">{count}</span>
+                        <span className="ml-1.5 opacity-75 tabular">{count}</span>
                       </button>
                     )
                   })}

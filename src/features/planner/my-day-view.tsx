@@ -101,7 +101,7 @@ function MyDay({ life, date, blocks }: { life: Life; date: string; blocks: NonNu
         title={
           <span className="flex flex-wrap items-center gap-3">
             {isToday ? "Today" : relativeDayLabel(date, today)}
-            <span className="text-lg font-normal text-muted-foreground">{formatDay(date, "EEEE, d MMMM")}</span>
+            <span className="text-lg font-normal text-muted-backdrop">{formatDay(date, "EEEE, d MMMM")}</span>
           </span>
         }
         description={isPast ? "A record of how this day was spent." : `${formatDuration(planned)} planned · ${formatDuration(free)} free${isToday ? " from now" : ""}`}

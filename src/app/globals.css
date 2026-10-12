@@ -30,6 +30,7 @@
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
+  --color-muted-backdrop: var(--muted-backdrop);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
@@ -152,7 +153,10 @@
   --secondary: oklch(0.95 calc(var(--tint) * 0.5) var(--brand-h));
   --secondary-foreground: oklch(0.25 var(--tint) var(--brand-h));
   --muted: oklch(0.95 calc(var(--tint) * 0.5) var(--brand-h));
-  --muted-foreground: oklch(0.5 calc(var(--tint) * 1.15) var(--brand-h));
+  --muted-foreground: oklch(0.37 calc(var(--tint) * 1.15) var(--brand-h));
+  /* secondary text straight on the background (page headers, filter chips), with no glass behind it; see on-backdrop */
+  --muted-backdrop: oklch(0.34 calc(var(--tint) * 1.15) var(--brand-h));
+  --backdrop-halo: color-mix(in oklab, var(--background) 70%, transparent);
   --accent: oklch(0.94 calc(0.02 * var(--brand-c)) var(--brand-h));
   --accent-foreground: oklch(0.3 calc(0.06 * var(--brand-c)) var(--brand-h));
   --destructive: oklch(0.58 0.22 22);
@@ -223,7 +227,7 @@
   --spec-ring: 0.2;
 
   /* the navigation highlighter: smoky glass with white content */
-  --pill: oklch(0.25 calc(var(--tint) * 2) var(--brand-h) / 0.6);
+  --pill: oklch(0.25 calc(var(--tint) * 2) var(--brand-h) / 0.7);
   --pill-foreground: oklch(0.99 0 0);
 }
 
@@ -238,7 +242,9 @@
   --secondary: oklch(0.24 calc(var(--tint) * 0.65) var(--brand-h));
   --secondary-foreground: oklch(0.96 calc(var(--tint) * 0.35) var(--brand-h));
   --muted: oklch(0.24 calc(var(--tint) * 0.65) var(--brand-h));
-  --muted-foreground: oklch(0.68 var(--tint) var(--brand-h));
+  --muted-foreground: oklch(0.77 var(--tint) var(--brand-h));
+  --muted-backdrop: oklch(0.86 var(--tint) var(--brand-h));
+  --backdrop-halo: color-mix(in oklab, var(--background) 65%, transparent);
   --accent: oklch(0.27 calc(0.03 * var(--brand-c)) var(--brand-h));
   --accent-foreground: oklch(0.92 calc(0.04 * var(--brand-c)) var(--brand-h));
   --destructive: oklch(0.68 0.19 22);
@@ -271,7 +277,8 @@
   --sheen-top: 0.05;
   --sheen-low: 0.04;
   --sheen-drop: 0.45;
-  --sheen-brighten: 0;
+  /* dark glass dims what shows through it, so text on it stays readable over the vivid flow */
+  --sheen-brighten: -0.28;
   --sheen-hover: 0.08;
   --spec-key: 0.62;
   --spec-back: 0.26;
@@ -490,6 +497,18 @@
     color: var(--muted-foreground);
     text-decoration-color: currentColor;
   }
+}
+
+/*
+  Text straight on the background (page headers, filter chips). The Liquid flow's bright
+  sheen and edge shadows drift under it, so a soft halo in the page colour hugs the
+  letters and keeps them readable, as labels on a wallpaper do. Text on glass doesn't
+  need it.
+*/
+@utility on-backdrop {
+  text-shadow:
+    0 0 2px var(--backdrop-halo),
+    0 0 12px var(--backdrop-halo);
 }
 
 /*

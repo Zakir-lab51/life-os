@@ -212,12 +212,12 @@ export function Timeline({ date, isToday, blocks, tasksById }: { date: string; i
               <div
                 key={b.id}
                 className={cn(
-                  "group absolute z-10 overflow-hidden border-l-[3px] px-2.5 text-left shadow-sm backdrop-blur-sm transition-[box-shadow,opacity] outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  "group absolute z-10 overflow-hidden border-l-[3px] px-2.5 text-left shadow-sm backdrop-blur-sm transition-[box-shadow,background-color,color] outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   tiny ? "rounded-md py-0 text-[11px]" : "rounded-xl py-1.5",
-                  tone.soft,
+                  // past blocks lose their colour, not their legibility
+                  past ? "bg-foreground/[0.05] text-muted-foreground" : tone.soft,
                   drag?.id === b.id ? "z-30 cursor-grabbing shadow-xl ring-2 ring-violet/50" : "cursor-grab hover:shadow-md",
                   conflicts.has(b.id) && "ring-1 ring-amber/60",
-                  past && "opacity-60",
                 )}
                 style={{
                   top: top(live.start) + 1,

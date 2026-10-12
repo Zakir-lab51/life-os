@@ -109,7 +109,7 @@ function NavLink({ item, active, collapsed, status, onNavigate }: { item: NavIte
         <LayeredIcon icon={item.icon} tint={item.tint} active={active} muted={planned && !active} iconRef={iconRef} className="[--icon-size:1.75rem]" />
         {!collapsed && (
           <>
-            <span className={cn("relative truncate", planned && !active && "opacity-70")}>{item.label}</span>
+            <span className={cn("relative truncate", planned && !active && "text-muted-foreground")}>{item.label}</span>
             <span className="relative ml-auto flex items-center">
               {planned ? (
                 <span className={cn("rounded-control border px-1.5 py-px text-[10px] font-medium", active ? "border-pill-foreground/30 text-pill-foreground/80" : "border-line text-muted-foreground")}>P{item.phase}</span>

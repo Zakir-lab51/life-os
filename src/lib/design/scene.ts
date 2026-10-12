@@ -68,6 +68,22 @@ export function flowPalette(hue: number, saturation: number, dark: boolean): Sce
 }
 
 /**
+ * How the flow shades its ribbons. Shared with the shader below and with the contrast
+ * test, which checks text against the darkest and brightest the flow can get.
+ */
+export const FLOW_SHADE = {
+  /** a ribbon's brightness at its edge, and deep inside it */
+  edge: 1.12,
+  deep: 0.82,
+  /** the sheen running along each ribbon, added (half as much in light mode) */
+  sheen: 0.07,
+  /** how much the shadow under a ribbon's edge darkens what lies beneath, in dark and light mode */
+  shadowDark: 0.42,
+  shadowLight: 0.2,
+}
+const f = (n: number) => n.toFixed(2)
+
+/**
  * GLSL for the flow: `vec3 flow(vec2 p)` gives the colour at viewport point p (CSS px).
  * Needs uniforms time (s), view (viewport size), base, pal[5] and light (1 in light mode).
  */
@@ -98,12 +114,12 @@ vec3 flow(vec2 p) {
     float d = uv.y - edge;
     float inside = smoothstep(-px, px, d);
     // the ribbon's soft shadow on whatever lies beneath its edge
-    col *= 1.0 - (1.0 - inside) * exp(min(d, 0.0) * 22.0) * (0.42 - 0.22 * light);
+    col *= 1.0 - (1.0 - inside) * exp(min(d, 0.0) * 22.0) * mix(${f(FLOW_SHADE.shadowDark)}, ${f(FLOW_SHADE.shadowLight)}, light);
     // silk: brightest near its edge and deepening away from it, with a sheen running along
     vec3 c = pal[i];
     float sheen = 0.5 + 0.5 * sin(uv.x * 2.2 - t * 0.25 + fi * 1.3);
-    c *= mix(1.12, 0.82, smoothstep(0.0, 0.42, d));
-    c += vec3(0.07) * sheen * (1.0 - 0.5 * light);
+    c *= mix(${f(FLOW_SHADE.edge)}, ${f(FLOW_SHADE.deep)}, smoothstep(0.0, 0.42, d));
+    c += vec3(${f(FLOW_SHADE.sheen)}) * sheen * (1.0 - 0.5 * light);
     // a thin lit rim along the edge
     c += vec3(0.32) * exp(-max(d, 0.0) * 160.0) * inside;
     col = mix(col, c, inside);

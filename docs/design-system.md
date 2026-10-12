@@ -35,7 +35,7 @@ The UI font comes from the design studio (`--font-ui`, default Plus Jakarta Sans
 | Page title | 30 px, 35 px from 640 px · 600 · tight tracking · leading 1.1 |
 | Tile title | 18 px · 600 · tight |
 | Body | 14–15 px · 400–500 |
-| Secondary | 12 px · muted |
+| Secondary | 12 px · `text-muted-foreground` on glass; `text-muted-backdrop` + `on-backdrop` straight on the background |
 | Labels / eyebrows | 10–11 px · 600 · uppercase · 0.08–0.16 em tracking |
 | Numbers | `tabular` figures everywhere a number can change |
 
@@ -60,6 +60,29 @@ soft light at the pointer (`--glass-hover`, `glass-pointer.tsx`).
 
 Borders: 1 px `--line` (7–10% of the foreground colour). Dense data never sits directly on
 the background: always on a level-1 surface.
+
+Glass tunes what shows through it for the text on top: dark glass dims the background
+(brightness 0.72, `--sheen-brighten`), light glass lifts it slightly (1.06).
+
+## Readability
+
+Every text meets WCAG AA (4.5:1, or 3:1 for large text) over the Liquid flow at its
+darkest and brightest, in both themes and every colour preset. `tests/text-contrast.test.ts`
+checks this from the real tokens; `scripts/contrast-probe.js` and
+`scripts/contrast-measure.py` measure a live page.
+
+| Text | Colour | Light / dark lightness |
+|---|---|---|
+| Main | `--foreground` | 0.2 / 0.96 |
+| Secondary, on glass | `--muted-foreground` | 0.37 / 0.77 |
+| Secondary, straight on the background | `--muted-backdrop`, plus `on-backdrop` (a soft halo in the page colour) | 0.34 / 0.86 |
+| Selected item's label | `--pill-foreground` on `glass-pill` (70% in light mode) | white |
+
+- **Fade with colour, not opacity.** Past, planned or done things switch to the secondary
+  colour (or lose their fill); stacking opacity on top of a muted colour drops below AA.
+  Only disabled controls use 50% opacity (AA exempts them).
+- **Text with no glass behind it** (page headers, filter chips) uses `text-muted-backdrop`
+  and `on-backdrop`; `PageHeader` does this for you.
 
 ## States
 

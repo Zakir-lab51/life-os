@@ -119,3 +119,63 @@ Checked in the production build at 375×812:
   home-indicator area.
 - At 768 px the bar hides and the top bar's ☰ returns (iPad portrait is unchanged).
 
+## Increment 4: readability over the Liquid flow
+
+### Verified bug
+
+| # | Severity | Bug | Reproduce | Cause | Fix | Files |
+|---|---|---|---|---|---|---|
+| 3 | Medium (accessibility) | Secondary text (dates, counts, labels, hints) fell below the WCAG AA contrast minimum (4.5:1) over the vivid default background: on Overview, 22 of 47 texts in dark mode (lowest 2.15:1) and 12 of 47 in light mode. | Default look, Overview at 1100×760; measure each text against the pixels behind it (method below). | The secondary colour was tuned for an opaque card, but tiles are 28% glass over a bright, moving background. Dark glass let the bright ribbons through at full strength. Text straight on the background (page headers, filter chips) had nothing behind it. Past timeline blocks (60% opacity) and planned sidebar sections (70% opacity on 85% text) faded text further. | Dark glass dims what shows through it (brightness 0.72), like Apple's dark materials; secondary text one step lighter in dark mode (L 0.68 → 0.77) and darker in light mode (0.5 → 0.37). Text with no glass behind it gets its own colour (`text-muted-backdrop`) and a soft halo in the page colour (`on-backdrop`). Past blocks lose their colour instead of fading; planned sections use the secondary colour instead of stacked fades. The light highlighter goes from 60% to 70% so white labels hold over pale areas. | `app/globals.css`, `components/os/page-header.tsx`, `features/overview/overview-view.tsx`, `features/tasks/tasks-view.tsx`, `features/goals/goals-view.tsx`, `features/analytics/analytics-view.tsx`, `features/planner/my-day-view.tsx`, `features/planner/timeline.tsx`, `features/shell/sidebar.tsx`, `lib/design/scene.ts`; test `tests/text-contrast.test.ts` |
+
+The test models the page from the real tokens and the flow's own shading at its
+extremes (each ribbon at its darkest, under the next one's shadow, and brightest, at its
+edge in the sheen), for every colour preset in both themes: secondary text on tiles,
+secondary text straight on the background (with the halo), and the selected item's
+label on its highlighter. It fails on the old tokens (tiles in both themes; the
+highlighter) and passes now. The shading constants moved into `FLOW_SHADE` in
+`scene.ts`, which both the shader and the test read, so they can't drift apart.
+
+### Method
+
+The production build, demo data, default look. In the page, every visible text's
+computed colour (including inherited opacity) and box; a screenshot; then for each text,
+the contrast between its colour (blended by its alpha) and the median of the screenshot
+pixels in its box (`scripts/contrast-probe.js` and `scripts/contrast-measure.py`). The background moves, so a
+screenshot is one moment; the test covers the extremes.
+
+### Measurements
+
+| | Before | After |
+|---|---|---|
+| Overview, dark: texts below AA | 22 of 47 | 1 of 47 * |
+| Overview, dark: secondary text, lowest / median | 2.15 / 3.91 | 4.61 / 5.96 |
+| Overview, light: texts below AA | 12 of 47 | 1 of 47 * |
+| Overview, light: secondary text, lowest / median | 3.60 / 5.02 | 5.96 / 8.36 |
+| Tasks (filters in view), light: texts below AA | 1 of 47 (chip 4.46) † | 0 of 47 (lowest 6.22) |
+| Tasks (filters in view), dark: texts below AA | | 1 of 47 ‡ |
+| My Day, dark: a past block's time | 2.96 | 5.82 |
+| Sidebar planned sections, dark | 4.13–4.48 | 4.68 and up |
+| Phone 375×812, Tasks: selected tab's label, light | 4.19 | 5.84 |
+| Phone 375×812, Tasks: texts below AA, light / dark | | 0 of 12 / 0 of 12 |
+
+\* The "01" priority badge: its box is almost all the badge's own fill, which the
+pixel median doesn't separate from the text. Measured against the fill directly it is
+8.5:1 (dark) and 5.3:1 (light).
+† Mid-way through this increment, before the halo.
+‡ A small "demo" tag at 4.35, where the sample box takes in the tag's border.
+
+Also checked: the halo is invisible as such in both themes (it only lifts the background
+right around the letters); the "Today" button that measured 4.3 is disabled, which AA
+exempts.
+
+### Limitations
+
+- Only the Liquid flow is modelled. A photo background the user chooses can be anything;
+  the Background dim slider (Settings → Appearance) veils a busy one.
+- Archived goals still fade (70% opacity on the tile), which also weakens the tile's blur.
+  Archived is an inactive state, so it was left as it is.
+- The final frame-timing re-measurement couldn't be run: the browser pane was throttled
+  to about 2 frames per second (the app window was in the background), which makes frame
+  timing meaningless. This increment changes colour values, one value in a filter the
+  glass already ran, and a text shadow on a few header lines per page, so no cost is
+  expected, but it is not measured. The numbers in increment 1 are the latest real ones.

@@ -23,10 +23,10 @@ export function PageHeader({
       variants={RISE}
       className={cn("mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between", className)}
     >
-      <div className="min-w-0">
-        {eyebrow && <div className="mb-2 text-xs font-medium tracking-[0.14em] text-muted-foreground uppercase">{eyebrow}</div>}
+      <div className="min-w-0 on-backdrop">
+        {eyebrow && <div className="mb-2 text-xs font-medium tracking-[0.14em] text-muted-backdrop uppercase">{eyebrow}</div>}
         <h1 className="text-[1.9rem] leading-[1.1] font-semibold tracking-tight sm:text-[2.2rem]">{title}</h1>
-        {description && <p className="mt-2 max-w-2xl text-[0.95rem] text-muted-foreground">{description}</p>}
+        {description && <p className="mt-2 max-w-2xl text-[0.95rem] text-muted-backdrop">{description}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     </motion.div>

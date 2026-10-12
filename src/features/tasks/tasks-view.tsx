@@ -237,10 +237,10 @@ function Tasks({ life, blocks }: { life: Life; blocks: NonNullable<ReturnType<ty
                   setFilter(v.id)
                   setSelected(new Set())
                 }}
-                className={cn("flex shrink-0 items-center gap-1.5 rounded-control border px-3.5 py-1.5 text-sm transition-colors", filter === v.id ? "border-transparent bg-surface-3 text-foreground" : "border-line text-muted-foreground hover:text-foreground")}
+                className={cn("flex shrink-0 items-center gap-1.5 rounded-control border px-3.5 py-1.5 text-sm transition-colors", filter === v.id ? "border-transparent bg-surface-3 text-foreground" : "border-line text-muted-backdrop on-backdrop hover:text-foreground")}
               >
                 {v.label}
-                <span className="text-xs text-muted-foreground tabular">{n}</span>
+                <span className="text-xs text-muted-backdrop tabular">{n}</span>
               </button>
             )
           })}
