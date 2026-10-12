@@ -1,7 +1,7 @@
 "use client"
 
 import { formatDistanceToNowStrict } from "date-fns"
-import { Bell, BellOff, CheckCheck, ChevronRight, Download, Keyboard, Menu, Moon, Pause, Play, Plus, Search, Settings, Sun, Trash2, Trophy, Timer, AlarmClock, Info } from "lucide-react"
+import { Bell, BellOff, CheckCheck, ChevronRight, Download, Keyboard, Menu, Moon, Pause, Play, Plus, Search, Settings, Sun, Trash2, Trophy, Timer, AlarmClock, Info, X } from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useTheme } from "next-themes"
@@ -10,7 +10,7 @@ import { useLayoutEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
+import { Sheet, SheetClose, SheetContent, SheetTitle } from "@/components/ui/sheet"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Kbd } from "@/components/os/visuals"
 import { useNotifications, useNow, usePrefs } from "@/lib/db/hooks"
@@ -336,9 +336,17 @@ export function Topbar() {
       </div>
       {/* the drawer slides in from the side of the button that opened it: More (phone tab bar) is on the right, ☰ on the left */}
       <Sheet open={mobileOpen} onOpenChange={(o) => setMobileNav(o)}>
-        <SheetContent side={drawerSide} className="nav-drawer glass w-[290px] border-line p-3">
+        <SheetContent side={drawerSide} className="nav-drawer glass w-[290px] gap-2 border-line p-3">
           <SheetTitle className="sr-only">Navigation</SheetTitle>
-          <SidebarContent onNavigate={() => setMobileNav(false)} />
+          <div className="min-h-0 flex-1">
+            <SidebarContent onNavigate={() => setMobileNav(false)} />
+          </div>
+          {/* within thumb reach, where the drawer was opened from */}
+          <SheetClose asChild>
+            <Button variant="outline" className="h-10 w-full shrink-0 rounded-control bg-surface">
+              <X /> Close
+            </Button>
+          </SheetClose>
         </SheetContent>
       </Sheet>
     </header>

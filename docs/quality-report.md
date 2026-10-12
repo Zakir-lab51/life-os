@@ -345,3 +345,12 @@ browser (0 lenses on the page) and fixed before this was committed.
 - The tap frame itself still costs about 40–60 ms (mounting the drawer, and Radix
   restyling the page as it disables pointer events behind the drawer); it comes before the
   slide starts, so it delays the drawer slightly rather than making it stutter.
+
+### Increment 7, continued
+
+| # | Severity | Bug | Reproduce | Cause | Fix | Files |
+|---|---|---|---|---|---|---|
+| 12 | Medium (visual) | The Liquid flow snapped to a different picture under an open drawer or dialog, and snapped back when it closed. | Open More on a phone, close it: the background jumps. | While paused, the flow was drawn at its fixed resting time (the reduced-motion frame), and on resume at the live time. | The flow has its own clock that holds while paused and carries on from the frame showing (a long gap counts as one frame). Measured in the browser over three open/close cycles: the first frame after closing is one frame (0.034 s) after the last before opening; no step over 0.058 s. | `lib/design/flow-clock.ts`, `features/shell/canvas-refraction.tsx`; test `tests/flow-clock.test.ts` |
+
+The drawer also has a Close button at its foot, within thumb reach (the ✕ at the top stays);
+its spacing was tightened so the watch keeps its full face.

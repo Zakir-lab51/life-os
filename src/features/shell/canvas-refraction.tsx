@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef } from "react"
+import { createFlowClock } from "@/lib/design/flow-clock"
 import { PHOTOS, asset, type PhotoId } from "@/lib/design/design"
 import { GLASS_IOR, bezelFor } from "@/lib/design/lens"
 import type { QualityProfile } from "@/lib/design/quality"
@@ -204,6 +205,13 @@ export function CanvasRefraction({ photo, refract, hue, saturation, quality }: {
     let idleTimer: ReturnType<typeof setTimeout> | undefined
 
     const animating = () => flow && level.current.flowFps > 0 && root.dataset.motion !== "reduced" && !reducedQuery.matches && !document.body.hasAttribute("data-scroll-locked")
+    const reduced = () => root.dataset.motion === "reduced" || reducedQuery.matches
+
+    // the flow's own clock: it runs while the flow animates and holds while it pauses (under
+    // a dialog or drawer, say), so the flow freezes on the frame showing and carries on from
+    // it, rather than jumping to the resting frame and back
+    const clock = createFlowClock(STILL_TIME + performance.now() / 1000)
+    const flowTime = (now: number) => (reduced() ? STILL_TIME : clock.tick(now, animating()))
 
     const collect = () => {
       let n = 0
@@ -261,7 +269,7 @@ export function CanvasRefraction({ photo, refract, hue, saturation, quality }: {
       gl.uniform2f(U.origin, box.left, box.top)
       if (flow) {
         if (colour.current.changed) setColours()
-        gl.uniform1f(U.time, animating() ? STILL_TIME + now / 1000 : STILL_TIME)
+        gl.uniform1f(U.time, flowTime(now))
         gl.uniform2f(U.view, innerWidth, innerHeight)
       } else {
         // like background-size: cover, centred

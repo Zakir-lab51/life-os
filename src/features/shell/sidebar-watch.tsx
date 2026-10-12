@@ -46,7 +46,7 @@ function useBox<T extends HTMLElement>() {
 
 export function SidebarWatch({ collapsed }: { collapsed: boolean }) {
   const [ref, box] = useBox<HTMLDivElement>()
-  const width = Math.min(collapsed ? 60 : 196, box.w, ((box.h - 16) * VB_W) / VB_H)
+  const width = Math.min(collapsed ? 60 : 196, box.w, ((box.h - 8) * VB_W) / VB_H)
   const show = width >= (collapsed ? 44 : 84)
   return (
     // flex-basis 0: the watch only ever takes the room the tabs leave, never theirs
