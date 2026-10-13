@@ -49,7 +49,7 @@ function PhoneBrand() {
   return (
     <Link href="/" aria-label="LIFE OS, overview" className="flex min-w-0 shrink-0 items-center gap-2 rounded-control pr-1 outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden">
       <LifeMark className="size-8" />
-      <span className="text-sm font-semibold tracking-[0.06em] max-[374px]:hidden">LIFE OS</span>
+      <span className="text-sm font-semibold tracking-[0.06em] max-[374px]:hidden max-sm:group-has-data-focus-mini/bar:hidden">LIFE OS</span>
     </Link>
   )
 }
@@ -89,13 +89,13 @@ function FocusMini() {
   const rem = remainingMs(timer, now)
   const label = timer.phase === "focus" ? "Focus" : timer.phase === "long" ? "Long break" : "Break"
   return (
-    <div className="flex h-10 items-center gap-1 rounded-control border border-line bg-surface pr-1 pl-3">
+    <div data-focus-mini className="flex h-9 items-center gap-1 rounded-control border border-line bg-surface px-3 sm:h-10 sm:pr-1">
       <Link href="/focus" className="flex items-center gap-2 text-sm" aria-label={`${label} timer, open Focus`}>
         <span className={cn("size-2 rounded-full", timer.phase === "focus" ? "bg-violet" : "bg-mint", timer.status === "running" && "animate-pulse")} />
         <span className="hidden text-muted-foreground sm:inline">{label}</span>
         <span className="font-semibold tabular">{formatTimer(rem ?? elapsedMs(timer, now))}</span>
       </Link>
-      <Button size="icon-sm" variant="ghost" aria-label={timer.status === "running" ? "Pause timer" : "Resume timer"} onClick={() => (timer.status === "running" ? pauseTimer() : resumeTimer())}>
+      <Button size="icon-sm" variant="ghost" className="max-sm:hidden" aria-label={timer.status === "running" ? "Pause timer" : "Resume timer"} onClick={() => (timer.status === "running" ? pauseTimer() : resumeTimer())}>
         {timer.status === "running" ? <Pause className="size-3.5" /> : <Play className="size-3.5" />}
       </Button>
     </div>
@@ -239,7 +239,7 @@ function ThemeToggle() {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Button variant="outline" size="icon" className="size-9 overflow-hidden rounded-full bg-surface sm:size-10" aria-label={dark ? "Switch to light theme" : "Switch to dark theme"} onClick={toggle}>
+        <Button variant="outline" size="icon" className="size-9 overflow-hidden rounded-full bg-surface max-sm:group-has-data-focus-mini/bar:hidden sm:size-10" aria-label={dark ? "Switch to light theme" : "Switch to dark theme"} onClick={toggle}>
           <AnimatePresence mode="popLayout" initial={false}>
             <motion.span key={dark ? "sun" : "moon"} className="grid place-items-center" initial={{ rotate: -90, scale: 0.4, opacity: 0 }} animate={{ rotate: 0, scale: 1, opacity: 1 }} exit={{ rotate: 90, scale: 0.4, opacity: 0 }} transition={SPRING_BOUNCY}>
               {dark ? <Sun className="size-[18px]" /> : <Moon className="size-[18px]" />}
@@ -308,7 +308,8 @@ export function Topbar() {
   return (
     // a floating glass bar, lined up with the page content below it
     <header className="sticky top-0 z-20 mx-auto w-full max-w-[1400px] px-4 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-6 lg:px-8">
-      <div data-lens="dispersive" className="glass flex h-[60px] items-center gap-1.5 rounded-panel px-2.5 sm:gap-3 sm:px-4">
+      {/* a phone has room for the timer only without the name and the theme switch (also in Settings), so those step aside while it runs */}
+      <div data-lens="dispersive" className="group/bar glass flex h-[60px] items-center gap-1.5 rounded-panel px-2.5 sm:gap-3 sm:px-4">
         <Button variant="outline" size="icon" className="hidden size-10 rounded-full bg-surface md:inline-flex lg:hidden" aria-label="Open navigation" onClick={() => setMobileNav(true, "left")}>
           <Menu className="size-[18px]" />
         </Button>

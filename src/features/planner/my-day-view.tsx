@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils"
 import { useLife, type Life } from "@/features/shell/use-life"
 import { MOODS } from "./reflection-dialog"
 import { KIND_LABEL } from "./block-editor"
+import { DayJump } from "./day-jump"
 import { addBlock } from "./quick-create"
 import { TASK_DRAG_TYPE, Timeline, taskLength } from "./timeline"
 
@@ -49,7 +50,6 @@ function MyDay({ life, date, blocks }: { life: Life; date: string; blocks: NonNu
   const { data, prefs, today } = life
   const setPlannerDate = useUI((s) => s.setPlannerDate)
   const setPlanOpen = useUI((s) => s.setPlanOpen)
-  const openBlockEditor = useUI((s) => s.openBlockEditor)
   const isToday = date === today
   const isPast = daysBetween(today, date) < 0
   const now = new Date(useNow(60_000))
@@ -136,10 +136,9 @@ function MyDay({ life, date, blocks }: { life: Life; date: string; blocks: NonNu
               <Button variant="ghost" size="icon-sm" aria-label="Next day" onClick={() => setPlannerDate(addDays(date, 1))}>
                 <ChevronRight />
               </Button>
+              <span aria-hidden className="mx-0.5 h-5 w-px bg-line" />
+              <DayJump date={date} onPick={(d) => setPlannerDate(d === today ? null : d)} />
             </div>
-            <Button variant="outline" onClick={() => openBlockEditor({ date })}>
-              <Plus /> Block
-            </Button>
             {!isPast && (
               <Button onClick={() => setPlanOpen(true)}>
                 <WandSparkles /> Plan my day
