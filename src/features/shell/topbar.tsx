@@ -174,7 +174,7 @@ function NotificationCenter() {
           {unread > 0 && <UnreadBadge count={unread} />}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-[min(92vw,380px)] rounded-3xl p-0">
+      <PopoverContent align="end" className="w-[min(380px,calc(100vw-2rem))] rounded-3xl p-0">
         <div className="flex items-center justify-between border-b border-line px-4 py-3">
           <div>
             <p className="font-semibold">Notifications</p>
@@ -337,7 +337,7 @@ export function Topbar() {
       </div>
       {/* the drawer slides in from the side of the button that opened it: More (phone tab bar) is on the right, ☰ on the left */}
       <Sheet open={mobileOpen} onOpenChange={(o) => setMobileNav(o)}>
-        <SheetContent side={drawerSide} className="nav-drawer glass w-[290px] gap-2 border-line p-3">
+        <SheetContent side={drawerSide} className="nav-drawer glass gap-2 border-line p-3 data-[side=left]:w-[290px] data-[side=right]:w-[290px]">
           <SheetTitle className="sr-only">Navigation</SheetTitle>
           <div className="min-h-0 flex-1">
             <SidebarContent onNavigate={() => setMobileNav(false)} />

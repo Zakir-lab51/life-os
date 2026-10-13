@@ -506,7 +506,7 @@ function BulkBar({ ids, today, total, onClear, onSelectAll }: { ids: string[]; t
     <motion.div
       initial={{ y: 40, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      className="fixed inset-x-0 bottom-5 z-30 mx-auto flex w-fit max-w-[calc(100vw-2rem)] flex-wrap items-center gap-1 rounded-control border border-line bg-popover/95 p-1.5 pl-4 shadow-2xl backdrop-blur-xl"
+      className="fixed inset-x-0 bottom-[calc(max(0.75rem,env(safe-area-inset-bottom))+4.75rem)] z-30 mx-auto flex w-fit max-w-[calc(100vw-2rem)] md:bottom-5 flex-wrap items-center gap-1 rounded-control border border-line bg-popover/95 p-1.5 pl-4 shadow-2xl backdrop-blur-xl"
       role="toolbar"
       aria-label="Bulk actions"
     >

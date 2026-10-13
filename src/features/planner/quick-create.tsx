@@ -10,6 +10,7 @@ import { attempt } from "@/lib/feedback"
 import { useUI } from "@/lib/stores/ui"
 import { cn } from "@/lib/utils"
 import { KIND_LABEL } from "./block-editor"
+import { useCentredCard } from "./centred-card"
 
 const LENGTHS = [15, 30, 45, 60, 90, 120]
 const KINDS: BlockKind[] = ["event", "task", "focus", "break"]
@@ -56,6 +57,8 @@ export function QuickCreate({
   const [taskId, setTaskId] = useState<string | null>(null)
   const openBlockEditor = useUI((s) => s.openBlockEditor)
   const card = useRef<HTMLDivElement>(null)
+  // centred under the block being drawn, which spans the timeline
+  useCentredCard(card, 0.5)
   const input = useRef<HTMLInputElement>(null)
   const length = end - start
 

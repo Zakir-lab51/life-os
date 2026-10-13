@@ -125,7 +125,7 @@ export function TaskRow({
   return (
     <div className={cn("group flex items-start gap-2.5 rounded-2xl border border-transparent px-2.5 py-2.5 transition-colors hover:bg-surface-2/60", selected && "border-violet/40 bg-violet/[0.07]")}>
       {dragHandle}
-      <label className={cn("mt-0.5 grid size-5 shrink-0 place-items-center transition-opacity", selecting || selected ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus-within:opacity-100")}>
+      <label className={cn("mt-0.5 grid size-5 shrink-0 place-items-center transition-opacity", selecting || selected ? "opacity-100" : "pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 pointer-fine:focus-within:opacity-100")}>
         <input
           type="checkbox"
           checked={selected}

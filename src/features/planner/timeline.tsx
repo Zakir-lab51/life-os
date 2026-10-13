@@ -15,6 +15,7 @@ import { useUI } from "@/lib/stores/ui"
 import { cn } from "@/lib/utils"
 import { toggleDone } from "@/features/tasks/task-actions"
 import { KIND_LABEL, deleteBlockWithUndo, startFocusForBlock } from "./block-editor"
+import { useCentredCard } from "./centred-card"
 import { QuickCreate, addBlock } from "./quick-create"
 
 export const HOUR_PX = 64
@@ -133,6 +134,7 @@ export function Timeline({
   const conflicts = useMemo(() => findConflicts(blocks), [blocks])
   const lanes = useMemo(() => assignLanes(blocks), [blocks])
   const selectedBlock = blocks.find((b) => b.id === selected) ?? null
+  const selectedLane = (selectedBlock && lanes.get(selectedBlock.id)) || { lane: 0, of: 1 }
 
   const minuteAt = (clientY: number) => {
     const rect = surface.current!.getBoundingClientRect()
@@ -382,7 +384,7 @@ export function Timeline({
               start={draft.start}
               end={draft.end}
               tasks={suggestions}
-              style={{ left: 4, ...below(draft.start, draft.end, 300) }}
+              style={below(draft.start, draft.end, 300)}
               onResize={(end) => setDraft((dr) => dr && { ...dr, end })}
               onClose={closeDraft}
             />
@@ -479,8 +481,9 @@ export function Timeline({
             <BlockToolbar
               block={selectedBlock}
               task={selectedBlock.taskId ? tasksById.get(selectedBlock.taskId) : undefined}
-              // it may reach into the hour labels' gutter, so it fits on one line on a phone
-              style={{ left: -48, ...below(selectedBlock.start, selectedBlock.end, 64) }}
+              // centred under the block's lane; it may reach into the hour labels' gutter, so it fits on one line on a phone
+              at={(selectedLane.lane + 0.5) / selectedLane.of}
+              style={below(selectedBlock.start, selectedBlock.end, 64)}
               onEdit={() => {
                 setSelected(null)
                 openBlockEditor({ blockId: selectedBlock.id })
@@ -507,7 +510,9 @@ function Ghost({ top, height, label, strong }: { top: number; height: number; la
 }
 
 /** The selected block's actions, right under it. */
-function BlockToolbar({ block, task, style, onEdit, onFocus, onClose }: { block: Block; task?: Task; style: CSSProperties; onEdit: () => void; onFocus: () => void; onClose: () => void }) {
+function BlockToolbar({ block, task, at, style, onEdit, onFocus, onClose }: { block: Block; task?: Task; at: number; style: CSSProperties; onEdit: () => void; onFocus: () => void; onClose: () => void }) {
+  const bar = useRef<HTMLDivElement>(null)
+  useCentredCard(bar, at)
   const shift = (ds: number, de: number) => {
     const next = { start: block.start + ds, end: block.end + de }
     if (next.start < 0 || next.end > DAY || next.end - next.start < SNAP) return
@@ -517,6 +522,7 @@ function BlockToolbar({ block, task, style, onEdit, onFocus, onClose }: { block:
   const divider = <span aria-hidden className="mx-0.5 h-5 w-px shrink-0 bg-line" />
   return (
     <div
+      ref={bar}
       role="toolbar"
       aria-label={`${block.title}: actions`}
       className="absolute z-40 flex max-w-[calc(100%+3rem)] flex-wrap items-center gap-0.5 rounded-2xl border border-line bg-popover p-1 text-popover-foreground shadow-xl animate-in fade-in-0 zoom-in-95"

@@ -109,7 +109,7 @@ function GoalSheet({ goal, evaluation, life }: { goal: Goal; evaluation: GoalEva
                 <Ellipsis />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
+            <DropdownMenuContent align="end">
               {goal.status !== "archived" ? (
                 <DropdownMenuItem onSelect={() => void setStatus("archived")}>
                   <Archive /> Archive

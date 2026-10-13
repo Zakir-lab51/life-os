@@ -839,6 +839,27 @@
   }
 }
 
+/*
+  Toasts never cover the bars along the bottom. Sonner switches to its phone layout below
+  600 px, but the tab bar shows below 768 px, so in between (a phone on its side) they'd sit
+  on it; and while tasks are selected they rise above the bulk-actions bar, which shares
+  their spot. Sonner sets these offsets inline, hence !important.
+*/
+@media (min-width: 600px) and (max-width: 767.98px) {
+  [data-sonner-toaster][data-y-position="bottom"] {
+    --offset-bottom: calc(max(0.75rem, env(safe-area-inset-bottom)) + 5.5rem) !important;
+  }
+}
+body:has([role="toolbar"][aria-label="Bulk actions"]) [data-sonner-toaster][data-y-position="bottom"] {
+  --mobile-offset-bottom: calc(max(0.75rem, env(safe-area-inset-bottom)) + 10.5rem) !important;
+  --offset-bottom: 5rem !important;
+}
+@media (min-width: 600px) and (max-width: 767.98px) {
+  body:has([role="toolbar"][aria-label="Bulk actions"]) [data-sonner-toaster][data-y-position="bottom"] {
+    --offset-bottom: calc(max(0.75rem, env(safe-area-inset-bottom)) + 10.5rem) !important;
+  }
+}
+
 /* Settings search: the setting you jumped to glows briefly. */
 .settings-flash {
   animation: settings-flash 1.6s var(--ease-out);

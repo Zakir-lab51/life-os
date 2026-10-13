@@ -103,6 +103,7 @@ page.
 | Hover-only controls | Hidden only where there is a fine pointer (`pointer-fine:opacity-0 group-hover:opacity-100`); always visible on touch |
 | Press and hold (touch) | A finger resting 0.28 s starts a drag, with a short buzz: moving a time block, drawing on empty time (Kanban cards: 0.22 s). Moving first scrolls instead, and a quick tap selects |
 | Selected item actions | A tap selects; its actions appear in a one-line toolbar beside it (time blocks), so nothing hides behind a "…" menu or hover |
+| Popup placement | Menus, popovers, dropdowns and tooltips keep 16 px from the screen's edges when they have to move (`popupEdge()` in `components/ui/popup-edge.ts`; Radix's default is flush), and on a phone stay clear of the tab bar, opening upwards instead. Dropdowns open below their field at its width (popper, not item-aligned). Dialogs centre; the command palette and Quick capture sit at 22% from the top, clear of an on-screen keyboard. Cards on the timeline (block toolbar, new-block card) centre under their block, kept inside the timeline (`useCentredCard`). Bars along the bottom (Tap a time, bulk actions) sit above the phone's tab bar, and toasts rise above them |
 | Undo, not "Are you sure?" | Adding, moving or removing a time block happens at once; the toast offers Undo. Toast actions use the primary colour, since glass would make Sonner's own see-through |
 | Loading | Translucent skeletons in the page's shape, shown only after 150 ms |
 | Empty | `EmptyState`: "start" (violet, with a way to begin) or "clear" (mint, good news) |

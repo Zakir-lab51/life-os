@@ -52,7 +52,7 @@ export function CommandPalette() {
   }
 
   return (
-    <CommandDialog open={open} onOpenChange={setOpen} title="Command palette" description="Jump anywhere, run an action or find a task" className="rounded-dialog! border-line sm:max-w-xl">
+    <CommandDialog open={open} onOpenChange={setOpen} title="Command palette" description="Jump anywhere, run an action or find a task" className="top-[22%] rounded-dialog! border-line sm:max-w-xl">
       <Command className="rounded-dialog!">
         <CommandInput placeholder="Type a command, page, task or habit…" />
         <CommandList className="max-h-[min(60vh,460px)]">
