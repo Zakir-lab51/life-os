@@ -1,12 +1,11 @@
 "use client"
 
-import { Check, GripHorizontal, MoreHorizontal, Pencil, Play, Trash2, TriangleAlert } from "lucide-react"
+import { Check, ChevronDown, ChevronUp, GripHorizontal, Pencil, Play, Trash2, TriangleAlert } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react"
 import { toast } from "sonner"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useNow, usePrefs } from "@/lib/db/hooks"
-import { createBlock, updateBlock } from "@/lib/db/repo"
+import { updateBlock } from "@/lib/db/repo"
 import { ACCENT_CLASSES } from "@/lib/domain/areas"
 import { formatClock, formatDuration, snapTo } from "@/lib/domain/dates"
 import { KIND_TONE, findConflicts } from "@/lib/domain/planner"
@@ -16,10 +15,19 @@ import { useUI } from "@/lib/stores/ui"
 import { cn } from "@/lib/utils"
 import { toggleDone } from "@/features/tasks/task-actions"
 import { KIND_LABEL, deleteBlockWithUndo, startFocusForBlock } from "./block-editor"
+import { QuickCreate, addBlock } from "./quick-create"
 
 export const HOUR_PX = 64
 const SNAP = 15
+const DAY = 24 * 60
+const HOLD = 280 // ms a finger rests before a touch drag starts (shorter than that, it scrolls)
+const SLOP = 8 // px a finger may wander and still count as resting
 export const TASK_DRAG_TYPE = "application/x-life-task"
+
+const floorTo = (min: number) => Math.floor(min / SNAP) * SNAP
+const ceilTo = (min: number) => Math.ceil(min / SNAP) * SNAP
+/** How long a task's block is: its estimate, on the 15-minute grid, between 15 minutes and 3 hours. */
+export const taskLength = (t: Task) => Math.min(180, Math.max(SNAP, snapTo(t.estimateMin, SNAP)))
 
 /** Side-by-side lanes for overlapping blocks. */
 function assignLanes(blocks: Block[]) {
@@ -57,14 +65,61 @@ interface DragState {
   moved: boolean
 }
 
-export function Timeline({ date, isToday, blocks, tasksById }: { date: string; isToday: boolean; blocks: Block[]; tasksById: Map<string, Task> }) {
+/** A press on the timeline that may become a tap, a drawn block, a placement or a block drag. */
+interface Press {
+  pointerId: number
+  touch: boolean
+  y: number
+  /** what the press is on: empty time (draw a block, or place the chosen task), or a block */
+  on: "time" | "block"
+  origin: number
+  block?: Block
+  el?: HTMLElement
+  active: boolean
+  timer?: ReturnType<typeof setTimeout>
+}
+
+/*
+  The day's timeline. Making a block feels like drawing one:
+  - press on empty time and drag down (on touch: rest a finger, then drag) to set its length;
+    a plain tap makes a 30-minute block; either way a small card asks for the title (QuickCreate);
+  - with a task chosen from "To schedule" (`placing`), a tap puts it there at its estimate;
+  - tasks can also be dragged in from the list with a mouse.
+  Blocks: tap to select one and get its toolbar (done, focus, earlier/later, shorter/longer,
+  edit, remove); drag to move (on touch: rest a finger first, so swiping still scrolls), drag
+  its bottom edge to resize. With the keyboard: Enter edits, arrows move, Shift+arrows resize.
+*/
+export function Timeline({
+  date,
+  isToday,
+  blocks,
+  tasksById,
+  suggestions,
+  placing,
+  onPlaced,
+}: {
+  date: string
+  isToday: boolean
+  blocks: Block[]
+  tasksById: Map<string, Task>
+  /** tasks waiting for a time, offered in the new-block card */
+  suggestions: Task[]
+  /** a task chosen to be placed with a tap */
+  placing: Task | null
+  onPlaced: () => void
+}) {
   const prefs = usePrefs()
   const router = useRouter()
   const openBlockEditor = useUI((s) => s.openBlockEditor)
   const now = new Date(useNow(60_000))
   const nowMin = now.getHours() * 60 + now.getMinutes()
   const surface = useRef<HTMLDivElement>(null)
+  const press = useRef<Press | null>(null)
+  const scrollLock = useRef(false)
   const [drag, setDrag] = useState<DragState | null>(null)
+  const [draft, setDraft] = useState<{ start: number; end: number; open: boolean } | null>(null)
+  const [selected, setSelected] = useState<string | null>(null)
+  const [hoverAt, setHoverAt] = useState<number | null>(null)
   const [dropAt, setDropAt] = useState<number | null>(null)
 
   const dayStart = prefs?.dayStartMin ?? 480
@@ -72,46 +127,139 @@ export function Timeline({ date, isToday, blocks, tasksById }: { date: string; i
   const firstHour = Math.floor(Math.min(dayStart, ...blocks.map((b) => b.start)) / 60)
   const lastHour = Math.ceil(Math.max(dayEnd, ...blocks.map((b) => b.end)) / 60)
   const hours = Array.from({ length: lastHour - firstHour }, (_, i) => firstHour + i)
+  const height = hours.length * HOUR_PX
   const top = (min: number) => ((min - firstHour * 60) / 60) * HOUR_PX
 
   const conflicts = useMemo(() => findConflicts(blocks), [blocks])
   const lanes = useMemo(() => assignLanes(blocks), [blocks])
+  const selectedBlock = blocks.find((b) => b.id === selected) ?? null
 
   const minuteAt = (clientY: number) => {
     const rect = surface.current!.getBoundingClientRect()
     return firstHour * 60 + ((clientY - rect.top) / HOUR_PX) * 60
   }
 
-  const beginDrag = (e: ReactPointerEvent, block: Block, mode: DragState["mode"]) => {
+  // a finger that started a drag mustn't scroll the page as it moves
+  useEffect(() => {
+    const el = surface.current
+    if (!el) return
+    const hold = (e: TouchEvent) => {
+      if (scrollLock.current) e.preventDefault()
+    }
+    el.addEventListener("touchmove", hold, { passive: false })
+    return () => el.removeEventListener("touchmove", hold)
+  }, [])
+
+  // Escape lets go of a selected block
+  useEffect(() => {
+    if (!selected) return
+    const key = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSelected(null)
+    }
+    window.addEventListener("keydown", key)
+    return () => window.removeEventListener("keydown", key)
+  }, [selected])
+
+  const closeDraft = useCallback(() => setDraft(null), [])
+
+  const endPress = () => {
+    if (press.current?.timer) clearTimeout(press.current.timer)
+    press.current = null
+    scrollLock.current = false
+  }
+
+  const startBlockDrag = (block: Block, mode: DragState["mode"], y: number) => setDrag({ id: block.id, mode, originY: y, start: block.start, end: block.end, moved: false })
+
+  const onBlockPointerDown = (e: ReactPointerEvent<HTMLElement>, block: Block, mode: DragState["mode"]) => {
     if (e.button !== 0) return
     e.stopPropagation()
-    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
-    setDrag({ id: block.id, mode, originY: e.clientY, start: block.start, end: block.end, moved: false })
-  }
-
-  const onPointerMove = (e: ReactPointerEvent) => {
-    if (!drag) return
-    const block = blocks.find((b) => b.id === drag.id)
-    if (!block) return
-    const delta = snapTo(((e.clientY - drag.originY) / HOUR_PX) * 60, SNAP)
-    if (drag.mode === "move") {
-      const len = block.end - block.start
-      const start = Math.max(0, Math.min(24 * 60 - len, block.start + delta))
-      setDrag({ ...drag, start, end: start + len, moved: drag.moved || delta !== 0 })
-    } else {
-      const end = Math.max(block.start + SNAP, Math.min(24 * 60, block.end + delta))
-      setDrag({ ...drag, end, moved: drag.moved || delta !== 0 })
+    const el = e.currentTarget
+    if (e.pointerType !== "touch" || mode === "resize") {
+      el.setPointerCapture(e.pointerId)
+      if (e.pointerType === "touch") scrollLock.current = true
+      startBlockDrag(block, mode, e.clientY)
+      return
     }
+    // a finger: a tap selects; resting it first starts a move
+    const p: Press = { pointerId: e.pointerId, touch: true, y: e.clientY, on: "block", origin: block.start, block, el, active: false }
+    p.timer = setTimeout(() => {
+      p.active = true
+      scrollLock.current = true
+      try {
+        el.setPointerCapture(p.pointerId)
+      } catch {
+        // the finger has already lifted
+      }
+      navigator.vibrate?.(8)
+      setSelected(null)
+      startBlockDrag(block, "move", p.y)
+    }, HOLD)
+    press.current = p
   }
 
-  const endDrag = async () => {
-    if (!drag) return
-    const d = drag
+  const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0 || e.target !== e.currentTarget) return
+    if (selected) {
+      setSelected(null)
+      return
+    }
+    if (draft?.open) return
+    const p: Press = { pointerId: e.pointerId, touch: e.pointerType === "touch", y: e.clientY, on: "time", origin: floorTo(minuteAt(e.clientY)), active: false }
+    if (p.touch && !placing) {
+      p.timer = setTimeout(() => {
+        p.active = true
+        scrollLock.current = true
+        navigator.vibrate?.(8)
+        setDraft({ start: p.origin, end: Math.min(DAY, p.origin + SNAP), open: false })
+      }, HOLD)
+    }
+    press.current = p
+  }
+
+  const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const p = press.current
+    if (p && p.pointerId === e.pointerId && !p.active) {
+      const dy = Math.abs(e.clientY - p.y)
+      if (p.touch) {
+        // moved before resting: it's a scroll, not a press
+        if (dy > SLOP) endPress()
+        return
+      }
+      if (p.on === "time" && !placing && dy >= 6) {
+        p.active = true
+        surface.current?.setPointerCapture(e.pointerId)
+      } else return
+    }
+    if (p?.active && p.on === "time") {
+      const at = minuteAt(e.clientY)
+      const start = Math.max(0, Math.min(p.origin, floorTo(at)))
+      const end = Math.min(DAY, Math.max(p.origin + SNAP, ceilTo(at)))
+      setDraft({ start, end, open: false })
+      return
+    }
+    if (drag) {
+      const block = blocks.find((b) => b.id === drag.id)
+      if (!block) return
+      const delta = snapTo(((e.clientY - drag.originY) / HOUR_PX) * 60, SNAP)
+      if (drag.mode === "move") {
+        const len = block.end - block.start
+        const start = Math.max(0, Math.min(DAY - len, block.start + delta))
+        setDrag({ ...drag, start, end: start + len, moved: drag.moved || delta !== 0 })
+      } else {
+        const end = Math.max(block.start + SNAP, Math.min(DAY, block.end + delta))
+        setDrag({ ...drag, end, moved: drag.moved || delta !== 0 })
+      }
+      return
+    }
+    if (placing && e.pointerType !== "touch" && e.target === e.currentTarget) setHoverAt(floorTo(minuteAt(e.clientY)))
+  }
+
+  const endDrag = async (d: DragState) => {
     setDrag(null)
     const block = blocks.find((b) => b.id === d.id)
     if (!block) return
     if (!d.moved) {
-      openBlockEditor({ blockId: block.id })
+      setSelected(block.id)
       return
     }
     if (d.start === block.start && d.end === block.end) return
@@ -124,24 +272,50 @@ export function Timeline({ date, isToday, blocks, tasksById }: { date: string; i
     }
   }
 
-  const onSurfaceClick = (e: React.MouseEvent) => {
-    if (e.target !== e.currentTarget) return
-    const start = Math.max(0, Math.min(23 * 60, snapTo(minuteAt(e.clientY) - 15, SNAP)))
-    openBlockEditor({ date, start })
+  const onPointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const p = press.current
+    const d = drag
+    endPress()
+    if (d) {
+      void endDrag(d)
+      return
+    }
+    if (!p || p.pointerId !== e.pointerId) return
+    if (p.on === "block") {
+      // a quick tap on a block selects it
+      if (!p.active && p.block) setSelected(p.block.id)
+      return
+    }
+    if (placing) {
+      const task = placing
+      const start = p.origin
+      void addBlock({ date, start, end: Math.min(DAY, start + taskLength(task)), title: task.title, kind: taskLength(task) >= 45 ? "focus" : "task", taskId: task.id }).then((b) => {
+        if (b) onPlaced()
+      })
+      setHoverAt(null)
+      return
+    }
+    if (p.active) setDraft((dr) => dr && { ...dr, open: true })
+    else setDraft({ start: p.origin, end: Math.min(DAY, p.origin + 30), open: true })
+  }
+
+  const onPointerCancel = () => {
+    endPress()
+    setDrag(null)
+    setDraft((dr) => (dr?.open ? dr : null))
   }
 
   const onDrop = async (e: React.DragEvent) => {
     e.preventDefault()
     setDropAt(null)
-    const taskId = e.dataTransfer.getData(TASK_DRAG_TYPE)
-    const task = tasksById.get(taskId)
+    const task = tasksById.get(e.dataTransfer.getData(TASK_DRAG_TYPE))
     if (!task) return
-    const start = Math.max(0, snapTo(minuteAt(e.clientY), SNAP))
-    const len = Math.min(180, Math.max(SNAP, snapTo(task.estimateMin, SNAP)))
-    const end = Math.min(24 * 60, start + len)
-    const block = await attempt(() => createBlock({ date, start, end, title: task.title, kind: len >= 45 ? "focus" : "task", taskId: task.id }))
-    if (block) toast.success(`Scheduled "${task.title}" at ${formatClock(start)}`)
+    const start = Math.max(0, floorTo(minuteAt(e.clientY)))
+    await addBlock({ date, start, end: Math.min(DAY, start + taskLength(task)), title: task.title, kind: taskLength(task) >= 45 ? "focus" : "task", taskId: task.id })
   }
+
+  // where a card goes: under the block it belongs to, or above it near the bottom of the day
+  const below = (start: number, end: number, room: number): CSSProperties => (top(end) + room < height ? { top: top(end) + 6 } : { bottom: height - top(start) + 6 })
 
   return (
     <div>
@@ -151,7 +325,7 @@ export function Timeline({ date, isToday, blocks, tasksById }: { date: string; i
           {conflicts.size} blocks overlap. They&apos;re shown side by side; drag one to resolve it.
         </p>
       )}
-      <div className="relative flex select-none">
+      <div className="relative flex select-none [-webkit-touch-callout:none]">
         <div className="w-14 shrink-0" aria-hidden>
           {hours.map((h) => (
             <div key={h} style={{ height: HOUR_PX }} className="relative">
@@ -162,18 +336,20 @@ export function Timeline({ date, isToday, blocks, tasksById }: { date: string; i
         <div
           ref={surface}
           role="grid"
-          aria-label={`Timeline for ${date}. Click an empty slot to add a block.`}
-          className="relative flex-1 cursor-copy border-l border-line"
-          style={{ height: hours.length * HOUR_PX }}
-          onClick={onSurfaceClick}
+          aria-label={`Timeline for ${date}. Drag over empty time, or tap it, to add a block.`}
+          className={cn("relative flex-1 border-l border-line", placing ? "cursor-copy" : "cursor-crosshair")}
+          style={{ height }}
+          onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
-          onPointerUp={() => void endDrag()}
-          onPointerCancel={() => setDrag(null)}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerCancel}
+          onPointerLeave={() => setHoverAt(null)}
+          onContextMenu={(e) => e.preventDefault()}
           onDragOver={(e) => {
             if (!e.dataTransfer.types.includes(TASK_DRAG_TYPE)) return
             e.preventDefault()
             e.dataTransfer.dropEffect = "copy"
-            setDropAt(snapTo(minuteAt(e.clientY), SNAP))
+            setDropAt(floorTo(minuteAt(e.clientY)))
           }}
           onDragLeave={() => setDropAt(null)}
           onDrop={(e) => void onDrop(e)}
@@ -192,10 +368,24 @@ export function Timeline({ date, isToday, blocks, tasksById }: { date: string; i
             </div>
           )}
 
-          {dropAt !== null && (
-            <div className="pointer-events-none absolute inset-x-1 z-30 rounded-lg border-2 border-dashed border-violet bg-violet/10 px-2 text-[11px] font-medium" style={{ top: top(dropAt), height: HOUR_PX / 2 }}>
-              Drop at {formatClock(dropAt)}
-            </div>
+          {/* where a dragged-in task, or the chosen one, would land */}
+          {(dropAt !== null || (placing && hoverAt !== null)) && (
+            <Ghost top={top((dropAt ?? hoverAt)!)} height={(placing ? taskLength(placing) : 30) / 60 * HOUR_PX} label={`${placing ? placing.title : "Drop"} · ${formatClock((dropAt ?? hoverAt)!)}`} />
+          )}
+
+          {/* the block being drawn, or waiting for its title */}
+          {draft && <Ghost top={top(draft.start)} height={((draft.end - draft.start) / 60) * HOUR_PX} label={`${formatClock(draft.start)}–${formatClock(draft.end)} · ${formatDuration(draft.end - draft.start)}`} strong />}
+          {draft?.open && (
+            <QuickCreate
+              key={`${draft.start}`}
+              date={date}
+              start={draft.start}
+              end={draft.end}
+              tasks={suggestions}
+              style={{ left: 4, ...below(draft.start, draft.end, 300) }}
+              onResize={(end) => setDraft((dr) => dr && { ...dr, end })}
+              onClose={closeDraft}
+            />
           )}
 
           {blocks.map((b) => {
@@ -204,29 +394,31 @@ export function Timeline({ date, isToday, blocks, tasksById }: { date: string; i
             const tone = ACCENT_CLASSES[KIND_TONE[b.kind]]
             const task = b.taskId ? tasksById.get(b.taskId) : undefined
             // true to scale: a 10-minute block is short, it just gets a one-line style
-            const height = Math.max(14, ((live.end - live.start) / 60) * HOUR_PX - 2)
-            const compact = height < 44
-            const tiny = height < 26
+            const blockHeight = Math.max(14, ((live.end - live.start) / 60) * HOUR_PX - 2)
+            const compact = blockHeight < 44
+            const tiny = blockHeight < 26
             const past = isToday && live.end <= nowMin
+            const isSelected = selected === b.id
             return (
               <div
                 key={b.id}
                 className={cn(
-                  "group absolute z-10 overflow-hidden border-l-[3px] px-2.5 text-left shadow-sm backdrop-blur-sm transition-[box-shadow,background-color,color] outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  "group absolute z-10 touch-manipulation overflow-hidden border-l-[3px] px-2.5 text-left shadow-sm backdrop-blur-sm transition-[box-shadow,background-color,color] outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   tiny ? "rounded-md py-0 text-[11px]" : "rounded-xl py-1.5",
                   // past blocks lose their colour, not their legibility
                   past ? "bg-foreground/[0.05] text-muted-foreground" : tone.soft,
                   drag?.id === b.id ? "z-30 cursor-grabbing shadow-xl ring-2 ring-violet/50" : "cursor-grab hover:shadow-md",
+                  isSelected && "z-20 shadow-lg ring-2 ring-foreground/40",
                   conflicts.has(b.id) && "ring-1 ring-amber/60",
                 )}
                 style={{
                   top: top(live.start) + 1,
-                  height,
+                  height: blockHeight,
                   left: `calc(${(lane.lane / lane.of) * 100}% + 4px)`,
                   width: `calc(${100 / lane.of}% - 8px)`,
                   borderLeftColor: tone.fill,
                 }}
-                onPointerDown={(e) => beginDrag(e, b, "move")}
+                onPointerDown={(e) => onBlockPointerDown(e, b, "move")}
                 onKeyDown={(e) => {
                   if (e.target !== e.currentTarget) return
                   if (e.key === "Enter") openBlockEditor({ blockId: b.id })
@@ -234,12 +426,13 @@ export function Timeline({ date, isToday, blocks, tasksById }: { date: string; i
                     e.preventDefault()
                     const d = e.key === "ArrowUp" ? -SNAP : SNAP
                     // Shift+arrows resize, plain arrows move
-                    const next = e.shiftKey ? { start: b.start, end: Math.max(b.start + SNAP, Math.min(24 * 60, b.end + d)) } : { start: b.start + d, end: b.end + d }
-                    if (next.start >= 0 && next.end <= 24 * 60) void attempt(() => updateBlock(b.id, next))
+                    const next = e.shiftKey ? { start: b.start, end: Math.max(b.start + SNAP, Math.min(DAY, b.end + d)) } : { start: b.start + d, end: b.end + d }
+                    if (next.start >= 0 && next.end <= DAY) void attempt(() => updateBlock(b.id, next))
                   }
                 }}
                 tabIndex={0}
                 role="button"
+                aria-pressed={isSelected}
                 aria-label={`${b.title}, ${formatClock(live.start)} to ${formatClock(live.end)}, ${KIND_LABEL[b.kind]}${conflicts.has(b.id) ? ", overlaps another block" : ""}. Enter to edit, arrow keys to move, Shift and arrows to resize.`}
               >
                 <div className={cn("flex gap-2", compact ? "items-center" : "items-start", tiny && "h-full")}>
@@ -252,7 +445,7 @@ export function Timeline({ date, isToday, blocks, tasksById }: { date: string; i
                         e.stopPropagation()
                         void toggleDone(task)
                       }}
-                      className={cn("grid shrink-0 place-items-center rounded-full border", tiny ? "size-3" : "size-4", task.status === "done" ? "border-transparent bg-mint text-primary-foreground" : "border-foreground/40")}
+                      className={cn("relative grid shrink-0 place-items-center rounded-full border hit-area", tiny ? "size-3" : "size-4", task.status === "done" ? "border-transparent bg-mint text-primary-foreground" : "border-foreground/40")}
                     >
                       {task.status === "done" && <Check className="size-3" strokeWidth={3} />}
                     </button>
@@ -268,42 +461,108 @@ export function Timeline({ date, isToday, blocks, tasksById }: { date: string; i
                       </p>
                     )}
                   </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button type="button" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()} aria-label={`Actions for ${b.title}`} className="grid size-6 shrink-0 place-items-center rounded-md transition-opacity pointer-fine:opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-foreground/10">
-                        <MoreHorizontal className="size-3.5" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onSelect={() => openBlockEditor({ blockId: b.id })}>
-                        <Pencil /> Edit
-                      </DropdownMenuItem>
-                      {(b.kind === "focus" || b.kind === "task") && (
-                        <DropdownMenuItem onSelect={() => startFocusForBlock(b, prefs?.focus.focusMin ?? 25, router.push)}>
-                          <Play /> Start focus
-                        </DropdownMenuItem>
-                      )}
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem variant="destructive" onSelect={() => void deleteBlockWithUndo(b.id)}>
-                        <Trash2 /> Remove
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
                 </div>
-                {height >= 28 && (
+                {blockHeight >= 28 && (
                   <div
-                    className="absolute inset-x-0 bottom-0 flex h-1.5 cursor-ns-resize items-center justify-center opacity-0 group-hover:opacity-100"
-                    onPointerDown={(e) => beginDrag(e, b, "resize")}
+                    className={cn("absolute inset-x-0 bottom-0 flex cursor-ns-resize touch-none items-end justify-center", isSelected ? "h-4 opacity-100" : "h-2 opacity-0 pointer-fine:group-hover:opacity-100")}
+                    onPointerDown={(e) => onBlockPointerDown(e, b, "resize")}
                     aria-hidden
                   >
-                    <GripHorizontal className="size-3 text-muted-foreground" />
+                    <GripHorizontal className="size-3.5 text-muted-foreground" />
                   </div>
                 )}
               </div>
             )
           })}
+
+          {selectedBlock && !drag && (
+            <BlockToolbar
+              block={selectedBlock}
+              task={selectedBlock.taskId ? tasksById.get(selectedBlock.taskId) : undefined}
+              // it may reach into the hour labels' gutter, so it fits on one line on a phone
+              style={{ left: -48, ...below(selectedBlock.start, selectedBlock.end, 64) }}
+              onEdit={() => {
+                setSelected(null)
+                openBlockEditor({ blockId: selectedBlock.id })
+              }}
+              onFocus={() => startFocusForBlock(selectedBlock, prefs?.focus.focusMin ?? 25, router.push)}
+              onClose={() => setSelected(null)}
+            />
+          )}
         </div>
       </div>
+    </div>
+  )
+}
+
+function Ghost({ top, height, label, strong }: { top: number; height: number; label: string; strong?: boolean }) {
+  return (
+    <div
+      className={cn("pointer-events-none absolute inset-x-1 z-30 overflow-hidden rounded-xl border-2 border-dashed border-violet px-2.5 py-1 text-[11px] font-semibold tabular", strong ? "bg-violet/20" : "bg-violet/10")}
+      style={{ top: top + 1, height: Math.max(18, height - 2) }}
+    >
+      {label}
+    </div>
+  )
+}
+
+/** The selected block's actions, right under it. */
+function BlockToolbar({ block, task, style, onEdit, onFocus, onClose }: { block: Block; task?: Task; style: CSSProperties; onEdit: () => void; onFocus: () => void; onClose: () => void }) {
+  const shift = (ds: number, de: number) => {
+    const next = { start: block.start + ds, end: block.end + de }
+    if (next.start < 0 || next.end > DAY || next.end - next.start < SNAP) return
+    void attempt(() => updateBlock(block.id, next))
+  }
+  const tool = "relative grid h-8 min-w-8 shrink-0 place-items-center rounded-full px-1.5 text-xs font-semibold text-foreground/80 tabular outline-none hit-area hover:bg-foreground/10 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring [&_svg]:size-4"
+  const divider = <span aria-hidden className="mx-0.5 h-5 w-px shrink-0 bg-line" />
+  return (
+    <div
+      role="toolbar"
+      aria-label={`${block.title}: actions`}
+      className="absolute z-40 flex max-w-[calc(100%+3rem)] flex-wrap items-center gap-0.5 rounded-2xl border border-line bg-popover p-1 text-popover-foreground shadow-xl animate-in fade-in-0 zoom-in-95"
+      style={style}
+      onPointerDown={(e) => e.stopPropagation()}
+    >
+      {task && (
+        <button type="button" className={tool} aria-label={task.status === "done" ? `Reopen ${task.title}` : `Complete ${task.title}`} title={task.status === "done" ? "Reopen" : "Done"} onClick={() => void toggleDone(task)}>
+          <Check />
+        </button>
+      )}
+      {(block.kind === "focus" || block.kind === "task") && (
+        <button type="button" className={tool} aria-label="Start focus" title="Start focus" onClick={onFocus}>
+          <Play />
+        </button>
+      )}
+      {(task || block.kind === "focus" || block.kind === "task") && divider}
+      <button type="button" className={tool} aria-label="15 minutes earlier" title="Earlier" onClick={() => shift(-SNAP, -SNAP)}>
+        <ChevronUp />
+      </button>
+      <button type="button" className={tool} aria-label="15 minutes later" title="Later" onClick={() => shift(SNAP, SNAP)}>
+        <ChevronDown />
+      </button>
+      {divider}
+      <button type="button" className={tool} aria-label="15 minutes shorter" title="Shorter" onClick={() => shift(0, -SNAP)}>
+        −15
+      </button>
+      <button type="button" className={tool} aria-label="15 minutes longer" title="Longer" onClick={() => shift(0, SNAP)}>
+        +15
+      </button>
+      {divider}
+      <button type="button" className={tool} aria-label="Edit" title="Edit" onClick={onEdit}>
+        <Pencil />
+      </button>
+      <button
+        type="button"
+        className={cn(tool, "text-destructive hover:text-destructive")}
+        aria-label="Remove"
+        title="Remove"
+        onClick={() => {
+          onClose()
+          void deleteBlockWithUndo(block.id)
+        }}
+      >
+        <Trash2 />
+      </button>
     </div>
   )
 }

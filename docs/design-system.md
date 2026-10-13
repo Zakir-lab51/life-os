@@ -101,6 +101,9 @@ page.
 | Done | `strike is-done` on the element, the words in `.strike-text`: the line draws across them, the colour fades to muted |
 | Touch targets | At least 44 px on coarse pointers: tick-boxes and icon buttons enlarge their hit area invisibly (`hit-area`) |
 | Hover-only controls | Hidden only where there is a fine pointer (`pointer-fine:opacity-0 group-hover:opacity-100`); always visible on touch |
+| Press and hold (touch) | A finger resting 0.28 s starts a drag, with a short buzz: moving a time block, drawing on empty time (Kanban cards: 0.22 s). Moving first scrolls instead, and a quick tap selects |
+| Selected item actions | A tap selects; its actions appear in a one-line toolbar beside it (time blocks), so nothing hides behind a "…" menu or hover |
+| Undo, not "Are you sure?" | Adding, moving or removing a time block happens at once; the toast offers Undo. Toast actions use the primary colour, since glass would make Sonner's own see-through |
 | Loading | Translucent skeletons in the page's shape, shown only after 150 ms |
 | Empty | `EmptyState`: "start" (violet, with a way to begin) or "clear" (mint, good news) |
 | Error | Field errors are linked to their control and get focus after a failed save; a crashed page shows `ErrorState` inside the app |
@@ -137,6 +140,7 @@ what doesn't need JavaScript.
 | Progress rings | Ease to the new value (1.1 s) |
 | Charts | Series ease in over 0.55 s (`useChartMotion`), none when motion is reduced |
 | Kanban drag | The card's place follows it from column to column; it lands where it stays (0.22 s) |
+| New time block | Drawing shows a dashed block snapping to 15 minutes, its times written on it; the small card zooms in beside it. A task chosen to place floats in a pill above the tab bar (never pushing the timeline), and the confirmation toast takes its spot |
 | Navigation drawer | Floats 12 px in from the screen edges, rounded all round, with a Close button at its foot (the background holds its frame while it's open and carries on after); slides in from the side of the button that opened it (0.42 s ease-out, out in 0.26 s), transform only; the page's tiles stop bending while it covers them |
 | New notification | Bell badge pops |
 | Theme switch | New theme spreads in a circle from the toggle (View Transitions) |

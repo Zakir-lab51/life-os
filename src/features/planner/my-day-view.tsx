@@ -1,8 +1,9 @@
 "use client"
 
-import { CalendarClock, CalendarPlus, ChevronLeft, ChevronRight, GripVertical, NotebookPen, Plus, Sunrise, Sunset, WandSparkles } from "lucide-react"
+import { CalendarClock, CalendarPlus, ChevronLeft, ChevronRight, CornerDownLeft, GripVertical, MousePointerClick, NotebookPen, Plus, Sunrise, Sunset, WandSparkles, X } from "lucide-react"
 import Link from "next/link"
-import { useMemo } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -15,15 +16,18 @@ import { useBlocks, useNow, useReflection, useRoutineChecks } from "@/lib/db/hoo
 import { createBlock, moveTasksToDate, toggleRoutine } from "@/lib/db/repo"
 import { addDays, daysBetween, formatClock, formatDay, formatDuration, relativeDayLabel, roundUpTo } from "@/lib/domain/dates"
 import { freeSlots, totalFree } from "@/lib/domain/planner"
+import { parseQuickBlock } from "@/lib/domain/quick-block"
 import { recommendTasks } from "@/lib/domain/scheduling"
 import { isOverdue } from "@/lib/domain/tasks"
-import type { RoutineItem, Task } from "@/lib/domain/types"
+import type { Block, RoutineItem, Task } from "@/lib/domain/types"
 import { attempt, succeeded } from "@/lib/feedback"
 import { useUI } from "@/lib/stores/ui"
 import { cn } from "@/lib/utils"
 import { useLife, type Life } from "@/features/shell/use-life"
 import { MOODS } from "./reflection-dialog"
-import { TASK_DRAG_TYPE, Timeline } from "./timeline"
+import { KIND_LABEL } from "./block-editor"
+import { addBlock } from "./quick-create"
+import { TASK_DRAG_TYPE, Timeline, taskLength } from "./timeline"
 
 export function MyDayView() {
   const life = useLife()
@@ -51,6 +55,21 @@ function MyDay({ life, date, blocks }: { life: Life; date: string; blocks: NonNu
   const now = new Date(useNow(60_000))
   const nowMin = now.getHours() * 60 + now.getMinutes()
   const tasksById = useMemo(() => new Map(data.tasks.map((t) => [t.id, t])), [data.tasks])
+  // a task chosen from "To schedule", waiting for a tap on the timeline
+  const [placing, setPlacing] = useState<Task | null>(null)
+  const timeline = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!placing) return
+    const key = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPlacing(null)
+    }
+    window.addEventListener("keydown", key)
+    return () => window.removeEventListener("keydown", key)
+  }, [placing])
+  const choose = (t: Task) => {
+    setPlacing((p) => (p?.id === t.id ? null : t))
+    timeline.current?.scrollIntoView({ block: "start", behavior: "smooth" })
+  }
 
   const from = isToday ? Math.max(prefs.dayStartMin, nowMin) : prefs.dayStartMin
   const free = isPast ? 0 : totalFree(blocks, from, prefs.dayEndMin)
@@ -68,7 +87,7 @@ function MyDay({ life, date, blocks }: { life: Life; date: string; blocks: NonNu
   }, [data.tasks, blocks, date, free])
 
   const scheduleNext = async (task: Task) => {
-    const len = Math.min(120, Math.max(15, roundUpTo(task.estimateMin, 15)))
+    const len = taskLength(task)
     const slot = freeSlots(blocks, roundUpTo(from, 15), prefs.dayEndMin).find((s) => s.end - s.start >= len)
     if (!slot) {
       toast.error("No free gap that long", { description: "Drag it onto the timeline instead, or shorten the estimate." })
@@ -132,8 +151,9 @@ function MyDay({ life, date, blocks }: { life: Life; date: string; blocks: NonNu
 
       {isToday && overdue.length > 0 && (
         <Panel className="mb-4 flex-row flex-wrap items-center gap-3 py-4">
-          <CalendarClock className="size-5 text-amber" />
-          <div className="min-w-0 flex-1">
+          <CalendarClock className="size-5 shrink-0 text-amber" />
+          {/* wide enough to read; the buttons wrap below it on a phone */}
+          <div className="min-w-[12rem] flex-1">
             <p className="font-medium">
               {overdue.length} overdue task{overdue.length === 1 ? "" : "s"}
             </p>
@@ -149,23 +169,27 @@ function MyDay({ life, date, blocks }: { life: Life; date: string; blocks: NonNu
       )}
 
       <div className="grid items-start gap-4 @4xl/main:grid-cols-[minmax(0,1fr)_340px]">
-        <Panel className="p-3 sm:p-5">
-          {blocks.length === 0 && !isPast && (
-            <div className="mb-4 flex flex-wrap items-center gap-3 rounded-2xl border border-dashed border-line p-4">
-              <WandSparkles className="size-5 text-violet" />
-              <p className="flex-1 text-sm text-muted-foreground">An empty day. Let LIFE OS suggest a plan, drag tasks in from the right, or click any time slot.</p>
-              <Button size="sm" onClick={() => setPlanOpen(true)}>
-                Plan my day
-              </Button>
-            </div>
-          )}
-          <Timeline date={date} isToday={isToday} blocks={blocks} tasksById={tasksById} />
-        </Panel>
+        <div ref={timeline} className="min-w-0 scroll-mt-24">
+          <Panel className="p-3 sm:p-5">
+            {!isPast && <QuickAdd date={date} isToday={isToday} nowMin={nowMin} dayStart={prefs.dayStartMin} dayEnd={prefs.dayEndMin} blocks={blocks} />}
+            {placing && <PlacingBar task={placing} onStop={() => setPlacing(null)} />}
+            {blocks.length === 0 && !isPast && (
+              <div className="mb-4 flex flex-wrap items-center gap-3 rounded-2xl border border-dashed border-line p-4">
+                <WandSparkles className="size-5 text-violet" />
+                <p className="flex-1 text-sm text-muted-foreground">An empty day. Type a block above, draw one on the timeline, or let LIFE OS suggest a plan.</p>
+                <Button size="sm" onClick={() => setPlanOpen(true)}>
+                  Plan my day
+                </Button>
+              </div>
+            )}
+            <Timeline date={date} isToday={isToday} blocks={blocks} tasksById={tasksById} suggestions={unscheduled} placing={placing} onPlaced={() => setPlacing(null)} />
+          </Panel>
+        </div>
 
         <div className="space-y-4">
           {!isPast && (
             <Panel>
-              <PanelHeader title="To schedule" subtitle="Drag onto the timeline, or tap to place in the next free gap" />
+              <PanelHeader title="To schedule" subtitle="Tap one, then tap a time on the timeline. Or drag it there, or put it in the next free gap." />
               {unscheduled.length === 0 ? (
                 <EmptyState compact tone="clear" icon={CalendarPlus} title="Everything due is scheduled" />
               ) : (
@@ -179,17 +203,17 @@ function MyDay({ life, date, blocks }: { life: Life; date: string; blocks: NonNu
                         e.dataTransfer.setData("text/plain", t.title)
                         e.dataTransfer.effectAllowed = "copy"
                       }}
-                      className="group flex cursor-grab items-center gap-2 rounded-xl px-2 py-2 hover:bg-surface-2/70 active:cursor-grabbing"
+                      className={cn("group flex cursor-grab items-center gap-1 rounded-xl px-1 py-1 transition-colors hover:bg-surface-2/70 active:cursor-grabbing", placing?.id === t.id && "bg-violet/15 ring-1 ring-violet/50")}
                     >
                       <GripVertical className="size-4 shrink-0 text-muted-foreground/50" aria-hidden />
-                      <div className="min-w-0 flex-1">
+                      <button type="button" aria-pressed={placing?.id === t.id} onClick={() => choose(t)} className="min-w-0 flex-1 rounded-lg px-1 py-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring">
                         <p className="truncate text-sm font-medium">{t.title}</p>
                         <p className="flex items-center gap-2 text-[11px] text-muted-foreground">
                           <PriorityFlag priority={t.priority} />
                           {formatDuration(t.estimateMin)}
                           {t.dueDate && <span>{relativeDayLabel(t.dueDate, today)}</span>}
                         </p>
-                      </div>
+                      </button>
                       <Button size="icon-sm" variant="ghost" aria-label={`Schedule ${t.title} in the next free gap`} onClick={() => void scheduleNext(t)}>
                         <CalendarPlus />
                       </Button>
@@ -292,5 +316,84 @@ function ReflectionCard({ date, isToday }: { date: string; isToday: boolean }) {
         </>
       )}
     </Panel>
+  )
+}
+
+/**
+ * The quickest way in: type a block in one line ("Gym 6pm 1h", "Revise anatomy 2-3:30pm",
+ * "Call home 20m"). Below it, where it will go, as you type; Enter adds it and keeps the
+ * field ready for the next. Without a time it goes in the next free gap that fits.
+ */
+function QuickAdd({ date, isToday, nowMin, dayStart, dayEnd, blocks }: { date: string; isToday: boolean; nowMin: number; dayStart: number; dayEnd: number; blocks: Block[] }) {
+  const [text, setText] = useState("")
+  const parsed = useMemo(() => parseQuickBlock(text, { nowMin, isToday, dayStart, dayEnd, blocks }), [text, nowMin, isToday, dayStart, dayEnd, blocks])
+  const add = async () => {
+    if (!parsed.ok) return
+    const b = parsed.block
+    if (await addBlock({ date, start: b.start, end: b.end, title: b.title, kind: b.kind })) setText("")
+  }
+  const hint = !text.trim()
+    ? "Try \u201cGym 6pm 1h\u201d, \u201cRevise anatomy 2-3:30pm\u201d or \u201cCall home 20m\u201d."
+    : parsed.ok
+      ? `${parsed.block.title} \u00b7 ${formatClock(parsed.block.start)}\u2013${formatClock(parsed.block.end)} \u00b7 ${formatDuration(parsed.block.end - parsed.block.start)} \u00b7 ${KIND_LABEL[parsed.block.kind]}${parsed.block.placed === "gap" ? " \u00b7 next free gap" : ""}`
+      : parsed.reason === "no-title"
+        ? "Add what it\u2019s for, like \u201cGym 6pm\u201d."
+        : parsed.reason === "no-gap"
+          ? `No free ${formatDuration(parsed.minutes)} left${isToday ? " today" : ""}. Give it a time, like \u201c${parsed.title} 6pm\u201d.`
+          : ""
+  return (
+    <form
+      className="mb-4"
+      onSubmit={(e) => {
+        e.preventDefault()
+        void add()
+      }}
+    >
+      <div className="flex h-11 items-center gap-2 rounded-control border border-line bg-surface pr-1.5 pl-3.5 transition-shadow focus-within:ring-2 focus-within:ring-ring">
+        <Plus className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+        <input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Add a block: what, when, how long"
+          aria-label="Add a time block"
+          aria-describedby="quick-add-hint"
+          enterKeyHint="done"
+          maxLength={160}
+          className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+        />
+        {text.trim() && (
+          <Button type="submit" size="sm" disabled={!parsed.ok} className="h-8">
+            Add <CornerDownLeft className="size-3.5" />
+          </Button>
+        )}
+      </div>
+      <p id="quick-add-hint" aria-live="polite" className={cn("mt-1.5 min-h-4 truncate px-3.5 text-xs tabular", parsed.ok ? "text-foreground/80" : "text-muted-foreground")}>
+        {hint}
+      </p>
+    </form>
+  )
+}
+
+/**
+ * While a task waits for a tap on the timeline: what's being placed and how long, floating
+ * above the tab bar so neither showing nor dropping it moves the timeline under your finger.
+ * Portalled out of the glass panel, whose backdrop filter would otherwise pin it inside.
+ */
+function PlacingBar({ task, onStop }: { task: Task; onStop: () => void }) {
+  return createPortal(
+    <div
+      className="fixed inset-x-3 bottom-[calc(max(0.75rem,env(safe-area-inset-bottom))+4.75rem)] z-50 mx-auto flex max-w-md items-center gap-3 rounded-2xl border border-violet/40 bg-popover py-2 pr-1.5 pl-3.5 text-popover-foreground shadow-2xl animate-in fade-in-0 slide-in-from-bottom-2 md:bottom-6"
+      role="status"
+    >
+      <MousePointerClick className="size-4 shrink-0 text-violet" aria-hidden />
+      <p className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-semibold">{task.title}</span>
+        <span className="block text-xs text-muted-foreground tabular">Tap a time on the timeline · {formatDuration(taskLength(task))}</span>
+      </p>
+      <Button size="icon-sm" variant="ghost" aria-label="Stop placing" onClick={onStop}>
+        <X />
+      </Button>
+    </div>,
+    document.body,
   )
 }

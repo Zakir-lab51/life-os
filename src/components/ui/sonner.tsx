@@ -39,6 +39,9 @@ const Toaster = ({ ...props }: ToasterProps) => {
       toastOptions={{
         classNames: {
           toast: "cn-toast glass",
+          // Sonner paints the action in the toast's own colours, which glass makes see-through
+          actionButton: "bg-primary! text-primary-foreground! font-semibold!",
+          cancelButton: "bg-foreground/10! text-foreground!",
         },
       }}
       {...props}
