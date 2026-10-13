@@ -145,7 +145,7 @@ export function TaskRow({
       <button type="button" onClick={() => openTaskEditor(task.id)} className="min-w-0 flex-1 text-left">
         <span className={cn("strike block text-[0.95rem] leading-snug font-medium", done && "is-done")}>
           {task.status === "in_progress" && <span className="mr-1.5 inline-block size-2 rounded-full bg-cyan align-middle" title="In progress" />}
-          {task.title}
+          <span className="strike-text">{task.title}</span>
         </span>
         <TaskMeta task={task} today={today} blockedBy={blockedBy} />
       </button>

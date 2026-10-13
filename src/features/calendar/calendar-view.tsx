@@ -226,7 +226,7 @@ function Calendar({ life, anchor, gridStart, gridEnd, blocks, setMonth }: { life
                   <li key={t.id} className="flex items-center gap-2.5 rounded-xl px-1 py-1.5 hover:bg-surface-2/60">
                     <Checkbox className="rounded-full" checked={t.status === "done"} onCheckedChange={() => void toggleDone(t)} aria-label={`Toggle ${t.title}`} />
                     <button type="button" onClick={() => openTaskEditor(t.id)} className={cn("strike min-w-0 flex-1 truncate text-left text-sm", t.status === "done" && "is-done")}>
-                      {t.title}
+                      <span className="strike-text">{t.title}</span>
                     </button>
                     <PriorityFlag priority={t.priority} />
                   </li>

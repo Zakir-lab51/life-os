@@ -223,7 +223,7 @@ function Card({ task, today, byId, overlay }: { task: Task; today: string; byId:
           aria-label={done ? `Reopen ${task.title}` : `Complete ${task.title}`}
         />
         <button {...keep} type="button" onClick={() => openTaskEditor(task.id)} className={cn("strike min-w-0 flex-1 text-left text-sm leading-snug font-medium", done && "is-done")}>
-          {task.title}
+          <span className="strike-text">{task.title}</span>
         </button>
         <div {...keep} className="-mt-1 -mr-1">
           <TaskActionsMenu task={task} today={today} />

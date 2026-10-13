@@ -258,7 +258,9 @@ export function Timeline({ date, isToday, blocks, tasksById }: { date: string; i
                     </button>
                   )}
                   <div className="min-w-0 flex-1">
-                    <p className={cn("truncate leading-tight font-semibold", tiny ? "text-[11px]" : "text-[13px]", task && "strike", task?.status === "done" && "is-done")}>{b.title}</p>
+                    <p className={cn("truncate leading-tight font-semibold", tiny ? "text-[11px]" : "text-[13px]", task && "strike", task?.status === "done" && "is-done")}>
+                      <span className={cn(task && "strike-text")}>{b.title}</span>
+                    </p>
                     {!compact && (
                       <p className="mt-0.5 truncate text-[11px] text-muted-foreground tabular">
                         {formatClock(live.start)}–{formatClock(live.end)} · {formatDuration(live.end - live.start)}

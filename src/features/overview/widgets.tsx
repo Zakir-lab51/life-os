@@ -19,6 +19,7 @@ import {
   WandSparkles,
 } from "lucide-react"
 import Link from "next/link"
+import { motion } from "motion/react"
 import { useRouter } from "next/navigation"
 import { useMemo, useState } from "react"
 import { Bar, BarChart, PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar, RadarChart, ResponsiveContainer, Tooltip, XAxis } from "recharts"
@@ -49,7 +50,7 @@ import { useFocus } from "@/lib/stores/focus"
 import { useUI } from "@/lib/stores/ui"
 import { cn } from "@/lib/utils"
 import type { Life } from "@/features/shell/use-life"
-import { toggleDone, wasJustCompleted } from "@/features/tasks/task-actions"
+import { toggleDone, useSettling, wasJustCompleted } from "@/features/tasks/task-actions"
 import { KIND_LABEL } from "@/features/planner/block-editor"
 
 /* ── greeting & score ───────────────────────────────── */
@@ -292,20 +293,27 @@ export function BriefingWidget({ briefing, life }: { briefing: Briefing; life: L
 
 export function TodayWidget({ life }: { life: Life }) {
   const openTaskEditor = useUI((s) => s.openTaskEditor)
+  // a task just ticked stays put while its line is drawn, then glides down to the finished ones
+  const settling = useSettling()
   const { open, doneToday } = useMemo(() => {
     const { tasks } = life.data
+    const listedOpen = (t: Task) => t.status !== "done" || settling.has(t.id)
     const open = tasks
-      .filter((t) => t.status !== "done" && t.dueDate && daysBetween(t.dueDate, life.today) >= 0)
+      .filter((t) => listedOpen(t) && t.dueDate && daysBetween(t.dueDate, life.today) >= 0)
       .sort((a, b) => (a.dueDate! < b.dueDate! ? -1 : a.dueDate! > b.dueDate! ? 1 : a.priority - b.priority))
-    const doneToday = tasks.filter((t) => t.status === "done" && t.completedAt && toISODate(new Date(t.completedAt)) === life.today)
+    // oldest first, so the one you just finished lands at the very bottom
+    const doneToday = tasks
+      .filter((t) => !listedOpen(t) && t.completedAt && toISODate(new Date(t.completedAt)) === life.today)
+      .sort((a, b) => (a.completedAt ?? "").localeCompare(b.completedAt ?? ""))
     return { open, doneToday }
-  }, [life])
+  }, [life, settling])
+  const openCount = open.filter((t) => t.status !== "done").length
 
   return (
     <Panel>
       <PanelHeader
         title="Today"
-        subtitle={`${open.length} open · ${doneToday.length} done`}
+        subtitle={`${openCount} open · ${doneToday.length + open.length - openCount} done`}
         action={
           <Button size="icon-sm" variant="outline" aria-label="Add a task for today" onClick={() => openTaskEditor(null, { dueDate: life.today })}>
             <Plus />
@@ -315,11 +323,9 @@ export function TodayWidget({ life }: { life: Life }) {
       {open.length === 0 && doneToday.length === 0 ? (
         <EmptyState compact tone="clear" icon={Check} title="Nothing due today" body="Add a task, or pull one forward from Tasks." />
       ) : (
+        // one list, so a finished task's row moves (and glides) rather than being rebuilt
         <ul className="-mx-2 space-y-0.5">
-          {open.slice(0, 7).map((t) => (
-            <TaskLine key={t.id} task={t} today={life.today} onOpen={() => openTaskEditor(t.id)} />
-          ))}
-          {doneToday.slice(0, 3).map((t) => (
+          {[...open.slice(0, 7), ...doneToday.slice(-3)].map((t) => (
             <TaskLine key={t.id} task={t} today={life.today} onOpen={() => openTaskEditor(t.id)} />
           ))}
         </ul>
@@ -337,14 +343,14 @@ function TaskLine({ task, today, onOpen }: { task: Task; today: string; onOpen: 
   const done = task.status === "done"
   const overdue = isOverdue(task, today)
   return (
-    <li className="group flex items-center gap-2.5 rounded-xl px-2 py-1.5 hover:bg-surface-2/70">
+    <motion.li layout="position" className="group flex items-center gap-2.5 rounded-xl px-2 py-1.5 hover:bg-surface-2/70">
       <Checkbox className="size-[18px] rounded-full" checked={done} celebrate={wasJustCompleted(task.id)} onCheckedChange={() => void toggleDone(task)} aria-label={done ? `Reopen ${task.title}` : `Complete ${task.title}`} />
       <button type="button" onClick={onOpen} className={cn("strike min-w-0 flex-1 truncate text-left text-sm", done && "is-done")}>
-        {task.title}
+        <span className="strike-text">{task.title}</span>
       </button>
       {task.dependsOn.length > 0 && !done && <Lock className="size-3 text-muted-foreground" aria-label="Waiting on another task" />}
       {overdue ? <span className="shrink-0 rounded-control bg-rose/20 px-1.5 text-[10px] font-semibold">late</span> : <PriorityFlag priority={task.priority} />}
-    </li>
+    </motion.li>
   )
 }
 

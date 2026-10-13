@@ -176,7 +176,7 @@ function GoalSheet({ goal, evaluation, life }: { goal: Goal; evaluation: GoalEva
                 <li key={t.id} className="flex items-center gap-3 border-t border-line px-4 py-2.5 first:border-t-0">
                   <Checkbox checked={t.status === "done"} onCheckedChange={() => void toggleDone(t)} aria-label={`Done: ${t.title}`} />
                   <button type="button" onClick={() => openTaskEditor(t.id)} className={cn("strike min-w-0 flex-1 truncate text-left text-sm", t.status === "done" && "is-done")}>
-                    {t.title}
+                    <span className="strike-text">{t.title}</span>
                   </button>
                   {t.dueDate && <span className={cn("shrink-0 text-xs", t.status !== "done" && t.dueDate < today ? "text-rose" : "text-muted-foreground")}>{formatDay(t.dueDate, "d MMM")}</span>}
                 </li>

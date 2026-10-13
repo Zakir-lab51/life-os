@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { createTask, wipeAllData } from "@/lib/db/repo"
 import { db } from "@/lib/db/db"
-import { toggleDone, wasJustCompleted } from "@/features/tasks/task-actions"
+import { isSettling, toggleDone, wasJustCompleted } from "@/features/tasks/task-actions"
 
 beforeEach(async () => {
   await wipeAllData()
@@ -28,5 +28,25 @@ describe("a ticked task's pop survives its row being rebuilt", () => {
     await toggleDone(done)
     expect((await db.tasks.get(task.id))?.status).not.toBe("done")
     expect(wasJustCompleted(task.id)).toBe(false)
+  })
+})
+
+describe("a ticked task holds its place while its line is drawn, then moves", () => {
+  it("stays listed as open for a moment after ticking, then not", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout"] })
+    const task = await createTask({ title: "Pay hostel mess fees" })
+    await toggleDone(task)
+    expect((await db.tasks.get(task.id))?.status).toBe("done")
+    expect(isSettling(task.id)).toBe(true)
+    vi.advanceTimersByTime(520)
+    expect(isSettling(task.id)).toBe(false)
+  })
+
+  it("moves at once when reopened", async () => {
+    const task = await createTask({ title: "Revise cardiac cycle" })
+    await toggleDone(task)
+    expect(isSettling(task.id)).toBe(true)
+    await toggleDone((await db.tasks.get(task.id))!)
+    expect(isSettling(task.id)).toBe(false)
   })
 })

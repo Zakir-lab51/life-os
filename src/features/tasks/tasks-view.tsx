@@ -19,7 +19,7 @@ import {
   Trash2,
   X,
 } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, type ReactNode } from "react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -40,7 +40,7 @@ import { attempt, succeeded } from "@/lib/feedback"
 import { useUI } from "@/lib/stores/ui"
 import { cn } from "@/lib/utils"
 import { useLife, type Life } from "@/features/shell/use-life"
-import { deleteWithUndo } from "./task-actions"
+import { deleteWithUndo, useSettling } from "./task-actions"
 import { TaskBoard } from "./task-board"
 import { DragHandle, TaskRow } from "./task-row"
 
@@ -84,6 +84,9 @@ function Tasks({ life, blocks }: { life: Life; blocks: NonNullable<ReturnType<ty
   const [sort, setSort] = useState<Sort>("smart")
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [lastClicked, setLastClicked] = useState<string | null>(null)
+  // a task just ticked keeps its place while its line is drawn, then glides down to "Done today"
+  const settling = useSettling()
+  const asListed = useMemo(() => (t: Task): Task => (settling.has(t.id) ? { ...t, status: "todo" } : t), [settling])
   const now = new Date(useNow(60_000))
   const nowMin = now.getHours() * 60 + now.getMinutes()
 
@@ -115,7 +118,7 @@ function Tasks({ life, blocks }: { life: Life; blocks: NonNullable<ReturnType<ty
 
   const inView = useMemo(
     () => (t: Task) => {
-      const b = dueBucket(t, today)
+      const b = dueBucket(asListed(t), today)
       switch (filter) {
         case "open":
           return b !== "done"
@@ -125,29 +128,39 @@ function Tasks({ life, blocks }: { life: Life; blocks: NonNullable<ReturnType<ty
           return b === filter
       }
     },
-    [filter, today],
+    [filter, today, asListed],
   )
 
   const filtered = useMemo(() => {
     const list = data.tasks.filter((t) => inView(t) && passesFacets(t))
     if (filter === "done") return list.sort((a, b) => (b.completedAt ?? "").localeCompare(a.completedAt ?? ""))
     const ctx = { today, freeMinutes, all: data.tasks }
-    const scores = sort === "smart" ? new Map(list.map((t) => [t.id, scoreTask(t, ctx, byId).score])) : null
+    const scores = sort === "smart" ? new Map(list.map((t) => [t.id, scoreTask(asListed(t), ctx, byId).score])) : null
     return list.sort((a, b) => {
       switch (sort) {
         case "smart":
           return scores!.get(b.id)! - scores!.get(a.id)! || a.order - b.order
         case "due":
-          return compareByDue(a, b)
+          return compareByDue(asListed(a), asListed(b))
         case "priority":
-          return compareByPriority(a, b)
+          return compareByPriority(asListed(a), asListed(b))
         case "manual":
           return a.order - b.order
         case "created":
           return b.createdAt.localeCompare(a.createdAt)
       }
     })
-  }, [data.tasks, inView, passesFacets, filter, sort, today, freeMinutes, byId])
+  }, [data.tasks, inView, passesFacets, filter, sort, today, freeMinutes, byId, asListed])
+
+  // tasks finished today stay in view at the foot of All open and Today, oldest first, so
+  // the one you just ticked lands at the very bottom
+  const doneToday = useMemo(() => {
+    if (filter !== "open" && filter !== "today") return []
+    return data.tasks
+      .filter((t) => t.status === "done" && !settling.has(t.id) && !!t.completedAt && toISODate(new Date(t.completedAt)) === today && passesFacets(t))
+      .filter((t) => filter === "open" || ["today", "overdue"].includes(dueBucket({ ...t, status: "todo" }, today)))
+      .sort((a, b) => (a.completedAt ?? "").localeCompare(b.completedAt ?? ""))
+  }, [data.tasks, filter, settling, today, passesFacets])
 
   // the board keeps recently finished work visible in its Done column
   const boardTasks = useMemo(() => {
@@ -193,10 +206,15 @@ function Tasks({ life, blocks }: { life: Life; blocks: NonNullable<ReturnType<ty
 
   const grouped = sort !== "manual" && sort !== "smart" && filter === "open"
   const groups: { bucket: DueBucket; tasks: Task[] }[] = grouped
-    ? (["overdue", "today", "upcoming", "someday"] as DueBucket[]).map((bucket) => ({ bucket, tasks: filtered.filter((t) => dueBucket(t, today) === bucket) })).filter((g) => g.tasks.length)
+    ? (["overdue", "today", "upcoming", "someday"] as DueBucket[]).map((bucket) => ({ bucket, tasks: filtered.filter((t) => dueBucket(asListed(t), today) === bucket) })).filter((g) => g.tasks.length)
     : []
 
   const anyFilter = query || area !== "any" || priority !== "any" || tag !== "any"
+  const row = (t: Task) => (
+    <Glide key={t.id} id={t.id}>
+      <TaskRow task={t} today={today} blockedBy={blockingTasks(t, byId)} selected={selected.has(t.id)} selecting={selecting} onSelect={(sh) => toggleSelect(t.id, sh)} />
+    </Glide>
+  )
   const clearFilters = () => {
     setQuery("")
     setArea("any")
@@ -328,6 +346,7 @@ function Tasks({ life, blocks }: { life: Life; blocks: NonNullable<ReturnType<ty
       {view === "board" ? (
         <TaskBoard tasks={boardTasks} today={today} byId={byId} />
       ) : filtered.length === 0 ? (
+        <div className="space-y-4">
         <Panel>
           <EmptyState
             icon={filter === "done" ? Check : SquareCheckBig}
@@ -357,6 +376,8 @@ function Tasks({ life, blocks }: { life: Life; blocks: NonNullable<ReturnType<ty
             }
           />
         </Panel>
+        {doneToday.length > 0 && <DonePanel tasks={doneToday} row={row} />}
+        </div>
       ) : sort === "manual" && filter !== "done" ? (
         <Panel className="p-2 sm:p-3">
           <ManualList tasks={filtered} today={today} byId={byId} selected={selected} selecting={selecting} onSelect={toggleSelect} />
@@ -369,17 +390,20 @@ function Tasks({ life, blocks }: { life: Life; blocks: NonNullable<ReturnType<ty
                 {g.bucket === "overdue" && <span className="size-1.5 rounded-full bg-rose" />}
                 {BUCKET_LABEL[g.bucket]} <span className="tabular">{g.tasks.length}</span>
               </h2>
-              {g.tasks.map((t) => (
-                <TaskRow key={t.id} task={t} today={today} blockedBy={blockingTasks(t, byId)} selected={selected.has(t.id)} selecting={selecting} onSelect={(s) => toggleSelect(t.id, s)} />
-              ))}
+              {g.tasks.map(row)}
             </Panel>
           ))}
+          {doneToday.length > 0 && <DonePanel tasks={doneToday} row={row} />}
         </div>
       ) : (
         <Panel className="p-2 sm:p-3">
-          {filtered.map((t) => (
-            <TaskRow key={t.id} task={t} today={today} blockedBy={blockingTasks(t, byId)} selected={selected.has(t.id)} selecting={selecting} onSelect={(s) => toggleSelect(t.id, s)} />
-          ))}
+          {filtered.map(row)}
+          {doneToday.length > 0 && (
+            <>
+              <DoneHeading count={doneToday.length} />
+              {doneToday.map(row)}
+            </>
+          )}
         </Panel>
       )}
 
@@ -548,5 +572,33 @@ function BulkBar({ ids, today, total, onClear, onSelectAll }: { ids: string[]; t
         <X />
       </Button>
     </motion.div>
+  )
+}
+
+/** A task row that glides to its new place when the list reorders, even into another group. */
+function Glide({ id, children }: { id: string; children: ReactNode }) {
+  return (
+    <motion.div layout="position" layoutId={`task-row-${id}`}>
+      {children}
+    </motion.div>
+  )
+}
+
+function DoneHeading({ count }: { count: number }) {
+  return (
+    <motion.h2 layout="position" className="flex items-center gap-2 px-3 pt-3 pb-1 text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+      <span className="size-1.5 rounded-full bg-mint" />
+      Done today <span className="tabular">{count}</span>
+    </motion.h2>
+  )
+}
+
+/** Today's finished tasks, in their own panel when the list is split into groups. */
+function DonePanel({ tasks, row }: { tasks: Task[]; row: (t: Task) => ReactNode }) {
+  return (
+    <Panel className="p-2 sm:p-3">
+      <DoneHeading count={tasks.length} />
+      {tasks.map(row)}
+    </Panel>
   )
 }

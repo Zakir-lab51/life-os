@@ -98,7 +98,7 @@ page.
 | Focus | 2 px `--ring` outline, visible only for keyboard (`focus-visible`) |
 | Selected | `glass-pill` highlighter that glides between options |
 | Disabled | 50% opacity, no pointer |
-| Done | `strike is-done`: strike and muted colour fade in over 0.3 s |
+| Done | `strike is-done` on the element, the words in `.strike-text`: the line draws across them, the colour fades to muted |
 | Touch targets | At least 44 px on coarse pointers: tick-boxes and icon buttons enlarge their hit area invisibly (`hit-area`) |
 | Hover-only controls | Hidden only where there is a fine pointer (`pointer-fine:opacity-0 group-hover:opacity-100`); always visible on touch |
 | Loading | Translucent skeletons in the page's shape, shown only after 150 ms |
@@ -131,7 +131,7 @@ what doesn't need JavaScript.
 | Scrolling | Wheel glides (Lenis); tiles rise into view from the bottom (CSS scroll-driven) |
 | Navigation | Highlighter glides to the new tab (`layoutId`). Phone tab bar: a liquid highlighter that springs to the tab, stretching with its speed; press and slide to drag it like a lens (it lifts 12% and lights the tab beneath), let go to snap and open that tab (More opens the menu) |
 | Dialogs and menus | Open on a spring (0.5 s), close fast (0.16 s); focus returns to what opened them |
-| Task completed | Tick pops and draws its check; title's strike fades in |
+| Task completed | Tick pops and draws its check; a line draws across the title from the left (0.45 s, like a pen), the task holds its place until it's drawn (0.52 s), then glides to the bottom among today's finished tasks (`layout`); reopening glides it back as the line retracts |
 | Habit checked in | Mark pops with a ring in the habit's colour |
 | Numbers | Digits roll (`RollingText`): clock, score, stat tiles |
 | Progress rings | Ease to the new value (1.1 s) |

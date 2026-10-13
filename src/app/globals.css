@@ -486,18 +486,41 @@
 }
 
 /*
-  Done text: the strike is always set but transparent, and fades in (with the muted
-  colour) when something is done; a line can't animate in, its colour can.
+  Done text. `strike` on the element fades it to the muted colour when it gets `is-done`;
+  the words themselves sit in a `.strike-text` span (or the element is one), and a line
+  is drawn across them from the left, like a pen: a background on the text's own inline
+  box, so it crosses wrapped lines too, and retracts if the task is reopened. An input's
+  text can't carry that line, so inputs get a plain line-through that fades in.
 */
 @utility strike {
-  text-decoration-line: line-through;
-  text-decoration-color: transparent;
   transition:
     color 0.3s var(--ease-out),
     text-decoration-color 0.3s var(--ease-out);
   &.is-done {
     color: var(--muted-foreground);
+  }
+  &:is(input, textarea) {
+    text-decoration-line: line-through;
+    text-decoration-color: transparent;
+  }
+  &:is(input, textarea).is-done {
     text-decoration-color: currentColor;
+  }
+}
+@layer components {
+  .strike-text {
+    --strike-weight: max(1.5px, 0.075em);
+    background-image: linear-gradient(currentColor, currentColor);
+    background-repeat: no-repeat;
+    background-position: 0 58%;
+    background-size: 0% var(--strike-weight);
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+    transition: background-size 0.45s cubic-bezier(0.65, 0, 0.35, 1);
+  }
+  .is-done .strike-text,
+  .strike-text.is-done {
+    background-size: 100% var(--strike-weight);
   }
 }
 
