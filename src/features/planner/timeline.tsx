@@ -463,7 +463,7 @@ export function Timeline({
               <div
                 key={b.id}
                 className={cn(
-                  "group absolute z-10 touch-manipulation overflow-hidden border-l-[3px] px-2.5 text-left shadow-sm backdrop-blur-sm transition-[box-shadow,background-color,color] outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  "group absolute z-10 touch-manipulation border-l-[3px] px-2.5 text-left shadow-sm backdrop-blur-sm transition-[box-shadow,background-color,color] outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   tiny ? "rounded-md py-0 text-[11px]" : "rounded-xl py-1.5",
                   // past blocks lose their colour, not their legibility
                   past ? "bg-foreground/[0.05] text-muted-foreground" : tone.soft,
@@ -505,13 +505,14 @@ export function Timeline({
                         e.stopPropagation()
                         void toggleDone(task)
                       }}
-                      className={cn("relative grid shrink-0 place-items-center rounded-full border hit-area", tiny ? "size-3" : "size-4", task.status === "done" ? "border-transparent bg-mint text-primary-foreground" : "border-foreground/40")}
+                      // a 24 px target with a mouse, 44 px on touch (hit-area), even on a 15-minute block
+                      className={cn("relative grid shrink-0 place-items-center rounded-full border hit-area pointer-fine:after:absolute pointer-fine:after:inset-[min(-4px,calc((100%-24px)/2))]", tiny ? "size-3" : "size-4", task.status === "done" ? "border-transparent bg-mint text-primary-foreground" : "border-foreground/40")}
                     >
                       {task.status === "done" && <Check className="size-3" strokeWidth={3} />}
                     </button>
                   )}
                   <div className="min-w-0 flex-1">
-                    <p className={cn("truncate leading-tight font-semibold", tiny ? "text-[11px]" : "text-[13px]", task && "strike", task?.status === "done" && "is-done")}>
+                    <p className={cn("truncate leading-tight font-semibold", tiny ? "text-[11px] leading-[13px]" : "text-[13px]", task && "strike", task?.status === "done" && "is-done")}>
                       <span className={cn(task && "strike-text")}>{b.title}</span>
                     </p>
                     {!compact && (

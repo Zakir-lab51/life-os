@@ -10,7 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { PageHeader, PageTransition } from "@/components/os/page-header"
 import { Panel, PanelHeader } from "@/components/os/panel"
 import { EmptyState, PriorityFlag } from "@/components/os/visuals"
-import { useBlocksBetween } from "@/lib/db/hooks"
+import { useBlocks, useBlocksBetween } from "@/lib/db/hooks"
 import { ACCENT_CLASSES } from "@/lib/domain/areas"
 import { KIND_TONE } from "@/lib/domain/planner"
 import { addDays, daysBetween, formatClock, formatDay, fromISODate, startOfWeek, toISODate } from "@/lib/domain/dates"
@@ -79,7 +79,8 @@ function Calendar({ life, anchor, gridStart, gridEnd, blocks, setMonth }: { life
 
   const weekdayNames = Array.from({ length: 7 }, (_, i) => formatDay(addDays(gridStart, i), "EEE"))
   const selTasks = tasksByDay.get(selected) ?? []
-  const selBlocks = blocksByDay.get(selected) ?? []
+  // the chosen day's own blocks: it may sit outside the month on show (Today, after moving to another month)
+  const selBlocks = useBlocks(selected) ?? []
   const selHabits = habitsForDay(data.habits, byHabit, selected, prefs.weekStartsOn)
   const selReflection = data.reflections.find((r) => r.date === selected)
   const mood = selReflection ? MOODS.find((m) => m.value === selReflection.mood) : null

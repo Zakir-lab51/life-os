@@ -201,7 +201,7 @@ function Analytics({ life }: { life: Life }) {
             describe={(d) => `${formatDay(d, "EEE d MMM")}: ${heat.get(d) ?? 0} recorded actions`}
           />
           <p className="mt-4 rounded-2xl border border-dashed border-line p-3 text-xs text-muted-foreground">
-            Weekly review (achievements, unfinished work and next steps) arrives with Goals in Phase 2.
+            A weekly review (achievements, unfinished work and next steps) is on the way.
           </p>
         </Panel>
       </div>

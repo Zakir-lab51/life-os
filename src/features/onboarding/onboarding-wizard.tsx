@@ -132,7 +132,7 @@ export function OnboardingWizard() {
     },
     {
       title: "What are you working towards?",
-      body: "Pick a few. They're saved to your profile and will seed the Goals module when it arrives in Phase 2.",
+      body: "Pick a few. They're saved to your profile, and the Goals page can turn them into yearly goals with milestones.",
       content: (
         <div className="space-y-4">
           <div className="flex flex-wrap gap-2">

@@ -93,7 +93,7 @@ export function ProfilePane({ prefs }: { prefs: Prefs }) {
           }
         />
       </Group>
-      <Group id="s-goals" title="Life goals" footer="Saved to your profile. They'll seed the Goals module when it arrives in Phase 2.">
+      <Group id="s-goals" title="Life goals" footer="Saved to your profile. While the Goals page is empty, it can turn these into yearly goals.">
         <ChipEditor values={prefs.lifeGoals} onChange={(v) => void save({ lifeGoals: v })} placeholder="Add a goal" max={12} label="Add a life goal" />
       </Group>
     </>
