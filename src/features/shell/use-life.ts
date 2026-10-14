@@ -20,10 +20,16 @@ export function useLife(): Life | undefined {
   return useMemo(() => (data && prefs ? { data, prefs, today } : undefined), [data, prefs, today])
 }
 
+// computed once per change of data, however many places show it (data objects are shared)
+const xpCache = new WeakMap<LifeData, { xp: ReturnType<typeof computeXP>; level: ReturnType<typeof levelFromXP> }>()
+
 export function useXP(data: LifeData | undefined) {
-  return useMemo(() => {
-    if (!data) return undefined
+  if (!data) return undefined
+  let hit = xpCache.get(data)
+  if (!hit) {
     const xp = computeXP({ tasks: data.tasks, habitLogs: data.habitLogs, sessions: data.sessions, reflections: data.reflections, goals: data.goals })
-    return { xp, level: levelFromXP(xp.total) }
-  }, [data])
+    hit = { xp, level: levelFromXP(xp.total) }
+    xpCache.set(data, hit)
+  }
+  return hit
 }

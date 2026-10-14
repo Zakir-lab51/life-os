@@ -35,6 +35,7 @@ const FADE_OUT = 120 // ms for tiles to let go of their bend when scrolling star
 const FADE_IN = 480 // ms for it to flow back once scrolling stops
 const SCROLL_IDLE = 140 // ms without scroll events that counts as stopped
 const STILL_TIME = 37 // s: where the flow rests when motion is reduced
+const REST_AFTER = 20_000 // ms without input before the flow rests
 
 const VERT = "attribute vec2 a; void main() { gl_Position = vec4(a, 0.0, 1.0); }"
 
@@ -203,8 +204,12 @@ export function CanvasRefraction({ photo, refract, hue, saturation, quality }: {
     let fadeStart = 0
     let scrolling = false
     let idleTimer: ReturnType<typeof setTimeout> | undefined
+    // the flow rests after a while with no touch, key, scroll or pointer movement (drawing it
+    // costs battery on a phone or iPad) and carries on from the same frame at the next one
+    let lastInput = performance.now()
+    let resting = false
 
-    const animating = () => flow && level.current.flowFps > 0 && root.dataset.motion !== "reduced" && !reducedQuery.matches && !document.body.hasAttribute("data-scroll-locked")
+    const animating = () => flow && !resting && level.current.flowFps > 0 && root.dataset.motion !== "reduced" && !reducedQuery.matches && !document.body.hasAttribute("data-scroll-locked")
     const reduced = () => root.dataset.motion === "reduced" || reducedQuery.matches
 
     // the flow's own clock: it runs while the flow animates and holds while it pauses (under
@@ -321,7 +326,19 @@ export function CanvasRefraction({ photo, refract, hue, saturation, quality }: {
       fadeStart = performance.now()
       kick()
     }
+    const woke = () => {
+      lastInput = performance.now()
+      if (!resting) return
+      resting = false
+      kick()
+    }
+    const restCheck = setInterval(() => {
+      if (!resting && performance.now() - lastInput > REST_AFTER) resting = true
+    }, 2000)
+    const INPUTS = ["pointerdown", "pointermove", "keydown", "wheel", "touchstart"] as const
+    for (const t of INPUTS) window.addEventListener(t, woke, { capture: true, passive: true })
     const scrolled = () => {
+      woke()
       if (!refract) return
       if (!scrolling) {
         scrolling = true
@@ -391,6 +408,8 @@ export function CanvasRefraction({ photo, refract, hue, saturation, quality }: {
       redraw.current = () => {}
       cancelAnimationFrame(raf)
       clearTimeout(idleTimer)
+      clearInterval(restCheck)
+      for (const t of INPUTS) window.removeEventListener(t, woke, { capture: true })
       mo.disconnect()
       rootMo.disconnect()
       lockMo.disconnect()

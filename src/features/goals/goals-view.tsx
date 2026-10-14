@@ -1,7 +1,7 @@
 "use client"
 
 import { Flag, Plus, Sparkles, Target, TrendingUp, Trophy } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -15,6 +15,7 @@ import { HORIZON_META, defaultDueDate, horizonRank } from "@/lib/domain/goals"
 import { attempt } from "@/lib/feedback"
 import { useUI } from "@/lib/stores/ui"
 import { cn } from "@/lib/utils"
+import { warmDialog } from "@/features/shell/lazy-dialogs"
 import { useLife, type Life } from "@/features/shell/use-life"
 import { GoalCard } from "./goal-card"
 import { Roadmap } from "./roadmap"
@@ -23,6 +24,8 @@ import { useGoalEvaluations } from "./shared"
 type View = "goals" | "roadmap"
 
 export function GoalsView() {
+  // a goal opens from here: fetch its dialog (and the charts in it) ahead of the first tap
+  useEffect(() => warmDialog("goal"), [])
   const life = useLife()
   if (!life) {
     return (

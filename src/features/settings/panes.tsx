@@ -21,7 +21,7 @@ import { QUICK_ACTION_META } from "@/features/shell/actions"
 import { LifeMark } from "@/features/shell/sidebar"
 import { centreOf, switchTheme } from "@/features/shell/theme-switch"
 import { useLife, useXP } from "@/features/shell/use-life"
-import { WIDGET_META } from "@/features/overview/overview-view"
+import { WIDGET_META } from "@/features/overview/widget-meta"
 import { DesignStudio } from "./design-studio"
 import { ChipEditor, ChoiceRow, Group, IconTile, Row, Stepper } from "./settings-ui"
 

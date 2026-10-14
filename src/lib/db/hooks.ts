@@ -1,30 +1,47 @@
 "use client"
 
 import { useLiveQuery } from "dexie-react-hooks"
-import { useSyncExternalStore } from "react"
+import { createContext, createElement, useContext, useSyncExternalStore, type ReactNode } from "react"
 import { db } from "./db"
 import { migratePrefs } from "./defaults"
 import { todayISO } from "@/lib/domain/dates"
 import type { ISODate } from "@/lib/domain/types"
 import type { LifeData } from "@/lib/domain/scores"
 
+async function readLifeData(): Promise<LifeData> {
+  const [tasks, habits, habitLogs, sessions, reflections, goals, goalLogs] = await Promise.all([
+    db.tasks.toArray(),
+    db.habits.orderBy("order").toArray(),
+    db.habitLogs.toArray(),
+    db.focusSessions.toArray(),
+    db.reflections.toArray(),
+    db.goals.orderBy("order").toArray(),
+    db.goalLogs.toArray(),
+  ])
+  return { tasks, habits, habitLogs, sessions, reflections, goals, goalLogs }
+}
+
+/** `null`: no provider above (each caller reads for itself); `undefined`: still loading. */
+const SharedLifeData = createContext<LifeData | undefined | null>(null)
+
 /**
- * Every module reads from the same live queries, so finishing a task, a habit
- * or a focus session updates the dashboard, analytics and XP everywhere at once.
+ * One live read of everything for the whole app. Before, every part of the screen that
+ * needed it (top bar, sidebar, engines, the page) read all seven tables again after every
+ * change, which grows with your history; now they share this one, and the same objects.
+ */
+export function LifeDataProvider({ children }: { children: ReactNode }) {
+  const data = useLiveQuery(readLifeData, [])
+  return createElement(SharedLifeData.Provider, { value: data }, children)
+}
+
+/**
+ * Every module reads from the same live data, so finishing a task, a habit or a focus
+ * session updates the dashboard, analytics and XP everywhere at once.
  */
 export function useLifeData(): LifeData | undefined {
-  return useLiveQuery(async () => {
-    const [tasks, habits, habitLogs, sessions, reflections, goals, goalLogs] = await Promise.all([
-      db.tasks.toArray(),
-      db.habits.orderBy("order").toArray(),
-      db.habitLogs.toArray(),
-      db.focusSessions.toArray(),
-      db.reflections.toArray(),
-      db.goals.orderBy("order").toArray(),
-      db.goalLogs.toArray(),
-    ])
-    return { tasks, habits, habitLogs, sessions, reflections, goals, goalLogs }
-  }, [])
+  const shared = useContext(SharedLifeData)
+  const own = useLiveQuery(() => (shared === null ? readLifeData() : undefined), [shared === null])
+  return shared === null ? own : shared
 }
 
 export function usePrefs() {

@@ -4,25 +4,17 @@ import { MotionConfig } from "motion/react"
 import { useTheme } from "next-themes"
 import { useEffect, type ReactNode } from "react"
 import { Toaster } from "@/components/ui/sonner"
-import { usePrefs } from "@/lib/db/hooks"
+import { LifeDataProvider, usePrefs } from "@/lib/db/hooks"
 import { applyDesign } from "@/lib/design/design"
 import { SPRING } from "@/lib/motion"
 import { setThemeColor } from "@/lib/theme-color"
-import { TaskEditorDialog } from "@/features/tasks/task-editor"
-import { HabitEditorDialog } from "@/features/habits/habit-editor"
-import { GoalDetailDialog } from "@/features/goals/goal-detail"
-import { GoalEditorDialog } from "@/features/goals/goal-editor"
-import { BlockEditorDialog } from "@/features/planner/block-editor"
-import { PlanMyDayDialog } from "@/features/planner/plan-dialog"
-import { ReflectionDialog } from "@/features/planner/reflection-dialog"
-import { OnboardingWizard } from "@/features/onboarding/onboarding-wizard"
+import { AfterPaint } from "./after-paint"
 import { ClientGate } from "./client-gate"
-import { CommandPalette } from "./command-palette"
 import { FocusEngine, ProgressWatcher, ReminderEngine } from "./engines"
 import { GlassPointer } from "./glass-pointer"
+import { LazyDialogs } from "./lazy-dialogs"
 import { OfflineSupport } from "./offline"
 import { QualityMonitor } from "./quality-monitor"
-import { QuickCapture } from "./quick-capture"
 import { Backdrop } from "./refraction"
 import { ShortcutsDialog, useGlobalShortcuts } from "./shortcuts"
 import { SmoothScroll } from "./smooth-scroll"
@@ -69,10 +61,16 @@ function Shell({ children }: { children: ReactNode }) {
       </a>
       <Aurora />
       <Backdrop liquid={prefs?.design.material === "liquid"} photo={prefs?.design.photo ?? "none"} hue={prefs?.design.hue ?? 0} saturation={prefs?.design.saturation ?? 1} />
-      <GlassPointer />
-      <QualityMonitor />
       <SmoothScroll reduced={prefs?.motion === "reduced"} />
-      <OfflineSupport />
+      {/* helpers that can start a moment after the first screen */}
+      <AfterPaint>
+        <GlassPointer />
+        <QualityMonitor />
+        <OfflineSupport />
+        <FocusEngine />
+        <ReminderEngine />
+        <ProgressWatcher />
+      </AfterPaint>
       <div className="flex min-h-dvh">
         <Sidebar />
         <div className="flex min-w-0 flex-1 flex-col">
@@ -84,21 +82,9 @@ function Shell({ children }: { children: ReactNode }) {
       </div>
       <TabBar />
 
-      <CommandPalette />
-      <QuickCapture />
-      <TaskEditorDialog />
-      <HabitEditorDialog />
-      <GoalDetailDialog />
-      <GoalEditorDialog />
-      <BlockEditorDialog />
-      <PlanMyDayDialog />
-      <ReflectionDialog />
+      <LazyDialogs />
       <ShortcutsDialog />
-      {prefs && !prefs.onboarded && <OnboardingWizard />}
 
-      <FocusEngine />
-      <ReminderEngine />
-      <ProgressWatcher />
       <Toaster position="bottom-right" closeButton richColors={false} mobileOffset={{ bottom: "calc(env(safe-area-inset-bottom) + 5.5rem)" }} />
     </MotionConfig>
   )
@@ -107,7 +93,9 @@ function Shell({ children }: { children: ReactNode }) {
 export function AppShell({ children }: { children: ReactNode }) {
   return (
     <ClientGate>
-      <Shell>{children}</Shell>
+      <LifeDataProvider>
+        <Shell>{children}</Shell>
+      </LifeDataProvider>
     </ClientGate>
   )
 }
