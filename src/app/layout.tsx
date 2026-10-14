@@ -3,6 +3,7 @@ import { Geist_Mono, Inter, Outfit, Plus_Jakarta_Sans, Space_Grotesk } from "nex
 import { ThemeProvider } from "next-themes"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { asset, PREPAINT_SCRIPT } from "@/lib/design/design"
+import { PHONE_SCALE_SCRIPT } from "@/lib/phone-scale"
 import { THEME_COLORS, THEME_COLOR_SCRIPT } from "@/lib/theme-color"
 import "./globals.css"
 
@@ -53,6 +54,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         {/* status bar / browser colour; follows the app's theme (set before load, then kept in sync) */}
         <meta name="theme-color" content={THEME_COLORS.dark} />
         <script dangerouslySetInnerHTML={{ __html: THEME_COLOR_SCRIPT }} />
+        {/* on a phone, the interface a step larger: laid out narrower, scaled up to fit (lib/phone-scale.ts) */}
+        <script dangerouslySetInnerHTML={{ __html: PHONE_SCALE_SCRIPT }} />
         {/* paints your saved design before the app loads, so there's no flash of the default look */}
         <script dangerouslySetInnerHTML={{ __html: PREPAINT_SCRIPT }} />
       </head>

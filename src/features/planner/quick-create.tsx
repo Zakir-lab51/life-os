@@ -67,10 +67,11 @@ export function QuickCreate({
     card.current?.scrollIntoView({ block: "nearest", behavior: "smooth" })
   }, [])
 
-  // a tap anywhere else drops the card
+  // a tap anywhere else drops the card; the block it's for can be resized and moved meanwhile
   useEffect(() => {
     const away = (e: PointerEvent) => {
-      if (!card.current?.contains(e.target as Node)) onClose()
+      const target = e.target as Element
+      if (!card.current?.contains(target) && !target.closest?.("[data-draft]")) onClose()
     }
     document.addEventListener("pointerdown", away, true)
     return () => document.removeEventListener("pointerdown", away, true)
@@ -95,7 +96,7 @@ export function QuickCreate({
       ref={card}
       role="dialog"
       aria-label={`New block at ${formatClock(start)}`}
-      className="absolute z-40 w-[min(19rem,calc(100%-0.5rem))] rounded-2xl border border-line bg-popover p-3 text-popover-foreground shadow-2xl animate-in fade-in-0 zoom-in-95"
+      className="absolute z-40 w-[min(19rem,calc(100vw-1.5rem))] rounded-2xl border border-line bg-popover p-3 text-popover-foreground shadow-2xl animate-in fade-in-0 zoom-in-95"
       style={style}
       onKeyDown={(e) => {
         if (e.key !== "Escape") return

@@ -6,7 +6,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useTheme } from "next-themes"
 import { AnimatePresence, motion } from "motion/react"
-import { useLayoutEffect, useState } from "react"
+import { useLayoutEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -47,9 +47,9 @@ function Breadcrumbs() {
 /** Phones have no sidebar or breadcrumb: the bar opens with the logo and name, like the sidebar's top row. */
 function PhoneBrand() {
   return (
-    <Link href="/" aria-label="LIFE OS, overview" className="flex min-w-0 shrink-0 items-center gap-2 rounded-control pr-1 outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden">
+    <Link href="/" aria-label="LIFE OS, overview" className="flex min-w-0 shrink-0 items-center gap-2 rounded-control pr-1 outline-none focus-visible:ring-2 focus-visible:ring-ring max-sm:group-has-data-focus-mini/bar:hidden md:hidden">
       <LifeMark className="size-8" />
-      <span className="text-sm font-semibold tracking-[0.06em] max-[374px]:hidden max-sm:group-has-data-focus-mini/bar:hidden">LIFE OS</span>
+      <span className="text-sm font-semibold tracking-[0.06em] max-[299px]:hidden">LIFE OS</span>
     </Link>
   )
 }
@@ -89,7 +89,7 @@ function FocusMini() {
   const rem = remainingMs(timer, now)
   const label = timer.phase === "focus" ? "Focus" : timer.phase === "long" ? "Long break" : "Break"
   return (
-    <div data-focus-mini className="flex h-9 items-center gap-1 rounded-control border border-line bg-surface px-3 sm:h-10 sm:pr-1">
+    <div data-focus-mini className="flex h-9 items-center gap-1 rounded-control border border-line bg-surface px-3 max-sm:order-first sm:h-10 sm:pr-1">
       <Link href="/focus" className="flex items-center gap-2 text-sm" aria-label={`${label} timer, open Focus`}>
         <span className={cn("size-2 rounded-full", timer.phase === "focus" ? "bg-violet" : "bg-mint", timer.status === "running" && "animate-pulse")} />
         <span className="hidden text-muted-foreground sm:inline">{label}</span>
@@ -239,7 +239,7 @@ function ThemeToggle() {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Button variant="outline" size="icon" className="size-9 overflow-hidden rounded-full bg-surface max-sm:group-has-data-focus-mini/bar:hidden sm:size-10" aria-label={dark ? "Switch to light theme" : "Switch to dark theme"} onClick={toggle}>
+        <Button variant="outline" size="icon" className="size-9 overflow-hidden rounded-full bg-surface max-sm:hidden sm:size-10" aria-label={dark ? "Switch to light theme" : "Switch to dark theme"} onClick={toggle}>
           <AnimatePresence mode="popLayout" initial={false}>
             <motion.span key={dark ? "sun" : "moon"} className="grid place-items-center" initial={{ rotate: -90, scale: 0.4, opacity: 0 }} animate={{ rotate: 0, scale: 1, opacity: 1 }} exit={{ rotate: 90, scale: 0.4, opacity: 0 }} transition={SPRING_BOUNCY}>
               {dark ? <Sun className="size-[18px]" /> : <Moon className="size-[18px]" />}
@@ -259,12 +259,15 @@ function ProfileMenu() {
   const setShortcuts = useUI((s) => s.setShortcuts)
   const [open, setOpen] = useState(false)
   useLayoutEffect(() => () => setOpen(false), [])
+  const { resolvedTheme, setTheme } = useTheme()
+  const dark = resolvedTheme !== "light"
+  const trigger = useRef<HTMLButtonElement>(null)
   const name = life?.prefs.name || "You"
   const initial = name.trim()[0]?.toUpperCase() ?? "Y"
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
-        <button type="button" className="flex h-9 items-center gap-2.5 rounded-control border border-line bg-surface p-px transition-colors hover:bg-surface-2 sm:h-10 sm:py-1 sm:pr-3 sm:pl-1" aria-label="Profile menu">
+        <button ref={trigger} type="button" className="flex h-9 items-center gap-2.5 rounded-control border border-line bg-surface p-px transition-colors hover:bg-surface-2 sm:h-10 sm:py-1 sm:pr-3 sm:pl-1" aria-label="Profile menu">
           <span className="grid size-8 place-items-center rounded-full bg-gradient-to-br from-violet to-blue text-sm font-semibold text-primary-foreground">{initial}</span>
           <span className="hidden text-left leading-tight sm:block">
             <span className="block text-sm font-medium">{name}</span>
@@ -288,6 +291,10 @@ function ProfileMenu() {
             <Trophy /> Level & achievements
           </Link>
         </DropdownMenuItem>
+        {/* on a phone the theme switch lives here, leaving the bar room for the name */}
+        <DropdownMenuItem className="sm:hidden" onSelect={() => switchTheme(dark ? "light" : "dark", setTheme, trigger.current ? centreOf(trigger.current) : undefined)}>
+          {dark ? <Sun /> : <Moon />} {dark ? "Light theme" : "Dark theme"}
+        </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => setShortcuts(true)}>
           <Keyboard /> Keyboard shortcuts <DropdownMenuShortcut>?</DropdownMenuShortcut>
         </DropdownMenuItem>
@@ -308,8 +315,8 @@ export function Topbar() {
   return (
     // a floating glass bar, lined up with the page content below it
     <header className="sticky top-0 z-20 mx-auto w-full max-w-[1400px] px-4 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-6 lg:px-8">
-      {/* a phone has room for the timer only without the name and the theme switch (also in Settings), so those step aside while it runs */}
-      <div data-lens="dispersive" className="group/bar glass flex h-[60px] items-center gap-1.5 rounded-panel px-2.5 sm:gap-3 sm:px-4">
+      {/* on a phone a running timer takes the name's place on the left; the theme switch is in the profile menu there */}
+      <div data-lens="dispersive" className="group/bar glass flex h-[60px] items-center gap-1 rounded-panel px-2.5 sm:gap-3 sm:px-4">
         <Button variant="outline" size="icon" className="hidden size-10 rounded-full bg-surface md:inline-flex lg:hidden" aria-label="Open navigation" onClick={() => setMobileNav(true, "left")}>
           <Menu className="size-[18px]" />
         </Button>

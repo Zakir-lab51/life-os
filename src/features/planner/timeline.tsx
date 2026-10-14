@@ -164,6 +164,40 @@ export function Timeline({
 
   const closeDraft = useCallback(() => setDraft(null), [])
 
+  // the new block waiting for its title: drag its top or bottom edge to change when it starts
+  // or ends, or its middle to move it, while the card stays open
+  const draftEdit = useRef<{ mode: "start" | "end" | "move"; pointerId: number; y: number; start: number; end: number } | null>(null)
+  const onDraftDown = (e: ReactPointerEvent<HTMLElement>, mode: "start" | "end" | "move") => {
+    if (!draft || e.button !== 0) return
+    e.stopPropagation()
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId)
+    } catch {
+      // the pointer has already lifted
+    }
+    draftEdit.current = { mode, pointerId: e.pointerId, y: e.clientY, start: draft.start, end: draft.end }
+  }
+  const onDraftMove = (e: ReactPointerEvent<HTMLElement>) => {
+    const d = draftEdit.current
+    if (!d || d.pointerId !== e.pointerId) return
+    e.stopPropagation()
+    const delta = snapTo(((e.clientY - d.y) / HOUR_PX) * 60, SNAP)
+    const len = d.end - d.start
+    const moved = Math.max(0, Math.min(DAY - len, d.start + delta))
+    const next =
+      d.mode === "end"
+        ? { start: d.start, end: Math.max(d.start + SNAP, Math.min(DAY, d.end + delta)) }
+        : d.mode === "start"
+          ? { start: Math.max(0, Math.min(d.end - SNAP, d.start + delta)), end: d.end }
+          : { start: moved, end: moved + len }
+    setDraft((dr) => dr && { ...dr, ...next })
+  }
+  const onDraftUp = (e: ReactPointerEvent<HTMLElement>) => {
+    if (draftEdit.current?.pointerId !== e.pointerId) return
+    e.stopPropagation()
+    draftEdit.current = null
+  }
+
   const endPress = () => {
     if (press.current?.timer) clearTimeout(press.current.timer)
     press.current = null
@@ -376,10 +410,34 @@ export function Timeline({
           )}
 
           {/* the block being drawn, or waiting for its title */}
-          {draft && <Ghost top={top(draft.start)} height={((draft.end - draft.start) / 60) * HOUR_PX} label={`${formatClock(draft.start)}–${formatClock(draft.end)} · ${formatDuration(draft.end - draft.start)}`} strong />}
+          {draft && !draft.open && <Ghost top={top(draft.start)} height={((draft.end - draft.start) / 60) * HOUR_PX} label={`${formatClock(draft.start)}–${formatClock(draft.end)} · ${formatDuration(draft.end - draft.start)}`} strong />}
+          {draft?.open && (
+            <div
+              data-draft
+              aria-hidden
+              className="absolute inset-x-1 z-30 cursor-grab touch-none rounded-xl border-2 border-dashed border-violet bg-violet/20 px-2.5 py-1 text-[11px] font-semibold tabular active:cursor-grabbing"
+              style={{ top: top(draft.start) + 1, height: Math.max(18, ((draft.end - draft.start) / 60) * HOUR_PX - 2) }}
+              onPointerDown={(e) => onDraftDown(e, "move")}
+              onPointerMove={onDraftMove}
+              onPointerUp={onDraftUp}
+              onPointerCancel={onDraftUp}
+            >
+              <p className="truncate">
+                {formatClock(draft.start)}–{formatClock(draft.end)} · {formatDuration(draft.end - draft.start)}
+              </p>
+              {(["start", "end"] as const).map((edge) => (
+                <span
+                  key={edge}
+                  className={cn("absolute inset-x-0 flex h-6 cursor-ns-resize justify-center", edge === "start" ? "-top-3 items-start" : "-bottom-3 items-end")}
+                  onPointerDown={(e) => onDraftDown(e, edge)}
+                >
+                  <span className="mt-[9px] mb-[9px] h-1.5 w-8 rounded-full bg-violet shadow-sm" />
+                </span>
+              ))}
+            </div>
+          )}
           {draft?.open && (
             <QuickCreate
-              key={`${draft.start}`}
               date={date}
               start={draft.start}
               end={draft.end}
@@ -519,13 +577,14 @@ function BlockToolbar({ block, task, at, style, onEdit, onFocus, onClose }: { bl
     void attempt(() => updateBlock(block.id, next))
   }
   const tool = "relative grid h-8 min-w-8 shrink-0 place-items-center rounded-full px-1.5 text-xs font-semibold text-foreground/80 tabular outline-none hit-area hover:bg-foreground/10 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring [&_svg]:size-4"
-  const divider = <span aria-hidden className="mx-0.5 h-5 w-px shrink-0 bg-line" />
+  // the dividers close up on the narrowest phones, so the toolbar keeps to one line there
+  const divider = <span aria-hidden className="mx-0.5 h-5 w-px shrink-0 bg-line max-[339px]:mx-0" />
   return (
     <div
       ref={bar}
       role="toolbar"
       aria-label={`${block.title}: actions`}
-      className="absolute z-40 flex max-w-[calc(100%+3rem)] flex-wrap items-center gap-0.5 rounded-2xl border border-line bg-popover p-1 text-popover-foreground shadow-xl animate-in fade-in-0 zoom-in-95"
+      className="absolute z-40 flex w-max max-w-[calc(100vw-1.5rem)] flex-wrap items-center gap-0.5 rounded-2xl border border-line bg-popover p-1 text-popover-foreground shadow-xl animate-in fade-in-0 zoom-in-95"
       style={style}
       onPointerDown={(e) => e.stopPropagation()}
     >
