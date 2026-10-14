@@ -73,7 +73,8 @@ const nowISO = () => new Date().toISOString()
 async function logActivity(e: Omit<ActivityEvent, "id" | "at"> & { at?: string }) {
   const exists = await db.activity.where("dedupeKey").equals(e.dedupeKey).first()
   if (exists) return
-  await db.activity.add({ id: uid("ev_"), at: e.at ?? nowISO(), ...e })
+  // the id comes from the dedupe key, so the same event logged on two devices is one event
+  await db.activity.put({ id: `ev:${e.dedupeKey}`, at: e.at ?? nowISO(), ...e })
 }
 
 async function unlogActivity(dedupeKey: string) {

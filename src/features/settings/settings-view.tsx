@@ -44,7 +44,7 @@ const PANES: PaneMeta[] = [
   { id: "routines", label: "Routines", icon: ListChecks, color: "#30b0c7", description: "Checklists that appear in My Day every morning and evening." },
   { id: "dashboard", label: "Dashboard", icon: LayoutGrid, color: "#af52de", description: "Choose what the Overview shows." },
   { id: "quick-actions", label: "Quick add", icon: Zap, color: "#ff9f0a", description: "What the + button in the top bar offers." },
-  { id: "data", label: "Data & backup", icon: Database, color: "#636366", description: "Everything lives in this browser. Back it up, restore it, or start fresh." },
+  { id: "data", label: "Data & backup", icon: Database, color: "#636366", description: "Your data lives in this browser, and in your account if you sync. Back it up, restore it, or start fresh." },
   { id: "about", label: "About", icon: Info, color: "#636366", description: "Version, roadmap and shortcuts." },
 ]
 const META = Object.fromEntries(PANES.map((p) => [p.id, p])) as Record<PaneId, PaneMeta>

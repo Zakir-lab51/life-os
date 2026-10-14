@@ -7,6 +7,7 @@ import { toast } from "sonner"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { SYNCED } from "@/lib/db/db"
 import { backupCounts, downloadText, exportBackup, exportTasksCSV, parseBackup, restoreBackup } from "@/lib/db/backup"
 import { hasDemoData, removeDemo, seedDemo } from "@/lib/db/demo"
 import { ensurePrefs, updatePrefs, wipeAllData } from "@/lib/db/repo"
@@ -14,6 +15,7 @@ import { todayISO } from "@/lib/domain/dates"
 import { attempt, reportError, succeeded } from "@/lib/feedback"
 import type { Backup } from "@/lib/validation/schemas"
 import { quietly } from "@/features/shell/progress"
+import { SyncGroup } from "@/features/sync/sync-ui"
 import { Group, IconTile, Row } from "./settings-ui"
 
 const bytes = (n: number) => (n < 1024 ? `${n} B` : n < 1024 ** 2 ? `${(n / 1024).toFixed(0)} KB` : `${(n / 1024 ** 2).toFixed(1)} MB`)
@@ -105,6 +107,8 @@ export function DataPane() {
 
   return (
     <>
+      <SyncGroup />
+
       <Group id="s-storage" title="Storage" footer="Browsers can clear a site's data when space runs low. Protecting storage asks this browser to keep LIFE OS.">
         <Row icon={<IconTile icon={HardDrive} color="#8e8e93" />} label="Stored in this browser" description="Tasks, habits, history and settings (IndexedDB)" control={<span className="text-sm text-muted-foreground tabular">{storage.usage === null ? "…" : bytes(storage.usage)}</span>} />
         <Row
@@ -125,7 +129,7 @@ export function DataPane() {
 
       <Group id="s-backup" title="Backup" footer="Back up regularly: clearing this site's data in your browser deletes LIFE OS.">
         <Row icon={<IconTile icon={FileJson} color="#0a84ff" />} label="Download backup" description="Everything, as a JSON file you can restore later" onClick={() => void download()} />
-        <Row id="s-restore" icon={<IconTile icon={Upload} color="#5e5ce6" />} label="Restore from backup…" description="Replaces all current data; you'll confirm first" onClick={() => fileRef.current?.click()} />
+        <Row id="s-restore" icon={<IconTile icon={Upload} color="#5e5ce6" />} label="Restore from backup…" description={SYNCED ? "Replaces all current data, on all your synced devices; you'll confirm first" : "Replaces all current data; you'll confirm first"} onClick={() => fileRef.current?.click()} />
         <Row id="s-csv" icon={<IconTile icon={FileSpreadsheet} color="#34c759" />} label="Export tasks as CSV" description="Open your tasks in any spreadsheet app" onClick={() => void downloadCSV()} />
       </Group>
       <input ref={fileRef} type="file" accept="application/json,.json" className="sr-only" onChange={(e) => void pick(e.target.files?.[0])} aria-label="Choose a backup file" tabIndex={-1} />
@@ -143,7 +147,7 @@ export function DataPane() {
       </Group>
 
       <Group footer="Permanently erases all LIFE OS data in this browser. Download a backup first if you might want it back.">
-        <Row id="s-delete" icon={<IconTile icon={Trash2} color="#ff3b30" />} label="Delete all data…" tone="danger" onClick={() => setConfirmWipe(true)} />
+        <Row id="s-delete" icon={<IconTile icon={Trash2} color="#ff3b30" />} label="Delete all data…" description={SYNCED ? "On all your synced devices" : undefined} tone="danger" onClick={() => setConfirmWipe(true)} />
       </Group>
 
       <AlertDialog open={!!pending} onOpenChange={(o) => !o && setPending(null)}>

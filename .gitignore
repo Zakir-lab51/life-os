@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Dexie Cloud: the CLI keeps the database admin credentials here; never commit them
+dexie-cloud.key
+dexie-cloud.json

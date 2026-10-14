@@ -3,9 +3,12 @@
 import { DatabaseZap } from "lucide-react"
 import { useEffect, useState, type ReactNode } from "react"
 import { Button } from "@/components/ui/button"
+import { readSync } from "@/lib/db/cloud"
+import { SYNCED } from "@/lib/db/db"
 import { ensurePrefs } from "@/lib/db/repo"
 import { useFocus } from "@/lib/stores/focus"
 import { useUI } from "@/lib/stores/ui"
+import { CloudLoginDialog, SyncGate } from "@/features/sync/sync-ui"
 import { LifeMark } from "./sidebar"
 
 /**
@@ -14,11 +17,17 @@ import { LifeMark } from "./sidebar"
  * IndexedDB is open.
  */
 export function ClientGate({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<"boot" | "ready" | "error">("boot")
+  const [state, setState] = useState<"boot" | "sync" | "ready" | "error">("boot")
+  const [boots, setBoots] = useState(0)
 
   useEffect(() => {
     let alive = true
     ;(async () => {
+      // a device that has just turned sync on signs in and downloads first (see lib/db/cloud.ts)
+      if (SYNCED && !readSync()?.ready) {
+        if (alive) setState("sync")
+        return
+      }
       await ensurePrefs()
       await Promise.all([useUI.persist.rehydrate(), useFocus.persist.rehydrate()])
       if (alive) setState("ready")
@@ -29,8 +38,20 @@ export function ClientGate({ children }: { children: ReactNode }) {
     return () => {
       alive = false
     }
-  }, [])
+  }, [boots])
 
+  return (
+    <>
+      {SYNCED && <CloudLoginDialog />}
+      <GateScreen state={state} onSynced={() => (setState("boot"), setBoots((b) => b + 1))}>
+        {children}
+      </GateScreen>
+    </>
+  )
+}
+
+function GateScreen({ state, onSynced, children }: { state: "boot" | "sync" | "ready" | "error"; onSynced: () => void; children: ReactNode }) {
+  if (state === "sync") return <SyncGate onReady={onSynced} />
   if (state === "ready") return <>{children}</>
   if (state === "error") {
     return (

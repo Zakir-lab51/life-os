@@ -1,4 +1,5 @@
 import Dexie, { type EntityTable } from "dexie"
+import dexieCloud from "dexie-cloud-addon"
 import type {
   AchievementUnlock,
   ActivityEvent,
@@ -14,11 +15,13 @@ import type {
   RoutineCheck,
   Task,
 } from "@/lib/domain/types"
+import { CLOUD_DATABASE_URL, readSync } from "./cloud"
 
 /**
  * Local-first storage. Everything lives in the browser's IndexedDB so LIFE OS
  * works with no account or server. The repository functions in `repo.ts` are
- * the only writers, which keeps a future sync layer to one seam.
+ * the only writers. With sync on (see `cloud.ts`) the same tables sync through
+ * Dexie Cloud, in a separate local database.
  */
 export class LifeDB extends Dexie {
   tasks!: EntityTable<Task, "id">
@@ -35,8 +38,8 @@ export class LifeDB extends Dexie {
   goals!: EntityTable<Goal, "id">
   goalLogs!: EntityTable<GoalLog, "id">
 
-  constructor(name = "life-os") {
-    super(name)
+  constructor(name = "life-os", synced = false) {
+    super(name, synced ? { addons: [dexieCloud] } : {})
     this.version(1).stores({
       tasks: "id, status, dueDate, area, completedAt, order, seriesId, *tags",
       habits: "id, order, area",
@@ -56,10 +59,27 @@ export class LifeDB extends Dexie {
       goals: "id, status, horizon, parentId, order",
       goalLogs: "id, goalId, date",
     })
+    if (synced) {
+      // a unique index can't hold across devices that are offline at once; events' ids carry their dedupe key instead
+      this.version(3).stores({ activity: "id, dedupeKey, at, type" })
+      this.cloud.configure({
+        databaseUrl: CLOUD_DATABASE_URL,
+        requireAuth: false,
+        customLoginGui: true,
+        // reminders are made on each device
+        unsyncedTables: ["notifications"],
+      })
+    }
   }
 }
 
-export const db = new LifeDB()
+/** Whether this device syncs (decided once, at load: turning sync on or off reloads the app). */
+export const SYNCED = typeof window !== "undefined" && CLOUD_DATABASE_URL !== "" && readSync() !== null
+
+export const db = new LifeDB("life-os", SYNCED)
+
+/** This device's own data, from before sync was turned on (or while it's off). */
+export const openOwnData = () => new LifeDB("life-os", false)
 
 /** Tables included in backups (notifications are transient and left out). */
 export const BACKUP_TABLES = [

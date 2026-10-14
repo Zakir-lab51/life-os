@@ -63,7 +63,8 @@ Key decisions:
 - **Local-first.** Dexie + `useLiveQuery` means every screen reads the same live data, so finishing a task updates the dashboard, analytics, XP and sidebar at once. `lib/db/repo.ts` is the single write path, which keeps a future sync layer to one seam.
 - **Derived, not duplicated.** Scores, streaks, XP and insights are computed from the records themselves. Undoing an action undoes its XP, and nothing can double-count. Activity events carry unique `dedupeKey`s.
 - **Client-rendered app shell.** Data lives in the browser, so the server prerenders only a boot screen (`ClientGate`). That's also why the whole app can be exported as static files: `GITHUB_PAGES=1 next build` writes `out/` for https://zakir-lab51.github.io/life-os/.
-- **No AI, by choice.** The briefing, recommendations, Plan My Day and insights are transparent rules that show their reasoning. LIFE OS uses no AI service and sends nothing anywhere (an AI assistant was considered and dropped).
+- **No AI, by choice.** The briefing, recommendations, Plan My Day and insights are transparent rules that show their reasoning. LIFE OS uses no AI service (an AI assistant was considered and dropped), and sends nothing anywhere unless you turn on sync.
+- **Sync, if you want it.** Settings → Data & backup → Sync keeps your devices in step through [Dexie Cloud](https://dexie.org/cloud): your data is stored on its servers, you sign in on each device with a code sent to your email, and everything still works offline. Turning it on never touches a device's own data (the synced copy is a separate database), and a fresh device downloads your account before the app starts, so it can't write its defaults over your settings.
 
 ### How the numbers are calculated
 
