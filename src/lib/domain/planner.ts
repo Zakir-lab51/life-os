@@ -176,3 +176,30 @@ export function planDay(input: PlanInput): PlanResult {
 export function describeSlot(s: Slot) {
   return `${formatClock(s.start)} – ${formatClock(s.end)}`
 }
+
+/** Side-by-side lanes for overlapping blocks. */
+export function assignLanes<B extends Pick<Block, "id" | "start" | "end">>(blocks: B[]) {
+  const sorted = [...blocks].sort((a, b) => a.start - b.start || b.end - a.end)
+  const lanes = new Map<string, { lane: number; of: number }>()
+  let cluster: B[] = []
+  let clusterEnd = -1
+  let laneEnds: number[] = []
+  const flush = () => {
+    for (const b of cluster) lanes.set(b.id, { ...lanes.get(b.id)!, of: laneEnds.length })
+    cluster = []
+    laneEnds = []
+  }
+  for (const b of sorted) {
+    if (b.start >= clusterEnd) flush()
+    let lane = laneEnds.findIndex((end) => end <= b.start)
+    if (lane === -1) {
+      lane = laneEnds.length
+      laneEnds.push(b.end)
+    } else laneEnds[lane] = b.end
+    lanes.set(b.id, { lane, of: 1 })
+    cluster.push(b)
+    clusterEnd = Math.max(clusterEnd, b.end)
+  }
+  flush()
+  return lanes
+}

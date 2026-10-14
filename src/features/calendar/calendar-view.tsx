@@ -23,23 +23,47 @@ import { toggleDone } from "@/features/tasks/task-actions"
 import { KIND_LABEL } from "@/features/planner/block-editor"
 import { MOODS } from "@/features/planner/reflection-dialog"
 import { ensureSeriesBlocks } from "@/lib/db/repo"
+import { ModeToggle, WeekView, type CalendarMode } from "./week-view"
+
+const MODE_KEY = "life-os.calendar-mode"
 
 export function CalendarView() {
   const life = useLife()
+  // Month or Week, remembered on this device
+  const [mode, setMode] = useState<CalendarMode>(() => {
+    try {
+      return localStorage.getItem(MODE_KEY) === "week" ? "week" : "month"
+    } catch {
+      return "month"
+    }
+  })
+  const changeMode = (m: CalendarMode) => {
+    setMode(m)
+    try {
+      localStorage.setItem(MODE_KEY, m)
+    } catch {
+      // storage blocked: just for now
+    }
+  }
   const [month, setMonth] = useState<ISODate | null>(null)
+  const [week, setWeek] = useState<ISODate | null>(null)
   const anchor = month ?? (life ? toISODate(startOfMonth(fromISODate(life.today))) : "")
   const weekStartsOn = life?.prefs.weekStartsOn ?? 1
   const gridStart = anchor ? startOfWeek(anchor, weekStartsOn) : ""
   const gridEnd = anchor ? addDays(startOfWeek(toISODate(endOfMonth(fromISODate(anchor))), weekStartsOn), 6) : ""
-  const blocks = useBlocksBetween(gridStart, gridEnd)
+  const weekStart = week ?? (life ? startOfWeek(life.today, weekStartsOn) : "")
+  const from = mode === "week" ? weekStart : gridStart
+  const to = mode === "week" && weekStart ? addDays(weekStart, 6) : gridEnd
+  const blocks = useBlocksBetween(from, to)
   useEffect(() => {
-    if (gridStart) void ensureSeriesBlocks(gridStart, gridEnd).catch(() => undefined)
-  }, [gridStart, gridEnd])
+    if (from) void ensureSeriesBlocks(from, to).catch(() => undefined)
+  }, [from, to])
   if (!life || !blocks) return <Skeleton className="h-[640px] rounded-panel" aria-busy="true" />
-  return <Calendar life={life} anchor={anchor} gridStart={gridStart} gridEnd={gridEnd} blocks={blocks} setMonth={setMonth} />
+  if (mode === "week") return <WeekView life={life} start={weekStart} blocks={blocks} onWeek={setWeek} mode={mode} onMode={changeMode} />
+  return <Calendar life={life} anchor={anchor} gridStart={gridStart} gridEnd={gridEnd} blocks={blocks} setMonth={setMonth} mode={mode} onMode={changeMode} />
 }
 
-function Calendar({ life, anchor, gridStart, gridEnd, blocks, setMonth }: { life: Life; anchor: ISODate; gridStart: ISODate; gridEnd: ISODate; blocks: Block[]; setMonth: (m: ISODate | null) => void }) {
+function Calendar({ life, anchor, gridStart, gridEnd, blocks, setMonth, mode, onMode }: { life: Life; anchor: ISODate; gridStart: ISODate; gridEnd: ISODate; blocks: Block[]; setMonth: (m: ISODate | null) => void; mode: CalendarMode; onMode: (m: CalendarMode) => void }) {
   const { data, today, prefs } = life
   const [selected, setSelected] = useState<ISODate>(today)
   const router = useRouter()
@@ -95,9 +119,12 @@ function Calendar({ life, anchor, gridStart, gridEnd, blocks, setMonth }: { life
         title="Calendar"
         description="Deadlines and time blocks across the month. Pick a day to see and plan it."
         actions={
-          <Button onClick={() => openBlockEditor({ date: selected })}>
-            <CalendarPlus /> Add to {selected === today ? "today" : formatDay(selected, "d MMM")}
-          </Button>
+          <>
+            <ModeToggle mode={mode} onChange={onMode} />
+            <Button onClick={() => openBlockEditor({ date: selected })}>
+              <CalendarPlus /> Add to {selected === today ? "today" : formatDay(selected, "d MMM")}
+            </Button>
+          </>
         }
       />
       <div className="grid items-start gap-4 @4xl/main:grid-cols-[minmax(0,1fr)_360px]">

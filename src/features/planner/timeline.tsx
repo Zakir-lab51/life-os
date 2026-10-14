@@ -8,7 +8,7 @@ import { useNow, usePrefs } from "@/lib/db/hooks"
 import { updateBlock } from "@/lib/db/repo"
 import { ACCENT_CLASSES } from "@/lib/domain/areas"
 import { formatClock, formatDuration, snapTo } from "@/lib/domain/dates"
-import { KIND_TONE, findConflicts } from "@/lib/domain/planner"
+import { KIND_TONE, assignLanes, findConflicts } from "@/lib/domain/planner"
 import type { Block, Task } from "@/lib/domain/types"
 import { attempt } from "@/lib/feedback"
 import { useUI } from "@/lib/stores/ui"
@@ -29,33 +29,6 @@ const floorTo = (min: number) => Math.floor(min / SNAP) * SNAP
 const ceilTo = (min: number) => Math.ceil(min / SNAP) * SNAP
 /** How long a task's block is: its estimate, on the 15-minute grid, between 15 minutes and 3 hours. */
 export const taskLength = (t: Task) => Math.min(180, Math.max(SNAP, snapTo(t.estimateMin, SNAP)))
-
-/** Side-by-side lanes for overlapping blocks. */
-function assignLanes(blocks: Block[]) {
-  const sorted = [...blocks].sort((a, b) => a.start - b.start || b.end - a.end)
-  const lanes = new Map<string, { lane: number; of: number }>()
-  let cluster: Block[] = []
-  let clusterEnd = -1
-  let laneEnds: number[] = []
-  const flush = () => {
-    for (const b of cluster) lanes.set(b.id, { ...lanes.get(b.id)!, of: laneEnds.length })
-    cluster = []
-    laneEnds = []
-  }
-  for (const b of sorted) {
-    if (b.start >= clusterEnd) flush()
-    let lane = laneEnds.findIndex((end) => end <= b.start)
-    if (lane === -1) {
-      lane = laneEnds.length
-      laneEnds.push(b.end)
-    } else laneEnds[lane] = b.end
-    lanes.set(b.id, { lane, of: 1 })
-    cluster.push(b)
-    clusterEnd = Math.max(clusterEnd, b.end)
-  }
-  flush()
-  return lanes
-}
 
 interface DragState {
   id: string

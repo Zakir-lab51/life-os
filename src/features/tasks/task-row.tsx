@@ -13,6 +13,7 @@ import { attempt } from "@/lib/feedback"
 import { useUI } from "@/lib/stores/ui"
 import { cn } from "@/lib/utils"
 import { deleteWithUndo, duplicateWithFeedback, toggleDone, wasJustCompleted } from "./task-actions"
+import { SwipeRow } from "./swipe-row"
 
 function doneLabel(doneOn: string, today: string) {
   const ago = daysBetween(doneOn, today)
@@ -123,37 +124,39 @@ export function TaskRow({
   const openTaskEditor = useUI((s) => s.openTaskEditor)
   const done = task.status === "done"
   return (
-    <div className={cn("group flex items-start gap-2.5 rounded-2xl border border-transparent px-2.5 py-2.5 transition-colors hover:bg-surface-2/60", selected && "border-violet/40 bg-violet/[0.07]")}>
-      {dragHandle}
-      <label className={cn("mt-0.5 grid size-5 shrink-0 place-items-center transition-opacity", selecting || selected ? "opacity-100" : "pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 pointer-fine:focus-within:opacity-100")}>
-        <input
-          type="checkbox"
-          checked={selected}
-          onChange={() => undefined}
-          onClick={(e) => onSelect(e.shiftKey)}
-          aria-label={`Select ${task.title}`}
-          className="size-3.5 accent-[var(--violet)]"
+    <SwipeRow task={task} today={today}>
+      <div className={cn("group flex items-start gap-2.5 rounded-2xl border border-transparent px-2.5 py-2.5 transition-colors hover:bg-surface-2/60", selected && "border-violet/40 bg-violet/[0.07]")}>
+        {dragHandle}
+        <label className={cn("mt-0.5 grid size-5 shrink-0 place-items-center transition-opacity", selecting || selected ? "opacity-100" : "pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 pointer-fine:focus-within:opacity-100")}>
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={() => undefined}
+            onClick={(e) => onSelect(e.shiftKey)}
+            aria-label={`Select ${task.title}`}
+            className="size-3.5 accent-[var(--violet)]"
+          />
+        </label>
+        <Checkbox
+          className="mt-0.5 size-5 rounded-full"
+          checked={done}
+          celebrate={wasJustCompleted(task.id)}
+          onCheckedChange={() => void toggleDone(task)}
+          aria-label={done ? `Reopen ${task.title}` : `Complete ${task.title}`}
         />
-      </label>
-      <Checkbox
-        className="mt-0.5 size-5 rounded-full"
-        checked={done}
-        celebrate={wasJustCompleted(task.id)}
-        onCheckedChange={() => void toggleDone(task)}
-        aria-label={done ? `Reopen ${task.title}` : `Complete ${task.title}`}
-      />
-      <button type="button" onClick={() => openTaskEditor(task.id)} className="min-w-0 flex-1 text-left">
-        <span className={cn("strike block text-[0.95rem] leading-snug font-medium", done && "is-done")}>
-          {task.status === "in_progress" && <span className="mr-1.5 inline-block size-2 rounded-full bg-cyan align-middle" title="In progress" />}
-          <span className="strike-text">{task.title}</span>
-        </span>
-        <TaskMeta task={task} today={today} blockedBy={blockedBy} />
-      </button>
-      {/* hidden until hover only where there is hover: on touch screens the menu stays visible */}
-      <div className="opacity-100 transition-opacity sm:pointer-fine:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100">
-        <TaskActionsMenu task={task} today={today} />
+        <button type="button" onClick={() => openTaskEditor(task.id)} className="min-w-0 flex-1 text-left">
+          <span className={cn("strike block text-[0.95rem] leading-snug font-medium", done && "is-done")}>
+            {task.status === "in_progress" && <span className="mr-1.5 inline-block size-2 rounded-full bg-cyan align-middle" title="In progress" />}
+            <span className="strike-text">{task.title}</span>
+          </span>
+          <TaskMeta task={task} today={today} blockedBy={blockedBy} />
+        </button>
+        {/* hidden until hover only where there is hover: on touch screens the menu stays visible */}
+        <div className="opacity-100 transition-opacity sm:pointer-fine:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100">
+          <TaskActionsMenu task={task} today={today} />
+        </div>
       </div>
-    </div>
+    </SwipeRow>
   )
 }
 
