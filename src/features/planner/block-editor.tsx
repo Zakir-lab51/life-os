@@ -1,7 +1,7 @@
 "use client"
 
 import { useLiveQuery } from "dexie-react-hooks"
-import { Play, Trash2, TriangleAlert } from "lucide-react"
+import { Play, Repeat, Trash2, TriangleAlert } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
@@ -15,10 +15,12 @@ import { DatePicker } from "@/components/os/date-picker"
 import { Field, Segmented } from "@/components/os/field"
 import { db } from "@/lib/db/db"
 import { useBlock, useBlocks, usePrefs, useToday } from "@/lib/db/hooks"
-import { createBlock, deleteBlock, restoreBlock, updateBlock, ValidationError } from "@/lib/db/repo"
-import { formatClock, hhmmToMinutes, minutesToHHMM, roundUpTo } from "@/lib/domain/dates"
-import type { Block, BlockKind } from "@/lib/domain/types"
-import { attempt, reportError } from "@/lib/feedback"
+import { createBlock, createBlockSeries, deleteBlock, endSeriesFrom, restoreBlock, restoreSeries, seriesSnapshot, skipSeriesDay, unskipSeriesDay, updateBlock, updateSeriesFrom, ValidationError } from "@/lib/db/repo"
+import { formatClock, formatDay, hhmmToMinutes, minutesToHHMM, roundUpTo, weekday } from "@/lib/domain/dates"
+import { describeDays } from "@/lib/domain/series"
+import type { Block, BlockKind, ISODate } from "@/lib/domain/types"
+import { cn } from "@/lib/utils"
+import { attempt, reportError, succeeded } from "@/lib/feedback"
 import { useFocus } from "@/lib/stores/focus"
 import { useUI } from "@/lib/stores/ui"
 
@@ -32,6 +34,13 @@ export const KIND_LABEL: Record<BlockKind, string> = {
 }
 
 export async function deleteBlockWithUndo(id: string) {
+  const current = await db.blocks.get(id)
+  // one day of a repeating block: take that day out of the series, so it isn't made again
+  if (current?.seriesId) {
+    if (!(await succeeded(() => skipSeriesDay(current)))) return
+    toast(`Removed "${current.title}" on this day`, { description: "It still repeats on its other days.", action: { label: "Undo", onClick: () => void attempt(() => unskipSeriesDay(current)) } })
+    return
+  }
   const block = await attempt(() => deleteBlock(id))
   if (!block) return
   toast(`Removed "${block.title}"`, { action: { label: "Undo", onClick: () => void attempt(() => restoreBlock(block)) } })
@@ -78,7 +87,22 @@ function BlockForm({ block, date, start, onDone, guard }: { block: Block | null;
   const [taskId, setTaskId] = useState<string | null>(block?.taskId ?? null)
   const [notes, setNotes] = useState(block?.notes ?? "")
   const [errors, setErrors] = useState<Record<string, string>>({})
-  useUnsaved(guard, { title, kind, day, from, to, taskId, notes })
+  // repeating: a new (or one-off) block can repeat weekly; a day of a series changes just that day, or the series from then on
+  const series = useLiveQuery(() => (block?.seriesId ? db.blockSeries.get(block.seriesId) : undefined), [block?.seriesId])
+  const inSeries = !!block?.seriesId
+  const [repeat, setRepeat] = useState(false)
+  const [scope, setScope] = useState<"one" | "later">("one")
+  const [days, setDays] = useState<number[]>(() => [weekday(block?.date ?? date ?? today)])
+  const [until, setUntil] = useState<ISODate | null>(null)
+  const [seeded, setSeeded] = useState<string | null>(null)
+  if (series && seeded !== series.id) {
+    setSeeded(series.id)
+    setDays(series.days)
+    setUntil(series.until)
+  }
+  const weekStartsOn = prefs?.weekStartsOn ?? 1
+  const patterned = inSeries ? scope === "later" : repeat
+  useUnsaved(guard, { title, kind, day, from, to, taskId, notes, repeat, scope, days, until })
 
   const openTasks = useLiveQuery(() => db.tasks.filter((t) => t.status !== "done").toArray(), [])
   const sameDay = useBlocks(day)
@@ -97,10 +121,21 @@ function BlockForm({ block, date, start, onDone, guard }: { block: Block | null;
       return
     }
     const input = { date: day, start: startMin, end: endMin, title, kind, taskId, notes }
+    const pattern = { title, kind, start: startMin, end: endMin, notes, days, until }
     try {
-      if (block) await updateBlock(block.id, input)
-      else await createBlock(input)
-      toast.success(block ? "Block updated" : "Block added", { description: `${title.trim()} · ${formatClock(startMin)}` })
+      if (block && inSeries && scope === "later") {
+        await updateSeriesFrom(block.seriesId!, pattern, block.date)
+        toast.success("Repeating block updated", { description: `From ${formatDay(block.date, "d MMM")} on · ${describeDays(days, weekStartsOn)}` })
+      } else if (patterned) {
+        // a new block, or a one-off becoming weekly: the series starts on its day and takes its place
+        await createBlockSeries({ ...pattern, from: day })
+        if (block) await deleteBlock(block.id)
+        toast.success("Repeating block added", { description: `${title.trim()} · ${describeDays(days, weekStartsOn)} · ${formatClock(startMin)}` })
+      } else {
+        if (block) await updateBlock(block.id, input)
+        else await createBlock(input)
+        toast.success(block ? "Block updated" : "Block added", { description: `${title.trim()} · ${formatClock(startMin)}` })
+      }
       onDone()
     } catch (e) {
       if (e instanceof ValidationError) {
@@ -170,6 +205,48 @@ function BlockForm({ block, date, start, onDone, guard }: { block: Block | null;
             Overlaps {overlaps.map((b) => `"${b.title}" (${formatClock(b.start)})`).join(", ")}. You can still save it.
           </p>
         )}
+        {inSeries ? (
+          <div className="space-y-3 rounded-2xl border border-line p-3">
+            <p className="flex items-center gap-2 text-sm">
+              <Repeat className="size-4 shrink-0 text-violet" aria-hidden />
+              Repeats {series ? describeDays(series.days, weekStartsOn).replace(/^Every day$/, "every day") : "…"}
+              {series?.until ? `, until ${formatDay(series.until, "d MMM")}` : ""}
+            </p>
+            <Segmented<"one" | "later">
+              ariaLabel="Change"
+              value={scope}
+              onChange={setScope}
+              options={[
+                { value: "one", label: "Just this day" },
+                { value: "later", label: "This and later days" },
+              ]}
+            />
+          </div>
+        ) : (
+          !taskId && (
+            <Field label="Repeat">
+              <Segmented<"once" | "weekly">
+                ariaLabel="Repeat"
+                value={repeat ? "weekly" : "once"}
+                onChange={(v) => setRepeat(v === "weekly")}
+                options={[
+                  { value: "once", label: "Doesn't repeat" },
+                  { value: "weekly", label: "Weekly" },
+                ]}
+              />
+            </Field>
+          )
+        )}
+        {patterned && (
+          <>
+            <Field label="On" error={errors.days}>
+              <DayChips days={days} onChange={setDays} weekStartsOn={weekStartsOn} />
+            </Field>
+            <Field label="Until (optional)" htmlFor="block-until" error={errors.until}>
+              <DatePicker id="block-until" value={until} onChange={setUntil} placeholder="No end" />
+            </Field>
+          </>
+        )}
         <Field label="Notes" htmlFor="block-notes">
           <Textarea id="block-notes" value={notes} onChange={(e) => setNotes(e.target.value)} className="min-h-20 rounded-xl" maxLength={2000} />
         </Field>
@@ -190,6 +267,11 @@ function BlockForm({ block, date, start, onDone, guard }: { block: Block | null;
               >
                 <Trash2 /> Remove
               </Button>
+              {inSeries && (
+                <Button type="button" variant="ghost" size="sm" onClick={() => void stopRepeating(block, onDone)}>
+                  <Repeat /> Stop repeating
+                </Button>
+              )}
               {(block.kind === "focus" || block.kind === "task") && (
                 <Button
                   type="button"
@@ -215,5 +297,44 @@ function BlockForm({ block, date, start, onDone, guard }: { block: Block | null;
       </DialogFooter>
       <DiscardBar guard={guard} />
     </form>
+  )
+}
+
+/** Ends a series from this block's day: earlier days stay, this one and later go. Undo puts them back. */
+async function stopRepeating(block: Block, done: () => void) {
+  if (!block.seriesId) return
+  const snapshot = await seriesSnapshot(block.seriesId, block.date)
+  if (!(await succeeded(() => endSeriesFrom(block.seriesId!, block.date)))) return
+  done()
+  toast(`"${block.title}" stops repeating`, {
+    description: `From ${formatDay(block.date, "d MMM")} on`,
+    action: snapshot ? { label: "Undo", onClick: () => void attempt(() => restoreSeries(snapshot)) } : undefined,
+  })
+}
+
+const DAY_LETTERS = ["S", "M", "T", "W", "T", "F", "S"]
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+
+/** Seven toggles, in the order of your week; at least one stays on. */
+function DayChips({ days, onChange, weekStartsOn }: { days: number[]; onChange: (d: number[]) => void; weekStartsOn: 0 | 1 }) {
+  const order = Array.from({ length: 7 }, (_, i) => (i + weekStartsOn) % 7)
+  return (
+    <div className="flex gap-1.5" role="group" aria-label="Days it repeats on">
+      {order.map((d) => {
+        const on = days.includes(d)
+        return (
+          <button
+            key={d}
+            type="button"
+            aria-pressed={on}
+            aria-label={DAY_NAMES[d]}
+            onClick={() => onChange(on ? (days.length > 1 ? days.filter((x) => x !== d) : days) : [...days, d].sort())}
+            className={cn("pressable grid size-9 place-items-center rounded-full text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring", on ? "bg-foreground text-background" : "bg-foreground/[0.06] hover:bg-foreground/10")}
+          >
+            {DAY_LETTERS[d]}
+          </button>
+        )
+      })}
+    </div>
   )
 }

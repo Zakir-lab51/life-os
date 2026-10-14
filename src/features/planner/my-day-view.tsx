@@ -29,12 +29,18 @@ import { KIND_LABEL } from "./block-editor"
 import { DayJump } from "./day-jump"
 import { addBlock } from "./quick-create"
 import { TASK_DRAG_TYPE, Timeline, taskLength } from "./timeline"
+import { createBlockSeries, endSeriesFrom, ensureSeriesBlocks } from "@/lib/db/repo"
+import { describeDays } from "@/lib/domain/series"
 
 export function MyDayView() {
   const life = useLife()
   const plannerDate = useUI((s) => s.plannerDate)
   const date = plannerDate ?? life?.today ?? ""
   const blocks = useBlocks(date)
+  // repeating blocks are made four weeks ahead; a day further out gets its own when opened
+  useEffect(() => {
+    void ensureSeriesBlocks(date, date).catch(() => undefined)
+  }, [date])
   if (!life || !blocks) {
     return (
       <div className="grid gap-4 @4xl/main:grid-cols-[1fr_340px]" aria-busy="true">
@@ -171,7 +177,7 @@ function MyDay({ life, date, blocks }: { life: Life; date: string; blocks: NonNu
       <div className="grid items-start gap-4 @4xl/main:grid-cols-[minmax(0,1fr)_340px]">
         <div ref={timeline} className="min-w-0 scroll-mt-24">
           <Panel className="p-3 sm:p-5">
-            {!isPast && <QuickAdd date={date} isToday={isToday} nowMin={nowMin} dayStart={prefs.dayStartMin} dayEnd={prefs.dayEndMin} blocks={blocks} />}
+            {!isPast && <QuickAdd date={date} isToday={isToday} nowMin={nowMin} dayStart={prefs.dayStartMin} dayEnd={prefs.dayEndMin} blocks={blocks} weekStartsOn={prefs.weekStartsOn} />}
             {placing && <PlacingBar task={placing} onStop={() => setPlacing(null)} />}
             {blocks.length === 0 && !isPast && (
               <div className="mb-4 flex flex-wrap items-center gap-3 rounded-2xl border border-dashed border-line p-4">
@@ -324,18 +330,29 @@ function ReflectionCard({ date, isToday }: { date: string; isToday: boolean }) {
  * "Call home 20m"). Below it, where it will go, as you type; Enter adds it and keeps the
  * field ready for the next. Without a time it goes in the next free gap that fits.
  */
-function QuickAdd({ date, isToday, nowMin, dayStart, dayEnd, blocks }: { date: string; isToday: boolean; nowMin: number; dayStart: number; dayEnd: number; blocks: Block[] }) {
+function QuickAdd({ date, isToday, nowMin, dayStart, dayEnd, blocks, weekStartsOn }: { date: string; isToday: boolean; nowMin: number; dayStart: number; dayEnd: number; blocks: Block[]; weekStartsOn: 0 | 1 }) {
   const [text, setText] = useState("")
   const parsed = useMemo(() => parseQuickBlock(text, { nowMin, isToday, dayStart, dayEnd, blocks }), [text, nowMin, isToday, dayStart, dayEnd, blocks])
   const add = async () => {
     if (!parsed.ok) return
     const b = parsed.block
+    if (b.days) {
+      // "every mon wed": a repeating block, from this day on
+      const series = await attempt(() => createBlockSeries({ title: b.title, kind: b.kind, start: b.start, end: b.end, days: b.days!, from: date }))
+      if (!series) return
+      toast.success(`${series.title} \u00b7 ${describeDays(series.days, weekStartsOn)}`, {
+        description: `${formatClock(series.start)}\u2013${formatClock(series.end)}, repeating`,
+        action: { label: "Undo", onClick: () => void attempt(() => endSeriesFrom(series.id, series.from)) },
+      })
+      setText("")
+      return
+    }
     if (await addBlock({ date, start: b.start, end: b.end, title: b.title, kind: b.kind })) setText("")
   }
   const hint = !text.trim()
     ? "Try \u201cGym 6pm 1h\u201d, \u201cRevise anatomy 2-3:30pm\u201d or \u201cCall home 20m\u201d."
     : parsed.ok
-      ? `${parsed.block.title} \u00b7 ${formatClock(parsed.block.start)}\u2013${formatClock(parsed.block.end)} \u00b7 ${formatDuration(parsed.block.end - parsed.block.start)} \u00b7 ${KIND_LABEL[parsed.block.kind]}${parsed.block.placed === "gap" ? " \u00b7 next free gap" : ""}`
+      ? `${parsed.block.title} \u00b7 ${formatClock(parsed.block.start)}\u2013${formatClock(parsed.block.end)} \u00b7 ${formatDuration(parsed.block.end - parsed.block.start)} \u00b7 ${KIND_LABEL[parsed.block.kind]}${parsed.block.days ? ` \u00b7 ${describeDays(parsed.block.days, weekStartsOn)}` : parsed.block.placed === "gap" ? " \u00b7 next free gap" : ""}`
       : parsed.reason === "no-title"
         ? "Add what it\u2019s for, like \u201cGym 6pm\u201d."
         : parsed.reason === "no-gap"

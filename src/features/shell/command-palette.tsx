@@ -1,6 +1,6 @@
 "use client"
 
-import { Check, Download, Keyboard, Moon, PanelLeft, Repeat, SquareCheckBig, Sun } from "lucide-react"
+import { ClipboardCheck, Check, Download, Keyboard, Moon, PanelLeft, Repeat, SquareCheckBig, Sun } from "lucide-react"
 import { useTheme } from "next-themes"
 import { useMemo } from "react"
 import { toast } from "sonner"
@@ -33,6 +33,7 @@ export function CommandPalette() {
   const openTaskEditor = useUI((s) => s.openTaskEditor)
   const toggleSidebar = useUI((s) => s.toggleSidebar)
   const setShortcuts = useUI((s) => s.setShortcuts)
+  const setReviewOpen = useUI((s) => s.setReviewOpen)
   const { run, navigate, toggleTheme, downloadBackup } = useActions()
   const { resolvedTheme } = useTheme()
   const life = useLife()
@@ -71,6 +72,11 @@ export function CommandPalette() {
                 </CommandItem>
               )
             })}
+            <CommandItem value="action weekly review week reflect next week top three" onSelect={close(() => setReviewOpen(true))}>
+              <ClipboardCheck />
+              <span>Weekly review</span>
+              <span className="text-xs text-muted-foreground">Look back, pick next week&apos;s top three</span>
+            </CommandItem>
           </CommandGroup>
 
           <CommandSeparator />

@@ -21,6 +21,7 @@ const load = {
   block: () => import("@/features/planner/block-editor").then((m) => m.BlockEditorDialog),
   plan: () => import("@/features/planner/plan-dialog").then((m) => m.PlanMyDayDialog),
   reflection: () => import("@/features/planner/reflection-dialog").then((m) => m.ReflectionDialog),
+  review: () => import("@/features/review/weekly-review").then((m) => m.WeeklyReviewDialog),
 }
 
 const CommandPalette = dynamic(load.palette, { ssr: false })
@@ -32,6 +33,7 @@ const GoalEditorDialog = dynamic(load.goalEditor, { ssr: false })
 const BlockEditorDialog = dynamic(load.block, { ssr: false })
 const PlanMyDayDialog = dynamic(load.plan, { ssr: false })
 const ReflectionDialog = dynamic(load.reflection, { ssr: false })
+const WeeklyReviewDialog = dynamic(load.review, { ssr: false })
 const OnboardingWizard = dynamic(() => import("@/features/onboarding/onboarding-wizard").then((m) => m.OnboardingWizard), { ssr: false })
 
 /** Fetches one dialog ahead of its first open (the Goals page warms the goal dialog). */
@@ -60,6 +62,7 @@ export function LazyDialogs() {
     block: useOnceOpened(ui.blockEditor.open),
     plan: useOnceOpened(ui.planOpen),
     reflection: useOnceOpened(ui.reflectionOpen),
+    review: useOnceOpened(ui.reviewOpen),
   }
 
   // fetch the everyday ones once the app has settled, so opening one never waits (not the
@@ -83,6 +86,7 @@ export function LazyDialogs() {
       {show.block && <BlockEditorDialog />}
       {show.plan && <PlanMyDayDialog />}
       {show.reflection && <ReflectionDialog />}
+      {show.review && <WeeklyReviewDialog />}
       {prefs && !prefs.onboarded && <OnboardingWizard />}
     </>
   )

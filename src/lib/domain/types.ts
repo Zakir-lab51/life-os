@@ -115,9 +115,44 @@ export interface Block {
   taskId: ID | null
   notes: string
   source: "manual" | "plan"
+  /** Set when the block is one day of a repeating series. */
+  seriesId?: ID | null
   createdAt: ISODateTime
   updatedAt: ISODateTime
   demo?: boolean
+}
+
+/** A repeating block: the pattern behind a timetable slot (see lib/domain/series.ts). */
+export interface BlockSeries {
+  id: ID
+  title: string
+  kind: BlockKind
+  /** Minutes after midnight. */
+  start: number
+  end: number
+  notes: string
+  /** Weekdays it falls on, 0 = Sunday. */
+  days: number[]
+  /** First day, and last day (null: no end). */
+  from: ISODate
+  until: ISODate | null
+  /** Days taken out one at a time. */
+  skip: ISODate[]
+  createdAt: ISODateTime
+  updatedAt: ISODateTime
+  demo?: boolean
+}
+
+/** One week's review: what went well, what to change, and next week's top three. Its id is the week's first day. */
+export interface WeeklyReview {
+  id: ISODate
+  weekStart: ISODate
+  wins: string
+  improve: string
+  /** Tasks made for next week's top three. */
+  topTaskIds: ID[]
+  createdAt: ISODateTime
+  updatedAt: ISODateTime
 }
 
 export interface FocusSession {

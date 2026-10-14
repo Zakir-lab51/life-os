@@ -7,6 +7,9 @@ import type { Block, BlockKind } from "./types"
   "Deep work at 14:00 for 90m". The time and length are lifted out of the words and what's
   left is the title. Without a time, the block goes in the next free gap that fits.
 
+  Repeats: "every mon wed", "every monday and thursday", "mondays", "weekdays", "weekends",
+  "daily": the block becomes a repeating one on those days.
+
   Times: "6pm", "6:30 pm", "18:00", "at 9", "noon", ranges like "9-10:30" or "2 to 3pm".
   A bare hour without am/pm ("at 7") is the one inside your day that hasn't passed yet. A
   bare number on its own ("Read 20 pages") is never a time. Lengths: "1h", "1.5h", "1h30",
@@ -20,6 +23,8 @@ export interface QuickBlock {
   kind: BlockKind
   /** Whether the time was typed, or found in the next free gap. */
   placed: "typed" | "gap"
+  /** Weekdays it repeats on (0 = Sunday), or null for a one-off. */
+  days: number[] | null
 }
 
 export type QuickParse =
@@ -49,6 +54,32 @@ const LENGTH = [
   /\b(?:for\s+)?(\d+(?:\.\d+)?)\s*(?:hours|hour|hrs|hr|h)(?![a-z])(?:\s*(\d{1,2})\s*(?:minutes|mins|min|m)?(?![a-z]))?/i,
   /\b(?:for\s+)?(\d+)\s*(?:m|min|mins|minute|minutes)\b/i,
 ]
+// whole day names only, so "monitor" or "satellite" are never days
+const DAY = String.raw`(sun(?:day)?|mon(?:day)?|tue(?:s(?:day)?)?|wed(?:nesday)?|thu(?:r(?:s(?:day)?)?)?|fri(?:day)?|sat(?:urday)?)`
+const EVERY = new RegExp(String.raw`\b(?:every|each|on)\s+${DAY}\b(?:(?:\s*,\s*|\s+and\s+|\s*&\s*|\s+)${DAY}\b)*`, "i")
+const PLURAL = new RegExp(String.raw`\b${DAY}s\b(?:(?:\s*,\s*|\s+and\s+|\s*&\s*|\s+)${DAY}s\b)*`, "i")
+const DAY_NUMBER: Record<string, number> = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 }
+const daysIn = (text: string) => [...new Set([...text.toLowerCase().matchAll(new RegExp(DAY, "g"))].map((m) => DAY_NUMBER[m[1].slice(0, 3)]))].sort()
+
+/** Takes a repeat ("every mon wed", "weekdays", "daily") out of the text. */
+function takeRepeat(text: string): { rest: string; days: number[] | null } {
+  const named: [RegExp, number[]][] = [
+    [/\b(?:daily|every\s*day|each\s+day)\b/i, [0, 1, 2, 3, 4, 5, 6]],
+    [/\b(?:every\s+weekday|(?:on\s+)?weekdays)\b/i, [1, 2, 3, 4, 5]],
+    [/\b(?:every\s+weekend|(?:on\s+)?weekends)\b/i, [0, 6]],
+  ]
+  for (const [re, days] of named) {
+    const hit = re.exec(text)
+    if (hit) return { rest: text.replace(hit[0], " "), days }
+  }
+  for (const re of [EVERY, PLURAL]) {
+    const hit = re.exec(text)
+    // "on monday" alone is a day, not a repeat; "on mondays" or "every monday" is
+    if (hit && (re === PLURAL || !/^on\s/i.test(hit[0]))) return { rest: text.replace(hit[0], " "), days: daysIn(hit[0]) }
+  }
+  return { rest: text, days: null }
+}
+
 const KINDS: [RegExp, BlockKind][] = [
   [/\b(deep work|focus|study|revise|revision|practice|write|writing|code|coding|read|reading)\b/i, "focus"],
   [/\b(break|lunch|breakfast|dinner|coffee|tea|nap|rest|walk)\b/i, "break"],
@@ -75,8 +106,9 @@ const tidy = (s: string) =>
     .trim()
 
 export function parseQuickBlock(text: string, ctx: QuickContext): QuickParse {
-  let rest = ` ${text.trim()} `
   if (!text.trim()) return { ok: false, reason: "empty", title: "", minutes: 0 }
+  const repeat = takeRepeat(` ${text.trim()} `)
+  let rest = repeat.rest
   let start: number | null = null
   let end: number | null = null
   let length: number | null = null
@@ -134,8 +166,8 @@ export function parseQuickBlock(text: string, ctx: QuickContext): QuickParse {
     const from = ctx.isToday ? Math.max(ctx.dayStart, roundUpTo(ctx.nowMin, 15)) : ctx.dayStart
     const gap = freeSlots(ctx.blocks, from, ctx.dayEnd).find((s) => s.end - s.start >= minutes)
     if (!gap) return { ok: false, reason: "no-gap", title, minutes }
-    return { ok: true, block: { title, kind, start: gap.start, end: gap.start + minutes, placed: "gap" } }
+    return { ok: true, block: { title, kind, start: gap.start, end: gap.start + minutes, placed: "gap", days: repeat.days } }
   }
   const finish = Math.min(24 * 60, end ?? start + minutes)
-  return { ok: true, block: { title, kind, start: Math.min(start, finish - 5), end: finish, placed: "typed" } }
+  return { ok: true, block: { title, kind, start: Math.min(start, finish - 5), end: finish, placed: "typed", days: repeat.days } }
 }

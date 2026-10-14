@@ -1,13 +1,15 @@
 import type { ZodError } from "zod"
-import { db } from "./db"
+import { APP_TABLES, db } from "./db"
 import { defaultPrefs, migratePrefs } from "./defaults"
-import { daysBetween, todayISO } from "@/lib/domain/dates"
+import { addDays, daysBetween, todayISO } from "@/lib/domain/dates"
+import { SERIES_AHEAD_DAYS, occurrenceId, seriesDates } from "@/lib/domain/series"
 import { horizonRank } from "@/lib/domain/goals"
 import { blockingTasks, completeTask, createsCycle, normalizeTag, reopenTask } from "@/lib/domain/tasks"
 import type {
   ActivityEvent,
   AppNotification,
   Block,
+  BlockSeries,
   FocusSession,
   Goal,
   GoalLog,
@@ -20,10 +22,12 @@ import type {
   Reflection,
   Task,
   TaskStatus,
+  WeeklyReview,
 } from "@/lib/domain/types"
 import type { PlanSuggestion } from "@/lib/domain/planner"
 import {
   blockInputSchema,
+  blockSeriesInputSchema,
   fieldErrors,
   goalInputSchema,
   goalLogInputSchema,
@@ -32,6 +36,7 @@ import {
   reflectionInputSchema,
   taskInputSchema,
   type BlockInput,
+  type BlockSeriesInput,
   type GoalInput,
   type HabitInput,
   type TaskInput,
@@ -447,6 +452,144 @@ export async function restoreBlock(block: Block) {
   await db.blocks.put(block)
 }
 
+/* ── repeating blocks (see lib/domain/series.ts) ───── */
+
+/** Starts a repeating block and puts its days on the timeline from `from` on. */
+export async function createBlockSeries(input: BlockSeriesInput): Promise<BlockSeries> {
+  const parsed = blockSeriesInputSchema.safeParse(input)
+  if (!parsed.success) throw new ValidationError(parsed.error)
+  const stamp = nowISO()
+  const series: BlockSeries = { id: uid("bs_"), ...parsed.data, skip: [], createdAt: stamp, updatedAt: stamp }
+  await db.blockSeries.add(series)
+  await ensureSeriesBlocks(series.from, addDays(series.from, SERIES_AHEAD_DAYS), series.id)
+  return series
+}
+
+/** Makes the blocks repeating series have between `from` and `to`, where they aren't there yet (or taken out). */
+export async function ensureSeriesBlocks(from: ISODate, to: ISODate, onlySeriesId?: ID): Promise<number> {
+  return db.transaction("rw", db.blocks, db.blockSeries, async () => {
+    const one = onlySeriesId ? await db.blockSeries.get(onlySeriesId) : undefined
+    const all = onlySeriesId ? (one ? [one] : []) : await db.blockSeries.toArray()
+    const stamp = nowISO()
+    const wanted: Block[] = []
+    for (const s of all) {
+      for (const date of seriesDates(s, from, to)) {
+        wanted.push({ id: occurrenceId(s.id, date), date, start: s.start, end: s.end, title: s.title, kind: s.kind, taskId: null, notes: s.notes, source: "manual", seriesId: s.id, createdAt: stamp, updatedAt: stamp, ...(s.demo ? { demo: true } : {}) })
+      }
+    }
+    if (!wanted.length) return 0
+    const existing = await db.blocks.bulkGet(wanted.map((b) => b.id))
+    const missing = wanted.filter((_, i) => !existing[i])
+    if (missing.length) await db.blocks.bulkAdd(missing)
+    return missing.length
+  })
+}
+
+/** Takes one day out of its series (it won't come back) and removes its block. */
+export async function skipSeriesDay(block: Block) {
+  await db.transaction("rw", db.blocks, db.blockSeries, async () => {
+    if (block.seriesId) {
+      await db.blockSeries
+        .where("id")
+        .equals(block.seriesId)
+        .modify((s) => {
+          if (!s.skip.includes(block.date)) s.skip.push(block.date)
+          s.updatedAt = nowISO()
+        })
+    }
+    await db.blocks.delete(block.id)
+  })
+}
+
+/** Puts a day taken out of its series back. */
+export async function unskipSeriesDay(block: Block) {
+  await db.transaction("rw", db.blocks, db.blockSeries, async () => {
+    if (block.seriesId) {
+      await db.blockSeries
+        .where("id")
+        .equals(block.seriesId)
+        .modify((s) => {
+          s.skip = s.skip.filter((d) => d !== block.date)
+          s.updatedAt = nowISO()
+        })
+    }
+    await db.blocks.put(block)
+  })
+}
+
+/** Changes a series from `from` on: earlier days keep their blocks, later ones are made again from the new pattern. */
+export async function updateSeriesFrom(seriesId: ID, patch: Partial<BlockSeriesInput>, from: ISODate): Promise<BlockSeries> {
+  const current = await db.blockSeries.get(seriesId)
+  if (!current) throw new NotFoundError("This repeating block")
+  const parsed = blockSeriesInputSchema.safeParse({ title: current.title, kind: current.kind, start: current.start, end: current.end, notes: current.notes, days: current.days, from: current.from, until: current.until, ...patch })
+  if (!parsed.success) throw new ValidationError(parsed.error)
+  const next: BlockSeries = { ...current, ...parsed.data, updatedAt: nowISO() }
+  await db.transaction("rw", db.blocks, db.blockSeries, async () => {
+    await db.blockSeries.put(next)
+    await db.blocks.where("seriesId").equals(seriesId).and((b) => b.date >= from).delete()
+  })
+  const today = todayISO()
+  await ensureSeriesBlocks(from, addDays(from > today ? from : today, SERIES_AHEAD_DAYS), seriesId)
+  return next
+}
+
+/** A series and its blocks from a day on, as they are now (for undoing endSeriesFrom). */
+export async function seriesSnapshot(seriesId: ID, from: ISODate) {
+  const series = await db.blockSeries.get(seriesId)
+  const blocks = await db.blocks.where("seriesId").equals(seriesId).and((b) => b.date >= from).toArray()
+  return series ? { series, blocks } : null
+}
+
+/** Puts back what seriesSnapshot saw. */
+export async function restoreSeries(snapshot: { series: BlockSeries; blocks: Block[] }) {
+  await db.transaction("rw", db.blocks, db.blockSeries, async () => {
+    await db.blockSeries.put(snapshot.series)
+    if (snapshot.blocks.length) await db.blocks.bulkPut(snapshot.blocks)
+  })
+}
+
+/** Ends a series before `from`: its blocks from then on go, earlier ones stay. */
+export async function endSeriesFrom(seriesId: ID, from: ISODate) {
+  await db.transaction("rw", db.blocks, db.blockSeries, async () => {
+    const s = await db.blockSeries.get(seriesId)
+    if (!s) return
+    const until = addDays(from, -1)
+    if (until < s.from) await db.blockSeries.delete(seriesId)
+    else await db.blockSeries.update(seriesId, { until, updatedAt: nowISO() })
+    await db.blocks.where("seriesId").equals(seriesId).and((b) => b.date >= from).delete()
+  })
+}
+
+/* ── weekly review ─────────────────────────────────── */
+
+/**
+ * Saves a week's review. The first time, each of next week's top three becomes a priority-1
+ * task due on the last day of next week, tagged top3.
+ */
+export async function saveWeeklyReview(input: { weekStart: ISODate; wins: string; improve: string; top: string[] }): Promise<WeeklyReview> {
+  const existing = await db.reviews.get(input.weekStart)
+  const stamp = nowISO()
+  let topTaskIds = existing?.topTaskIds ?? []
+  if (!existing) {
+    const due = addDays(input.weekStart, 13)
+    for (const title of input.top.map((t) => t.trim()).filter(Boolean).slice(0, 3)) {
+      const task = await createTask({ title, priority: 1, dueDate: due, tags: ["top3"] })
+      topTaskIds = [...topTaskIds, task.id]
+    }
+  }
+  const review: WeeklyReview = {
+    id: input.weekStart,
+    weekStart: input.weekStart,
+    wins: input.wins.trim().slice(0, 4000),
+    improve: input.improve.trim().slice(0, 4000),
+    topTaskIds,
+    createdAt: existing?.createdAt ?? stamp,
+    updatedAt: stamp,
+  }
+  await db.reviews.put(review)
+  return review
+}
+
 /** Adds accepted Plan-My-Day suggestions. Never touches existing blocks. */
 export async function applyPlan(date: ISODate, suggestions: PlanSuggestion[]): Promise<Block[]> {
   const stamp = nowISO()
@@ -722,7 +865,9 @@ export async function takeDueReminders(now = new Date()): Promise<Task[]> {
 /* ── everything ─────────────────────────────────────── */
 
 export async function wipeAllData() {
-  await db.transaction("rw", db.tables, async () => {
-    for (const table of db.tables) await table.clear()
+  // only LIFE OS's own tables: with sync on, Dexie Cloud's bookkeeping lives in the same database
+  const tables = APP_TABLES.map((t) => db.table(t))
+  await db.transaction("rw", tables, async () => {
+    for (const table of tables) await table.clear()
   })
 }

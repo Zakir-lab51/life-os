@@ -73,6 +73,21 @@ export const blockInputSchema = z
   .refine((b) => b.end - b.start >= 5, { message: "Blocks are at least 5 minutes", path: ["end"] })
 export type BlockInput = z.input<typeof blockInputSchema>
 
+export const blockSeriesInputSchema = z
+  .object({
+    title: z.string().trim().min(1, "Give the block a title").max(120),
+    kind: z.enum(["task", "focus", "break", "event", "routine", "habit"]).default("event"),
+    start: z.number().int().min(0).max(24 * 60 - 5),
+    end: z.number().int().min(5).max(24 * 60),
+    notes: z.string().max(2000).default(""),
+    days: z.array(z.number().int().min(0).max(6)).min(1, "Pick at least one day").max(7),
+    from: isoDate,
+    until: isoDate.nullable().default(null),
+  })
+  .refine((b) => b.end > b.start, { message: "End must be after start", path: ["end"] })
+  .refine((b) => !b.until || b.until >= b.from, { message: "Ends before it starts", path: ["until"] })
+export type BlockSeriesInput = z.input<typeof blockSeriesInputSchema>
+
 export const reflectionInputSchema = z.object({
   mood: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)]),
   wins: z.string().max(2000).default(""),
@@ -261,6 +276,7 @@ export const backupSchema = z.object({
         taskId: id.nullable(),
         notes: z.string().max(2000),
         source: z.enum(["manual", "plan"]),
+        seriesId: id.nullable().optional(),
         ...stamps,
       }),
     ),
@@ -306,6 +322,27 @@ export const backupSchema = z.object({
     // added in Phase 2; older backups don't have them
     goals: z.array(goalRecordSchema).default([]),
     goalLogs: z.array(goalLogRecordSchema).default([]),
+    // added with repeating blocks and weekly reviews
+    blockSeries: z
+      .array(
+        z.object({
+          id,
+          title: z.string().max(120),
+          kind: z.enum(["task", "focus", "break", "event", "routine", "habit"]),
+          start: z.number().int().min(0).max(24 * 60),
+          end: z.number().int().min(0).max(24 * 60),
+          notes: z.string().max(2000),
+          days: z.array(z.number().int().min(0).max(6)).max(7),
+          from: isoDate,
+          until: isoDate.nullable(),
+          skip: z.array(isoDate),
+          ...stamps,
+        }),
+      )
+      .default([]),
+    reviews: z
+      .array(z.object({ id: isoDate, weekStart: isoDate, wins: z.string().max(4000), improve: z.string().max(4000), topTaskIds: z.array(id).max(10), createdAt: isoDateTime, updatedAt: isoDateTime }))
+      .default([]),
   }),
 })
 export type Backup = z.infer<typeof backupSchema>

@@ -1,6 +1,6 @@
 "use client"
 
-import { Activity, CalendarRange, Check, Flame, Gauge, Timer } from "lucide-react"
+import { ClipboardCheck, Activity, CalendarRange, Check, Flame, Gauge, Timer } from "lucide-react"
 import { useMemo, useState } from "react"
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -16,6 +16,8 @@ import { addDays, formatDay, formatDuration } from "@/lib/domain/dates"
 import { lifeBalance } from "@/lib/domain/scores"
 import { useLife, type Life } from "@/features/shell/use-life"
 import { RadarWidget } from "@/features/overview/widgets"
+import { useUI } from "@/lib/stores/ui"
+import { Button } from "@/components/ui/button"
 
 type Range = 7 | 30 | 90
 
@@ -47,6 +49,7 @@ function delta(cur: number | null, prev: number | null, unit: "%" | "pts" = "%")
 }
 
 function Analytics({ life }: { life: Life }) {
+  const setReviewOpen = useUI((s) => s.setReviewOpen)
   const chartMotion = useChartMotion()
   const { data, today, prefs } = life
   const [range, setRange] = useState<Range>(30)
@@ -200,9 +203,12 @@ function Analytics({ life }: { life: Life }) {
             }}
             describe={(d) => `${formatDay(d, "EEE d MMM")}: ${heat.get(d) ?? 0} recorded actions`}
           />
-          <p className="mt-4 rounded-2xl border border-dashed border-line p-3 text-xs text-muted-foreground">
-            A weekly review (achievements, unfinished work and next steps) is on the way.
-          </p>
+          <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-dashed border-line p-3">
+            <p className="min-w-[12rem] flex-1 text-xs text-muted-foreground">Weekly review: what you finished, what slipped, and next week&apos;s top three.</p>
+            <Button size="sm" variant="outline" onClick={() => setReviewOpen(true)}>
+              <ClipboardCheck /> Review the week
+            </Button>
+          </div>
         </Panel>
       </div>
       <SummaryNote summary={summary} />

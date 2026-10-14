@@ -50,4 +50,14 @@ describe("quick block: one line to a time block", () => {
     const full: QuickContext = { ...day, blocks: [{ start: hm(7), end: hm(23) }] }
     expect(parseQuickBlock("Call home 20m", full)).toMatchObject({ ok: false, reason: "no-gap", title: "Call home", minutes: 20 })
   })
+
+  it("reads a repeat, and leaves look-alike words alone", () => {
+    expect(parse("Physiology lecture every mon wed 10-11am")).toMatchObject({ title: "Physiology lecture", start: hm(10), end: hm(11), days: [1, 3] })
+    expect(parse("Lab mondays and thursdays 2-4pm")).toMatchObject({ title: "Lab", days: [1, 4] })
+    expect(parse("Gym weekdays 7am 1h")).toMatchObject({ title: "Gym", start: hm(7), days: [1, 2, 3, 4, 5] })
+    expect(parse("Meditate daily 6:30am 15m")).toMatchObject({ title: "Meditate", days: [0, 1, 2, 3, 4, 5, 6] })
+    expect(parse("Long run every saturday 7am").days).toEqual([6])
+    expect(parse("Check monitor at 9am")).toMatchObject({ title: "Check monitor", days: null })
+    expect(parse("Call on monday 6pm").days).toBeNull()
+  })
 })

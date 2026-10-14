@@ -3,7 +3,7 @@
 import { addMonths, endOfMonth, format, startOfMonth } from "date-fns"
 import { ArrowUpRight, CalendarPlus, ChevronLeft, ChevronRight, Plus } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -22,6 +22,7 @@ import { useLife, type Life } from "@/features/shell/use-life"
 import { toggleDone } from "@/features/tasks/task-actions"
 import { KIND_LABEL } from "@/features/planner/block-editor"
 import { MOODS } from "@/features/planner/reflection-dialog"
+import { ensureSeriesBlocks } from "@/lib/db/repo"
 
 export function CalendarView() {
   const life = useLife()
@@ -31,6 +32,9 @@ export function CalendarView() {
   const gridStart = anchor ? startOfWeek(anchor, weekStartsOn) : ""
   const gridEnd = anchor ? addDays(startOfWeek(toISODate(endOfMonth(fromISODate(anchor))), weekStartsOn), 6) : ""
   const blocks = useBlocksBetween(gridStart, gridEnd)
+  useEffect(() => {
+    if (gridStart) void ensureSeriesBlocks(gridStart, gridEnd).catch(() => undefined)
+  }, [gridStart, gridEnd])
   if (!life || !blocks) return <Skeleton className="h-[640px] rounded-panel" aria-busy="true" />
   return <Calendar life={life} anchor={anchor} gridStart={gridStart} gridEnd={gridEnd} blocks={blocks} setMonth={setMonth} />
 }

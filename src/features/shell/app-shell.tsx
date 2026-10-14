@@ -10,7 +10,7 @@ import { SPRING } from "@/lib/motion"
 import { setThemeColor } from "@/lib/theme-color"
 import { AfterPaint } from "./after-paint"
 import { ClientGate } from "./client-gate"
-import { FocusEngine, ProgressWatcher, ReminderEngine } from "./engines"
+import { FocusEngine, ProgressWatcher, ReminderEngine, SeriesEngine } from "./engines"
 import { GlassPointer } from "./glass-pointer"
 import { LazyDialogs } from "./lazy-dialogs"
 import { OfflineSupport } from "./offline"
@@ -70,6 +70,7 @@ function Shell({ children }: { children: ReactNode }) {
         <FocusEngine />
         <ReminderEngine />
         <ProgressWatcher />
+        <SeriesEngine />
       </AfterPaint>
       <div className="flex min-h-dvh">
         <Sidebar />

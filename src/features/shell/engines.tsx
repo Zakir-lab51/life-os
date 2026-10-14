@@ -1,12 +1,14 @@
 "use client"
 
+import { useLiveQuery } from "dexie-react-hooks"
 import { useEffect, useRef } from "react"
 import { toast } from "sonner"
 import { playChime } from "@/lib/audio/ambient"
 import { db } from "@/lib/db/db"
-import { useUnlocks, usePrefs } from "@/lib/db/hooks"
-import { notify, recordFocusSession, recordUnlocks, takeDueReminders, updatePrefs } from "@/lib/db/repo"
-import { formatDuration, relativeDayLabel, toISODate, todayISO } from "@/lib/domain/dates"
+import { useToday, useUnlocks, usePrefs } from "@/lib/db/hooks"
+import { ensureSeriesBlocks, notify, recordFocusSession, recordUnlocks, takeDueReminders, updatePrefs } from "@/lib/db/repo"
+import { addDays, formatDuration, relativeDayLabel, toISODate, todayISO } from "@/lib/domain/dates"
+import { SERIES_AHEAD_DAYS } from "@/lib/domain/series"
 import { IDLE_TIMER, MIN_RECORDED_SEC, elapsedMs, finishesAt, formatTimer, isFinished, nextPhase, remainingMs, start, type TimerState } from "@/lib/domain/focus"
 import type { Area, Prefs } from "@/lib/domain/types"
 import { useFocus } from "@/lib/stores/focus"
@@ -194,5 +196,19 @@ export function ProgressWatcher() {
     }
   }, [life, unlocks])
 
+  return null
+}
+
+/**
+ * Keeps repeating blocks on the timeline four weeks ahead: on start, on each new day, and
+ * whenever a series is added (here or, with sync, on another device).
+ */
+export function SeriesEngine() {
+  const today = useToday()
+  const series = useLiveQuery(() => db.blockSeries.count(), [])
+  useEffect(() => {
+    if (!series) return
+    void ensureSeriesBlocks(today, addDays(today, SERIES_AHEAD_DAYS)).catch(() => undefined)
+  }, [today, series])
   return null
 }

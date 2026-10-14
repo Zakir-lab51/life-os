@@ -1,6 +1,6 @@
 "use client"
 
-import { Check, ChevronDown, ChevronUp, GripHorizontal, Pencil, Play, Trash2, TriangleAlert } from "lucide-react"
+import { Check, ChevronDown, ChevronUp, GripHorizontal, Pencil, Play, Repeat, Trash2, TriangleAlert } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react"
 import { toast } from "sonner"
@@ -493,7 +493,7 @@ export function Timeline({
                 tabIndex={0}
                 role="button"
                 aria-pressed={isSelected}
-                aria-label={`${b.title}, ${formatClock(live.start)} to ${formatClock(live.end)}, ${KIND_LABEL[b.kind]}${conflicts.has(b.id) ? ", overlaps another block" : ""}. Enter to edit, arrow keys to move, Shift and arrows to resize.`}
+                aria-label={`${b.title}, ${formatClock(live.start)} to ${formatClock(live.end)}, ${KIND_LABEL[b.kind]}${b.seriesId ? ", repeats" : ""}${conflicts.has(b.id) ? ", overlaps another block" : ""}. Enter to edit, arrow keys to move, Shift and arrows to resize.`}
               >
                 <div className={cn("flex gap-2", compact ? "items-center" : "items-start", tiny && "h-full")}>
                   {task && (
@@ -513,6 +513,7 @@ export function Timeline({
                   )}
                   <div className="min-w-0 flex-1">
                     <p className={cn("truncate leading-tight font-semibold", tiny ? "text-[11px] leading-[13px]" : "text-[13px]", task && "strike", task?.status === "done" && "is-done")}>
+                      {b.seriesId && !tiny && <Repeat aria-hidden className="mr-1 inline size-3 -translate-y-px text-muted-foreground" />}
                       <span className={cn(task && "strike-text")}>{b.title}</span>
                     </p>
                     {!compact && (

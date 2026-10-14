@@ -20,6 +20,7 @@ import { useLife, type Life } from "@/features/shell/use-life"
 import { evaluateProgress } from "@/features/shell/progress"
 import { GoalsWidget } from "@/features/goals/goals-widget"
 import { WIDGET_META } from "./widget-meta"
+import { ReviewNudge } from "@/features/review/review-nudge"
 import {
   BriefingWidget,
   DeadlinesWidget,
@@ -115,6 +116,7 @@ function Dashboard({ life, blocks }: { life: Life; blocks: NonNullable<ReturnTyp
           </Button>
         </div>
       </div>
+      <ReviewNudge today={life.today} weekStartsOn={life.prefs.weekStartsOn} />
       {visible.length === 0 ? (
         <div className="glass rounded-panel p-10 text-center">
           <p className="font-medium">All widgets are hidden</p>

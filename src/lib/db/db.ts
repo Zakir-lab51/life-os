@@ -5,6 +5,7 @@ import type {
   ActivityEvent,
   AppNotification,
   Block,
+  BlockSeries,
   FocusSession,
   Goal,
   GoalLog,
@@ -14,6 +15,7 @@ import type {
   Reflection,
   RoutineCheck,
   Task,
+  WeeklyReview,
 } from "@/lib/domain/types"
 import { CLOUD_DATABASE_URL, readSync } from "./cloud"
 
@@ -37,6 +39,8 @@ export class LifeDB extends Dexie {
   prefs!: EntityTable<Prefs, "id">
   goals!: EntityTable<Goal, "id">
   goalLogs!: EntityTable<GoalLog, "id">
+  blockSeries!: EntityTable<BlockSeries, "id">
+  reviews!: EntityTable<WeeklyReview, "id">
 
   constructor(name = "life-os", synced = false) {
     super(name, synced ? { addons: [dexieCloud] } : {})
@@ -62,6 +66,14 @@ export class LifeDB extends Dexie {
     if (synced) {
       // a unique index can't hold across devices that are offline at once; events' ids carry their dedupe key instead
       this.version(3).stores({ activity: "id, dedupeKey, at, type" })
+    }
+    // repeating blocks and weekly reviews
+    this.version(4).stores({
+      blocks: "id, date, taskId, seriesId",
+      blockSeries: "id",
+      reviews: "id",
+    })
+    if (synced) {
       this.cloud.configure({
         databaseUrl: CLOUD_DATABASE_URL,
         requireAuth: false,
@@ -95,4 +107,9 @@ export const BACKUP_TABLES = [
   "achievements",
   "goals",
   "goalLogs",
+  "blockSeries",
+  "reviews",
 ] as const
+
+/** Every table that holds LIFE OS data (with sync on, the database also has Dexie Cloud's own tables, which must be left alone). */
+export const APP_TABLES = [...BACKUP_TABLES, "notifications"] as const

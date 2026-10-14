@@ -24,6 +24,7 @@ interface UIState {
   openGoalId: ID | null
   planOpen: boolean
   reflectionOpen: boolean
+  reviewOpen: boolean
   /** null = today */
   plannerDate: ISODate | null
   taskView: TaskView
@@ -44,6 +45,7 @@ interface UIState {
   showGoal: (goalId: ID | null) => void
   setPlanOpen: (open: boolean) => void
   setReflectionOpen: (open: boolean) => void
+  setReviewOpen: (open: boolean) => void
   setPlannerDate: (date: ISODate | null) => void
   setTaskView: (view: TaskView) => void
 }
@@ -64,6 +66,7 @@ export const useUI = create<UIState>()(
       openGoalId: null,
       planOpen: false,
       reflectionOpen: false,
+      reviewOpen: false,
       plannerDate: null,
       taskView: "list",
 
@@ -83,6 +86,7 @@ export const useUI = create<UIState>()(
       showGoal: (goalId) => set({ openGoalId: goalId, paletteOpen: false }),
       setPlanOpen: (open) => set({ planOpen: open, paletteOpen: false }),
       setReflectionOpen: (open) => set({ reflectionOpen: open, paletteOpen: false }),
+      setReviewOpen: (open) => set({ reviewOpen: open, paletteOpen: false }),
       setPlannerDate: (date) => set({ plannerDate: date }),
       setTaskView: (view) => set({ taskView: view }),
     }),
