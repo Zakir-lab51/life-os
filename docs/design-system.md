@@ -104,6 +104,7 @@ page.
 | Press and hold (touch) | A finger resting 0.28 s starts a drag, with a short buzz: moving a time block, drawing on empty time (Kanban cards: 0.22 s). Moving first scrolls instead, and a quick tap selects |
 | Selected item actions | A tap selects; its actions appear in a one-line toolbar beside it (time blocks), so nothing hides behind a "…" menu or hover |
 | Phone scale | On a phone (a screen whose short side is under 600 px) the whole interface is drawn 1.125× larger, like the browser's zoom: the page is laid out narrower (333 px on a 375 px phone, never under 320) and scaled up to fit, so text, spacing, icons and the timeline grow together and the look stays the same (`lib/phone-scale.ts`, a viewport tag set before the first paint and on rotation). iPads and computers stay 1:1. Pages must fit 320 px. On a phone the top bar keeps the LIFE OS name; the theme switch moves into the profile menu, and a running focus timer takes the name's place |
+| Swipe a task (touch) | Right to complete or reopen, left to move to tomorrow, further left to delete; the action shows underneath in its colour as you go, with a buzz as you cross into it, and has Undo. Vertical drags still scroll, a tap still opens it, the reorder handle is left alone, a mouse is unaffected (`swipe-row.tsx`) |
 | New block before it's named | The dashed block can be resized from its top and bottom edges (violet grips) or moved by its middle while its card stays open, title and all |
 | Popup placement | Menus, popovers, dropdowns and tooltips keep 16 px from the screen's edges when they have to move (`popupEdge()` in `components/ui/popup-edge.ts`; Radix's default is flush), and on a phone stay clear of the tab bar, opening upwards instead. Dropdowns open below their field at its width (popper, not item-aligned). Dialogs centre; the command palette and Quick capture sit at 22% from the top, clear of an on-screen keyboard. Cards on the timeline (block toolbar, new-block card) centre under their block, kept inside the timeline (`useCentredCard`). Bars along the bottom (Tap a time, bulk actions) sit above the phone's tab bar, and toasts rise above them |
 | Undo, not "Are you sure?" | Adding, moving or removing a time block happens at once; the toast offers Undo. Toast actions use the primary colour, since glass would make Sonner's own see-through |
@@ -148,6 +149,7 @@ what doesn't need JavaScript.
 | New notification | Bell badge pops |
 | Theme switch | New theme spreads in a circle from the toggle (View Transitions) |
 | Glass at rest | Tiles' bend eases back in 0.45 s after scrolling stops |
+| Flow at rest | The Liquid flow rests after 20 s without a touch, key, scroll or pointer movement (battery) and carries on from the same frame at the next one |
 
 ### Rules
 
@@ -164,6 +166,18 @@ what doesn't need JavaScript.
 - **Reduce motion** (system setting or Settings → Appearance) cuts every CSS animation and
   transition short, stops Lenis, the flow, the watch's seconds and the scroll effects, and
   tells Motion to skip its animations.
+
+### Loading
+
+- **Dialogs load when first opened** (`features/shell/lazy-dialogs.tsx`), and the everyday
+  ones are fetched once the app is idle so the first open is instant. Don't import a dialog
+  or a page's module from the shell: it puts its libraries (the charts, say) on every page.
+  Shared constants live in small modules of their own (`overview/widget-meta.ts`).
+- **One live read of your data** (`LifeDataProvider` in `lib/db/hooks.ts`): use
+  `useLife()` / `useLifeData()`, never a second whole-table query. Derived numbers that
+  several places show are cached per data object (XP).
+- **Background helpers start after the first paint** (`AfterPaint`): reminders, the focus
+  engine, progress watcher, repeating blocks, glass pointer light, quality monitor.
 
 ## Rendering quality
 
