@@ -27,6 +27,7 @@ import { QUICK_ACTION_META, useActions } from "./actions"
 import { navForPath } from "./nav"
 import { LifeMark, SidebarContent } from "./sidebar"
 import { useLife, useXP } from "./use-life"
+import { SyncDot, SyncMenuStatus } from "@/features/sync/sync-ui"
 
 function Breadcrumbs() {
   const pathname = usePathname()
@@ -262,13 +263,17 @@ function ProfileMenu() {
   const { resolvedTheme, setTheme } = useTheme()
   const dark = resolvedTheme !== "light"
   const trigger = useRef<HTMLButtonElement>(null)
+  const router = useRouter()
   const name = life?.prefs.name || "You"
   const initial = name.trim()[0]?.toUpperCase() ?? "Y"
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
         <button ref={trigger} type="button" className="flex h-9 items-center gap-2.5 rounded-control border border-line bg-surface p-px transition-colors hover:bg-surface-2 sm:h-10 sm:py-1 sm:pr-3 sm:pl-1" aria-label="Profile menu">
-          <span className="grid size-8 place-items-center rounded-full bg-gradient-to-br from-violet to-blue text-sm font-semibold text-primary-foreground">{initial}</span>
+          <span className="relative grid size-8 place-items-center rounded-full bg-gradient-to-br from-violet to-blue text-sm font-semibold text-primary-foreground">
+            {initial}
+            <SyncDot />
+          </span>
           <span className="hidden text-left leading-tight sm:block">
             <span className="block text-sm font-medium">{name}</span>
             {xp && (
@@ -281,6 +286,15 @@ function ProfileMenu() {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-60">
         <DropdownMenuLabel>{name}</DropdownMenuLabel>
+        <div className="px-1 pb-1 empty:hidden">
+          <SyncMenuStatus
+            onOpen={() => {
+              setOpen(false)
+              router.push("/settings#data")
+              window.dispatchEvent(new CustomEvent("life-os:settings", { detail: "data" }))
+            }}
+          />
+        </div>
         <DropdownMenuItem asChild>
           <Link href="/settings">
             <Settings /> Settings

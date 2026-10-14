@@ -179,6 +179,60 @@ export function SyncGate({ onReady }: { onReady: () => void }) {
   )
 }
 
+type SyncStatus = "synced" | "syncing" | "offline" | "error" | "waiting"
+
+/** How sync is doing on this device, and when it last finished. Only call while SYNCED. */
+function useSyncStatus() {
+  const state = useObservable(db.cloud.syncState)
+  const persisted = useObservable(db.cloud.persistedSyncState)
+  const status: SyncStatus =
+    state?.phase === "in-sync"
+      ? "synced"
+      : state?.phase === "pushing" || state?.phase === "pulling"
+        ? "syncing"
+        : state?.phase === "offline" || state?.status === "offline"
+          ? "offline"
+          : state?.phase === "error"
+            ? "error"
+            : "waiting"
+  return { status, last: persisted?.timestamp, error: state?.error }
+}
+
+const statusText = (status: SyncStatus, last?: Date) =>
+  status === "synced" ? (last ? `Synced ${formatDistanceToNowStrict(last, { addSuffix: true })}` : "Synced") : status === "syncing" ? "Syncing…" : status === "offline" ? "Offline: syncs when you're back" : status === "error" ? "Couldn't sync" : "Waiting to sync"
+
+/** A dot on your profile picture while sync is on: green up to date, violet syncing, grey offline or waiting, red on a problem. */
+export function SyncDot() {
+  return SYNCED ? <SyncDotOn /> : null
+}
+
+function SyncDotOn() {
+  const { status, last } = useSyncStatus()
+  return (
+    <span
+      role="img"
+      aria-label={statusText(status, last)}
+      className={cn("absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full ring-2 ring-background", status === "synced" ? "bg-mint" : status === "syncing" ? "animate-pulse bg-violet" : status === "error" ? "bg-destructive" : "bg-muted-foreground")}
+    />
+  )
+}
+
+/** The profile menu's line about sync; it opens the sync settings. */
+export function SyncMenuStatus({ onOpen }: { onOpen: () => void }) {
+  return SYNCED ? <SyncMenuStatusOn onOpen={onOpen} /> : null
+}
+
+function SyncMenuStatusOn({ onOpen }: { onOpen: () => void }) {
+  const { status, last } = useSyncStatus()
+  const Icon = status === "error" || status === "offline" ? CloudOff : Cloud
+  return (
+    <button type="button" onClick={onOpen} className="flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left text-xs text-muted-foreground outline-none hover:bg-foreground/[0.06] focus-visible:ring-2 focus-visible:ring-ring">
+      <Icon className="size-3.5 shrink-0" />
+      {statusText(status, last)}
+    </button>
+  )
+}
+
 /** Settings → Data & backup: turn sync on, see how it's doing, or stop it on this device. */
 export function SyncGroup() {
   if (!syncAvailable) return null
@@ -235,21 +289,17 @@ function SyncOff() {
 
 function SyncOn() {
   const user = useObservable(db.cloud.currentUser)
-  const state = useObservable(db.cloud.syncState)
-  const persisted = useObservable(db.cloud.persistedSyncState)
+  const sync = useSyncStatus()
   const [confirmStop, setConfirmStop] = useState(false)
   const [stopping, setStopping] = useState(false)
-  const status =
-    state?.phase === "in-sync"
-      ? { label: "Up to date", tone: "bg-mint/20" }
-      : state?.phase === "pushing" || state?.phase === "pulling"
-        ? { label: "Syncing…", tone: "bg-blue/20" }
-        : state?.phase === "offline" || state?.status === "offline"
-          ? { label: "Offline", tone: "bg-foreground/10" }
-          : state?.phase === "error"
-            ? { label: "Couldn't sync", tone: "bg-destructive/15 text-destructive" }
-            : { label: "Waiting", tone: "bg-foreground/10" }
-  const last = persisted?.timestamp ? `Last synced ${formatDistanceToNowStrict(persisted.timestamp, { addSuffix: true })}` : "Not synced yet"
+  const status = {
+    synced: { label: "Up to date", tone: "bg-mint/20" },
+    syncing: { label: "Syncing…", tone: "bg-blue/20" },
+    offline: { label: "Offline", tone: "bg-foreground/10" },
+    error: { label: "Couldn't sync", tone: "bg-destructive/15 text-destructive" },
+    waiting: { label: "Waiting", tone: "bg-foreground/10" },
+  }[sync.status]
+  const last = sync.last ? `Last synced ${formatDistanceToNowStrict(sync.last, { addSuffix: true })}` : "Not synced yet"
   const stop = async () => {
     setStopping(true)
     try {
@@ -261,11 +311,11 @@ function SyncOn() {
     }
   }
   return (
-    <Group id="s-sync" title="Sync" footer={state?.phase === "offline" ? "You're offline. Changes stay on this device and sync when you're back online." : FOOTER}>
+    <Group id="s-sync" title="Sync" footer={sync.status === "offline" ? "You're offline. Changes stay on this device and sync when you're back online." : FOOTER}>
       <Row
-        icon={<IconTile icon={state?.phase === "error" ? CloudOff : Cloud} color="#0a84ff" />}
+        icon={<IconTile icon={sync.status === "error" ? CloudOff : Cloud} color="#0a84ff" />}
         label={user?.email ? `Syncing as ${user.email}` : "Syncing"}
-        description={state?.phase === "error" && state.error ? state.error.message : last}
+        description={sync.status === "error" && sync.error ? sync.error.message : last}
         control={<span className={cn("rounded-full px-2 py-0.5 text-[11px] font-medium", status.tone)}>{status.label}</span>}
       />
       <Row icon={<IconTile icon={RefreshCw} color="#5e5ce6" />} label="Sync now" onClick={() => void db.cloud.sync().catch((e) => toast.error("Couldn't sync", { description: message(e) }))} />

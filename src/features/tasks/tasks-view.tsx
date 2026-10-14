@@ -43,6 +43,7 @@ import { useLife, type Life } from "@/features/shell/use-life"
 import { deleteWithUndo, useSettling } from "./task-actions"
 import { TaskBoard } from "./task-board"
 import { DragHandle, TaskRow } from "./task-row"
+import { TaskQuickAdd } from "./task-quick-add"
 
 type ViewFilter = "open" | "today" | "upcoming" | "overdue" | "someday" | "done"
 type Sort = "smart" | "due" | "priority" | "manual" | "created"
@@ -342,6 +343,8 @@ function Tasks({ life, blocks }: { life: Life; blocks: NonNullable<ReturnType<ty
           )}
         </div>
       </div>
+
+      <TaskQuickAdd defaultDue={filter === "today" ? today : null} />
 
       {view === "board" ? (
         <TaskBoard tasks={boardTasks} today={today} byId={byId} />

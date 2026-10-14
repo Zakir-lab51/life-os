@@ -140,8 +140,9 @@ function MyDay({ life, date, blocks }: { life: Life; date: string; blocks: NonNu
               <DayJump date={date} onPick={(d) => setPlannerDate(d === today ? null : d)} />
             </div>
             {!isPast && (
-              <Button onClick={() => setPlanOpen(true)}>
-                <WandSparkles /> Plan my day
+              <Button onClick={() => setPlanOpen(true)} aria-label="Plan my day">
+                {/* "Plan" on a phone, so it fits beside the day switcher */}
+                <WandSparkles /> Plan<span className="max-sm:hidden"> my day</span>
               </Button>
             )}
           </>
