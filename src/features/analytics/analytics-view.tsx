@@ -73,8 +73,8 @@ function Analytics({ life }: { life: Life }) {
     <PageTransition>
       <PageHeader title="Analytics" description="Everything here is calculated from what you've actually recorded." />
 
+      {/* the icon goes with the dates it labels, so it never sits alone when the row wraps on a phone */}
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <CalendarRange className="size-4 text-muted-foreground" />
         <Segmented<Range>
           ariaLabel="Date range"
           value={range}
@@ -85,7 +85,8 @@ function Analytics({ life }: { life: Life }) {
             { value: 90, label: "Last 90 days" },
           ]}
         />
-        <span className="text-xs text-muted-backdrop on-backdrop">
+        <span className="flex items-center gap-1.5 text-xs text-muted-backdrop on-backdrop">
+          <CalendarRange className="size-3.5" aria-hidden />
           {formatDay(from, "d MMM")} – {formatDay(today, "d MMM yyyy")}
         </span>
       </div>

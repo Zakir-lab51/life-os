@@ -949,3 +949,16 @@ html[data-motion="reduced"] *::after {
   animation-iteration-count: 1 !important;
   transition-duration: 0.01ms !important;
 }
+
+/*
+  On a touch screen a text field is never under 16 px: iOS zooms the whole page in when one
+  smaller gets focus, and leaves it zoomed after. Outside any layer, so it outranks the
+  utilities that set 14 px on the fields; desktops keep their sizes.
+*/
+@media (pointer: coarse) {
+  input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="color"]),
+  textarea,
+  select {
+    font-size: max(16px, 1em);
+  }
+}
