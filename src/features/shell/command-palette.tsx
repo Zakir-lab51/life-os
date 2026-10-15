@@ -23,6 +23,8 @@ import { habitsForDay, logsByHabit } from "@/lib/domain/habits"
 import { QUICK_ACTIONS } from "@/lib/domain/types"
 import { attempt } from "@/lib/feedback"
 import { useUI } from "@/lib/stores/ui"
+import { openProject } from "@/features/projects/route"
+import { ProjectGlyph } from "@/features/projects/shared"
 import { QUICK_ACTION_META, useActions } from "./actions"
 import { NAV } from "./nav"
 import { useLife } from "./use-life"
@@ -42,6 +44,7 @@ export function CommandPalette() {
     () => (life ? life.data.tasks.filter((t) => t.status !== "done").sort((a, b) => a.priority - b.priority || (a.dueDate ?? "9").localeCompare(b.dueDate ?? "9")) : []),
     [life],
   )
+  const projects = useMemo(() => (life ? life.data.projects.filter((p) => p.status === "active" || p.status === "paused") : []), [life])
   const habitsToday = useMemo(
     () => (life ? habitsForDay(life.data.habits, logsByHabit(life.data.habitLogs), life.today, life.prefs.weekStartsOn) : []),
     [life],
@@ -110,6 +113,21 @@ export function CommandPalette() {
                     <Icon name={habit.icon} />
                     <span>{habit.name}</span>
                     {done ? <Check className="ml-auto text-mint" /> : <span className="ml-auto text-xs text-muted-foreground">Check in</span>}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </>
+          )}
+
+          {projects.length > 0 && (
+            <>
+              <CommandSeparator />
+              <CommandGroup heading="Projects">
+                {projects.map((p) => (
+                  <CommandItem key={p.id} value={`project ${p.name} ${p.id}`} onSelect={close(() => openProject(p.id, navigate))}>
+                    <ProjectGlyph project={p} size="sm" className="size-5 rounded-md [&_svg]:size-3" />
+                    <span className="truncate">{p.name}</span>
+                    {p.status === "paused" && <span className="ml-auto text-xs text-muted-foreground">Paused</span>}
                   </CommandItem>
                 ))}
               </CommandGroup>

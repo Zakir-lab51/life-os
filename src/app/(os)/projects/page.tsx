@@ -1,8 +1,8 @@
 import type { Metadata } from "next"
-import { PlannedView } from "@/features/planned/planned-view"
+import { ProjectsView } from "@/features/projects/projects-view"
 
 export const metadata: Metadata = { title: "Projects" }
 
 export default function Page() {
-  return <PlannedView module="projects" />
+  return <ProjectsView />
 }

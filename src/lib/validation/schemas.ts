@@ -1,6 +1,6 @@
 import { z } from "zod"
 import { FONTS, MATERIALS, PHOTOS, type FontId, type MaterialId, type PhotoId } from "@/lib/design/design"
-import { AREAS, GOAL_HORIZONS, QUICK_ACTIONS, RADAR_DIMS, WIDGET_IDS } from "@/lib/domain/types"
+import { AREAS, GOAL_HORIZONS, PROJECT_STATUSES, QUICK_ACTIONS, RADAR_DIMS, WIDGET_IDS } from "@/lib/domain/types"
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use a valid date")
 const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use HH:mm")
@@ -38,6 +38,7 @@ export const taskInputSchema = z.object({
   recurrence: recurrenceSchema.default(null),
   dependsOn: z.array(id).max(20).default([]),
   goalId: id.nullable().default(null),
+  projectId: id.nullable().default(null),
 })
 export type TaskInput = z.input<typeof taskInputSchema>
 
@@ -129,6 +130,44 @@ export const goalInputSchema = z
   })
 export type GoalInput = z.input<typeof goalInputSchema>
 
+/* ── projects ── */
+
+/** Only web and mail links: anything else (javascript:, data:) could run code when clicked. */
+export const projectLinkSchema = z.object({
+  id,
+  title: z.string().trim().max(120, "Keep the name under 120 characters"),
+  url: z
+    .string()
+    .trim()
+    .max(2000)
+    .refine((v) => {
+      try {
+        return ["http:", "https:", "mailto:"].includes(new URL(v).protocol)
+      } catch {
+        return false
+      }
+    }, "Use a web address, like https://…"),
+})
+
+export const projectInputSchema = z
+  .object({
+    name: z.string().trim().min(1, "Name your project").max(120, "Keep the name under 120 characters"),
+    description: z.string().max(2000).default(""),
+    area: area.default("work"),
+    icon: z.string().min(1).max(40).default("FolderKanban"),
+    color: accent.default("violet"),
+    startDate: isoDate,
+    dueDate: isoDate.nullable().default(null),
+    milestones: z.array(milestoneSchema).max(50, "Up to 50 milestones").default([]),
+    goalId: id.nullable().default(null),
+    notes: z.string().max(20000, "Notes are limited to 20,000 characters").default(""),
+    links: z.array(projectLinkSchema).max(30, "Up to 30 links").default([]),
+  })
+  .superRefine((p, ctx) => {
+    if (p.dueDate && p.dueDate < p.startDate) ctx.addIssue({ code: "custom", message: "The deadline is before the start", path: ["dueDate"] })
+  })
+export type ProjectInput = z.input<typeof projectInputSchema>
+
 export const goalLogInputSchema = z.object({
   date: isoDate,
   value: z.number({ message: "Enter a number" }).finite("Enter a number"),
@@ -217,6 +256,7 @@ export const taskRecordSchema = z.object({
   nextId: id.nullable().optional(),
   dependsOn: z.array(id),
   goalId: id.nullable().optional(),
+  projectId: id.nullable().optional(),
   order: z.number(),
   completedAt: isoDateTime.nullable(),
   ...stamps,
@@ -237,6 +277,25 @@ const goalRecordSchema = z.object({
   status: z.enum(["active", "done", "archived"]),
   completedAt: isoDateTime.nullable(),
   order: z.number(),
+  ...stamps,
+})
+
+const projectRecordSchema = z.object({
+  id,
+  name: z.string().max(120),
+  description: z.string().max(2000),
+  area,
+  icon: z.string().max(40),
+  color: accent,
+  status: z.enum(PROJECT_STATUSES),
+  startDate: isoDate,
+  dueDate: isoDate.nullable(),
+  milestones: z.array(milestoneSchema),
+  goalId: id.nullable(),
+  notes: z.string().max(20000),
+  links: z.array(projectLinkSchema),
+  order: z.number(),
+  completedAt: isoDateTime.nullable(),
   ...stamps,
 })
 
@@ -343,6 +402,8 @@ export const backupSchema = z.object({
     reviews: z
       .array(z.object({ id: isoDate, weekStart: isoDate, wins: z.string().max(4000), improve: z.string().max(4000), topTaskIds: z.array(id).max(10), createdAt: isoDateTime, updatedAt: isoDateTime }))
       .default([]),
+    // added with Projects
+    projects: z.array(projectRecordSchema).default([]),
   }),
 })
 export type Backup = z.infer<typeof backupSchema>

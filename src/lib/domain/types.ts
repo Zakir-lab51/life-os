@@ -60,6 +60,8 @@ export interface Task {
   dependsOn: ID[]
   /** The goal this task moves forward, if any. */
   goalId?: ID | null
+  /** The project this task belongs to, if any. */
+  projectId?: ID | null
   /** Manual ordering for list and board views. */
   order: number
   completedAt: ISODateTime | null
@@ -206,6 +208,8 @@ export type ActivityType =
   | "goal.completed"
   | "milestone.completed"
   | "goal.logged"
+  | "project.completed"
+  | "project.milestone"
 
 export interface ActivityEvent {
   id: ID
@@ -297,6 +301,44 @@ export interface GoalLog {
   demo?: boolean
 }
 
+/* ── projects (Phase 2) ────────────────────────────── */
+
+/** Paused projects stay with the active ones, just set aside; done and archived ones are kept apart. */
+export const PROJECT_STATUSES = ["active", "paused", "done", "archived"] as const
+export type ProjectStatus = (typeof PROJECT_STATUSES)[number]
+
+/** A link kept with a project: a doc, a folder, a reference. */
+export interface ProjectLink {
+  id: ID
+  title: string
+  url: string
+}
+
+/** Long-running work: its tasks (linked by `Task.projectId`), milestones, notes and links. */
+export interface Project {
+  id: ID
+  name: string
+  /** What done looks like; shown under the name. */
+  description: string
+  area: Area
+  icon: string
+  color: AccentColor
+  status: ProjectStatus
+  startDate: ISODate
+  dueDate: ISODate | null
+  milestones: Milestone[]
+  /** The goal this project serves, if any. */
+  goalId: ID | null
+  /** Free-form notes kept with the project. */
+  notes: string
+  links: ProjectLink[]
+  order: number
+  completedAt: ISODateTime | null
+  createdAt: ISODateTime
+  updatedAt: ISODateTime
+  demo?: boolean
+}
+
 export interface RoutineItem {
   id: ID
   label: string
@@ -328,7 +370,7 @@ export const RADAR_DIMS = [
 ] as const
 export type RadarDim = (typeof RADAR_DIMS)[number]
 
-export const QUICK_ACTIONS = ["task", "capture", "habit", "goal", "block", "focus", "plan", "reflection"] as const
+export const QUICK_ACTIONS = ["task", "capture", "habit", "goal", "project", "block", "focus", "plan", "reflection"] as const
 export type QuickActionId = (typeof QUICK_ACTIONS)[number]
 
 export type ProductivityStyle = "classic" | "deep" | "flow" | "flexible"

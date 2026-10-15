@@ -1,7 +1,8 @@
 "use client"
 
 import { Archive, ArchiveRestore, Check, CornerLeftUp, Ellipsis, Pencil, Plus, RotateCcw, Trash2, Trophy } from "lucide-react"
-import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { useMemo, useState } from "react"
 import { Area, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -11,15 +12,19 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Input } from "@/components/ui/input"
 import { ChartFrame, ChartTooltip, LegendItem, axisProps } from "@/components/os/chart"
 import { DatePicker } from "@/components/os/date-picker"
+import { MilestoneTrack } from "@/components/os/milestones"
 import { HatchBar, RingGauge } from "@/components/os/visuals"
 import { deleteGoal, deleteGoalLog, logGoalValue, restoreGoal, setGoalStatus, toggleHabitLog, toggleMilestone, updateGoal } from "@/lib/db/repo"
 import { addDays, formatDay, fromISODate, toISODate } from "@/lib/domain/dates"
 import { HORIZON_META, linkedTasks, type GoalEvaluation } from "@/lib/domain/goals"
+import { evaluateProjects, projectDueText } from "@/lib/domain/projects"
 import type { Goal, Habit } from "@/lib/domain/types"
 import { attempt, succeeded } from "@/lib/feedback"
 import { useUI } from "@/lib/stores/ui"
 import { cn, uid } from "@/lib/utils"
 import { toggleDone } from "@/features/tasks/task-actions"
+import { openProject } from "@/features/projects/route"
+import { HealthBadge, ProjectGlyph } from "@/features/projects/shared"
 import { useLife, type Life } from "@/features/shell/use-life"
 import { AreaDot, HorizonChip, OutlookBadge, dueText, forecastSentence, useGoalEvaluations } from "./shared"
 
@@ -187,6 +192,8 @@ function GoalSheet({ goal, evaluation, life }: { goal: Goal; evaluation: GoalEva
           )}
         </section>
 
+        <ServingProjects goal={goal} life={life} />
+
         {habits.length > 0 && (
           <section>
             <SectionTitle>Supporting habits</SectionTitle>
@@ -206,6 +213,48 @@ function GoalSheet({ goal, evaluation, life }: { goal: Goal; evaluation: GoalEva
         )}
       </div>
     </div>
+  )
+}
+
+/** Projects that serve this goal, each opening its own page. */
+function ServingProjects({ goal, life }: { goal: Goal; life: Life }) {
+  const router = useRouter()
+  const projects = useMemo(() => life.data.projects.filter((p) => p.goalId === goal.id && p.status !== "archived"), [life.data.projects, goal.id])
+  const evaluations = useMemo(() => evaluateProjects(projects, life.data.tasks, life.today), [projects, life.data.tasks, life.today])
+  if (!projects.length) return null
+  return (
+    <section>
+      <SectionTitle>Projects for it</SectionTitle>
+      <ul className="space-y-2">
+        {projects.map((p) => {
+          const e = evaluations.get(p.id)!
+          return (
+            <li key={p.id}>
+              <button
+                type="button"
+                onClick={() => {
+                  useUI.getState().showGoal(null)
+                  openProject(p.id, router.push)
+                }}
+                className="pressable w-full rounded-[calc(var(--radius)*1.15)] bg-surface-2/60 px-4 py-3 text-left ring-1 ring-line [--press-scale:0.99] hover:bg-surface-2"
+              >
+                <div className="mb-1.5 flex items-center justify-between gap-2">
+                  <span className="flex min-w-0 items-center gap-2">
+                    <ProjectGlyph project={p} size="sm" />
+                    <span className="truncate text-sm font-medium">{p.name}</span>
+                  </span>
+                  <HealthBadge health={e.health} />
+                </div>
+                <HatchBar value={e.progress.ratio} tone={p.color} height={6} />
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  {e.progress.label} · {projectDueText(p, life.today)}
+                </p>
+              </button>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
   )
 }
 
@@ -324,66 +373,21 @@ function LogProgress({ goal, life }: { goal: Goal; life: Life }) {
 }
 
 function Milestones({ goal, today }: { goal: Goal; today: string }) {
-  const [title, setTitle] = useState("")
-  const [due, setDue] = useState<string | null>(null)
   if (!goal.milestones.length && goal.status !== "active") return null
-  const add = async () => {
-    const t = title.trim()
-    if (!t) return
-    if (await succeeded(() => updateGoal(goal.id, { milestones: [...goal.milestones, { id: uid("ms_"), title: t.slice(0, 120), due, doneAt: null }] }))) {
-      setTitle("")
-      setDue(null)
-    }
-  }
   const done = goal.milestones.filter((m) => m.doneAt).length
   return (
     <section>
       <SectionTitle>{`Milestones${goal.milestones.length ? ` · ${done}/${goal.milestones.length}` : ""}`}</SectionTitle>
-      <ol className="relative space-y-1">
-        {goal.milestones.map((m, i) => {
-          const late = !m.doneAt && m.due && m.due < today
-          return (
-            <li key={m.id} className="relative flex items-center gap-3 rounded-xl px-1 py-1.5">
-              {i < goal.milestones.length - 1 && <span aria-hidden className={cn("absolute top-8 bottom-[-10px] left-[15px] w-0.5 rounded-full", m.doneAt ? "bg-mint/60" : "bg-line")} />}
-              <button
-                type="button"
-                role="checkbox"
-                aria-checked={!!m.doneAt}
-                aria-label={`${m.doneAt ? "Reached" : "Reach"}: ${m.title}`}
-                onClick={() =>
-                  void attempt(async () => {
-                    if (await toggleMilestone(goal.id, m.id)) toast.success("Milestone reached", { description: m.title })
-                  })
-                }
-                className={cn("pressable relative grid size-7 shrink-0 place-items-center rounded-full ring-1 transition-colors", m.doneAt ? "bg-mint text-white ring-mint" : "bg-surface-2 text-muted-foreground ring-line hover:ring-foreground/30")}
-              >
-                {m.doneAt ? <Check className="size-4" strokeWidth={3} /> : <span className="text-[11px] font-semibold">{i + 1}</span>}
-              </button>
-              <span className={cn("min-w-0 flex-1 truncate text-sm", m.doneAt && "text-muted-foreground")}>{m.title}</span>
-              <span className={cn("shrink-0 text-xs", late ? "text-rose" : "text-muted-foreground")}>
-                {m.doneAt ? `Reached ${formatDay(toISODate(new Date(m.doneAt)), "d MMM")}` : m.due ? `${late ? "Was due" : "Due"} ${formatDay(m.due, "d MMM")}` : ""}
-              </span>
-            </li>
-          )
-        })}
-      </ol>
-      {goal.status === "active" && (
-        <form
-          className="mt-2 flex items-center gap-2"
-          onSubmit={(e) => {
-            e.preventDefault()
-            void add()
-          }}
-        >
-          <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Add a milestone" aria-label="New milestone" maxLength={120} className="h-9 flex-1 rounded-xl" />
-          <div className="w-36 shrink-0">
-            <DatePicker value={due} placeholder="No date" onChange={setDue} />
-          </div>
-          <Button type="submit" size="icon-sm" variant="secondary" aria-label="Add milestone" disabled={!title.trim()}>
-            <Plus />
-          </Button>
-        </form>
-      )}
+      <MilestoneTrack
+        milestones={goal.milestones}
+        today={today}
+        onToggle={(m) =>
+          void attempt(async () => {
+            if (await toggleMilestone(goal.id, m.id)) toast.success("Milestone reached", { description: m.title })
+          })
+        }
+        onAdd={goal.status === "active" ? (title, due) => succeeded(() => updateGoal(goal.id, { milestones: [...goal.milestones, { id: uid("ms_"), title, due, doneAt: null }] })) : undefined}
+      />
     </section>
   )
 }

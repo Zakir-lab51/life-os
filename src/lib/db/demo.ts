@@ -1,7 +1,7 @@
 import { db } from "./db"
 import { addDays, fromISODate, toISODate, todayISO, weekday } from "@/lib/domain/dates"
 import { defaultDueDate } from "@/lib/domain/goals"
-import type { ActivityEvent, Area, Block, FocusSession, Goal, GoalLog, Habit, HabitLog, ISODate, Milestone, Reflection, Task } from "@/lib/domain/types"
+import type { ActivityEvent, Area, Block, FocusSession, Goal, GoalLog, Habit, HabitLog, ISODate, Milestone, Project, Reflection, Task } from "@/lib/domain/types"
 import { uid } from "@/lib/utils"
 
 /** Deterministic PRNG so the demo looks the same every time it's loaded. */
@@ -23,8 +23,8 @@ export async function hasDemoData() {
 
 /**
  * Loads a clearly-labelled sample life: tasks, habits with ~9 weeks of
- * history, focus sessions, reflections, today's timeline and a small tree of
- * goals linked to those tasks and habits. Every record
+ * history, focus sessions, reflections, today's timeline, a small tree of
+ * goals linked to those tasks and habits, and three projects. Every record
  * carries `demo: true` so "Remove demo data" can delete exactly these.
  */
 export async function seedDemo(now = new Date()) {
@@ -338,6 +338,63 @@ export async function seedDemo(now = new Date()) {
   if (cv) cv.goalId = internship.id
   tasks.push(...goalTasks)
 
+  /* projects: one under way (serving the internship goal), one small and personal, one finished */
+  const projects: Project[] = []
+  const project = (p: Pick<Project, "name" | "description" | "area" | "icon" | "color" | "startDate" | "dueDate"> & Partial<Project>): Project => {
+    const made: Project = { id: uid("pr_"), status: "active", milestones: [], goalId: null, notes: "", links: [], order: projects.length + 1, completedAt: null, createdAt: at(p.startDate, 9 * 60), updatedAt: stamp, demo: true, ...p }
+    projects.push(made)
+    return made
+  }
+  const done = (title: string, d: number, area: Area, projectId: string) =>
+    task({ title, area, priority: 2, status: "done", dueDate: addDays(T, d), completedAt: at(addDays(T, d), 17 * 60), createdAt: at(addDays(T, d - 3), 9 * 60), updatedAt: at(addDays(T, d), 17 * 60), projectId })
+  const poster = project({
+    name: "Research poster: ECG in athletes",
+    description: "A poster for the college research day on how training changes the resting ECG.",
+    area: "study",
+    icon: "HeartPulse",
+    color: "rose",
+    startDate: addDays(T, -20),
+    dueDate: addDays(T, 21),
+    goalId: internship.id,
+    milestones: [ms("Research question approved", -10, -10), ms("20 ECGs collected", 5), ms("Poster submitted", 20)],
+    notes: "Supervisor: Dr. Rao (Physiology), free after 4 pm on Thursdays.\nAim for 20 ECGs from the sports-quota students; 12 is the minimum for the abstract.\nMeasure QTc with Bazett's formula and note any early repolarisation.",
+    links: [{ id: uid("l_"), title: "PubMed: athlete's heart ECG", url: "https://pubmed.ncbi.nlm.nih.gov/?term=athlete%27s+heart+ECG" }],
+  })
+  const collect = task({ title: "Record ECGs from sports-quota students", area: "study", priority: 2, status: "in_progress", dueDate: addDays(T, 3), estimateMin: 90, projectId: poster.id, createdAt: at(addDays(T, -9), 10 * 60) })
+  tasks.push(
+    done("Literature search on athlete's heart", -18, "study", poster.id),
+    done("Draft the research question", -12, "study", poster.id),
+    done("Meet Dr. Rao about the poster", -6, "study", poster.id),
+    collect,
+    task({ title: "Measure QT intervals", area: "study", priority: 2, dueDate: addDays(T, 8), estimateMin: 60, projectId: poster.id, createdAt: at(addDays(T, -9), 10 * 60) }),
+    task({ title: "Design the poster layout", area: "study", priority: 3, dueDate: addDays(T, 13), estimateMin: 90, projectId: poster.id, createdAt: at(addDays(T, -4), 19 * 60) }),
+    task({ title: "Print the poster", area: "study", priority: 3, dueDate: addDays(T, 19), estimateMin: 30, projectId: poster.id, createdAt: at(addDays(T, -4), 19 * 60) }),
+  )
+  for (const d of [-3, -1]) {
+    const day = addDays(T, d)
+    sessions.push({ id: uid("f_"), mode: "pomodoro", date: day, startedAt: at(day, 16 * 60), endedAt: at(day, 16 * 60 + 50), plannedSec: 3000, actualSec: 3000, taskId: collect.id, area: "study", completed: true, demo: true })
+  }
+  const room = project({ name: "Hostel room makeover", description: "A desk that makes studying the easy choice.", area: "personal", icon: "House", color: "amber", startDate: addDays(T, -8), dueDate: addDays(T, 10) })
+  tasks.push(
+    done("Measure the desk space", -6, "personal", room.id),
+    task({ title: "Buy a desk lamp", area: "personal", priority: 3, dueDate: addDays(T, 2), estimateMin: 30, projectId: room.id, createdAt: at(addDays(T, -6), 20 * 60) }),
+    task({ title: "Put up the anatomy charts", area: "personal", priority: 4, dueDate: addDays(T, 5), estimateMin: 20, projectId: room.id, createdAt: at(addDays(T, -6), 20 * 60) }),
+    task({ title: "Sort out the cable mess", area: "personal", priority: 4, estimateMin: 20, projectId: room.id, createdAt: at(addDays(T, -6), 20 * 60) }),
+  )
+  const seminar = project({
+    name: "Renal physiology seminar",
+    description: "A 15-minute seminar for the batch.",
+    area: "study",
+    icon: "Presentation",
+    color: "cyan",
+    startDate: addDays(T, -35),
+    dueDate: addDays(T, -14),
+    status: "done",
+    completedAt: at(addDays(T, -14), 18 * 60),
+    milestones: [ms("Slides ready", -16, -17), ms("Seminar given", -14, -14)],
+  })
+  tasks.push(done("Outline the seminar", -30, "study", seminar.id), done("Make the slides", -17, "study", seminar.id), done("Rehearse with a timer", -15, "study", seminar.id))
+
   /* history feed, derived from the records above */
   const activity: ActivityEvent[] = [
     ...tasks
@@ -364,6 +421,12 @@ export async function seedDemo(now = new Date()) {
         .map((m) => ({ id: uid("ev_"), type: "milestone.completed" as const, at: m.doneAt!, title: `${m.title} · ${g.title}`, refId: g.id, area: g.area, dedupeKey: `milestone:${g.id}:${m.id}`, demo: true })),
     ),
     ...goals.filter((g) => g.completedAt).map((g) => ({ id: uid("ev_"), type: "goal.completed" as const, at: g.completedAt!, title: g.title, refId: g.id, area: g.area, dedupeKey: `goal:${g.id}`, demo: true })),
+    ...projects.flatMap((p) =>
+      p.milestones
+        .filter((m) => m.doneAt)
+        .map((m) => ({ id: uid("ev_"), type: "project.milestone" as const, at: m.doneAt!, title: `${m.title} · ${p.name}`, refId: p.id, area: p.area, dedupeKey: `pmilestone:${p.id}:${m.id}`, demo: true })),
+    ),
+    ...projects.filter((p) => p.completedAt).map((p) => ({ id: uid("ev_"), type: "project.completed" as const, at: p.completedAt!, title: p.name, refId: p.id, area: p.area, dedupeKey: `project:${p.id}`, demo: true })),
     ...goalLogs.map((l) => {
       const g = goals.find((x) => x.id === l.goalId)!
       const unit = g.measure.kind === "target" && g.measure.unit ? ` ${g.measure.unit}` : ""
@@ -371,11 +434,13 @@ export async function seedDemo(now = new Date()) {
     }),
   ]
 
-  await db.transaction("rw", [db.tasks, db.habits, db.habitLogs, db.focusSessions, db.reflections, db.blocks, db.goals, db.goalLogs, db.activity], async () => {
+  await db.transaction("rw", [db.tasks, db.habits, db.habitLogs, db.focusSessions, db.reflections, db.blocks, db.goals, db.goalLogs, db.projects, db.activity], async () => {
     await db.tasks.bulkAdd(tasks)
-    // demo goals sit after the user's own in the list
+    // demo goals and projects sit after the user's own in their lists
     const lastOrder = (await db.goals.orderBy("order").last())?.order ?? 0
     await db.goals.bulkAdd(goals.map((g) => ({ ...g, order: g.order + lastOrder })))
+    const lastProject = (await db.projects.orderBy("order").last())?.order ?? 0
+    await db.projects.bulkAdd(projects.map((p) => ({ ...p, order: p.order + lastProject })))
     await db.goalLogs.bulkPut(goalLogs)
     await db.habits.bulkAdd(habits)
     await db.habitLogs.bulkPut(logs)
@@ -389,12 +454,16 @@ export async function seedDemo(now = new Date()) {
 
 /** Deletes every record created by `seedDemo`, leaving the user's own data untouched. */
 export async function removeDemo() {
-  await db.transaction("rw", [db.tasks, db.habits, db.habitLogs, db.focusSessions, db.reflections, db.blocks, db.goals, db.goalLogs, db.activity, db.routineChecks], async () => {
+  await db.transaction("rw", [db.tasks, db.habits, db.habitLogs, db.focusSessions, db.reflections, db.blocks, db.goals, db.goalLogs, db.projects, db.activity, db.routineChecks], async () => {
     const demoHabitIds = (await db.habits.filter((h) => !!h.demo).primaryKeys()) as string[]
     const demoGoalIds = (await db.goals.filter((g) => !!g.demo).primaryKeys()) as string[]
+    const demoProjectIds = (await db.projects.filter((p) => !!p.demo).primaryKeys()) as string[]
     await db.tasks.filter((t) => !!t.demo).delete()
-    // the user's own tasks and goals may point at demo goals: keep them, just unlink
+    // the user's own tasks, goals and projects may point at demo ones: keep them, just unlink
     await db.tasks.filter((t) => !!t.goalId && demoGoalIds.includes(t.goalId)).modify({ goalId: null })
+    await db.tasks.filter((t) => !!t.projectId && demoProjectIds.includes(t.projectId)).modify({ projectId: null })
+    await db.projects.filter((p) => !p.demo && !!p.goalId && demoGoalIds.includes(p.goalId)).modify({ goalId: null })
+    await db.projects.bulkDelete(demoProjectIds)
     await db.goals.filter((g) => !g.demo && !!g.parentId && demoGoalIds.includes(g.parentId)).modify({ parentId: null })
     await db.goals.filter((g) => !g.demo).modify((g) => {
       g.habitIds = g.habitIds.filter((id) => !demoHabitIds.includes(id))

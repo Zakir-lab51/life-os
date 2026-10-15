@@ -18,6 +18,7 @@ const load = {
   habit: () => import("@/features/habits/habit-editor").then((m) => m.HabitEditorDialog),
   goal: () => import("@/features/goals/goal-detail").then((m) => m.GoalDetailDialog),
   goalEditor: () => import("@/features/goals/goal-editor").then((m) => m.GoalEditorDialog),
+  projectEditor: () => import("@/features/projects/project-editor").then((m) => m.ProjectEditorDialog),
   block: () => import("@/features/planner/block-editor").then((m) => m.BlockEditorDialog),
   plan: () => import("@/features/planner/plan-dialog").then((m) => m.PlanMyDayDialog),
   reflection: () => import("@/features/planner/reflection-dialog").then((m) => m.ReflectionDialog),
@@ -30,6 +31,7 @@ const TaskEditorDialog = dynamic(load.task, { ssr: false })
 const HabitEditorDialog = dynamic(load.habit, { ssr: false })
 const GoalDetailDialog = dynamic(load.goal, { ssr: false })
 const GoalEditorDialog = dynamic(load.goalEditor, { ssr: false })
+const ProjectEditorDialog = dynamic(load.projectEditor, { ssr: false })
 const BlockEditorDialog = dynamic(load.block, { ssr: false })
 const PlanMyDayDialog = dynamic(load.plan, { ssr: false })
 const ReflectionDialog = dynamic(load.reflection, { ssr: false })
@@ -59,6 +61,7 @@ export function LazyDialogs() {
     habit: useOnceOpened(ui.habitEditor.open),
     goal: useOnceOpened(ui.openGoalId !== null),
     goalEditor: useOnceOpened(ui.goalEditor.open),
+    projectEditor: useOnceOpened(ui.projectEditor.open),
     block: useOnceOpened(ui.blockEditor.open),
     plan: useOnceOpened(ui.planOpen),
     reflection: useOnceOpened(ui.reflectionOpen),
@@ -83,6 +86,7 @@ export function LazyDialogs() {
       {show.habit && <HabitEditorDialog />}
       {show.goal && <GoalDetailDialog />}
       {show.goalEditor && <GoalEditorDialog />}
+      {show.projectEditor && <ProjectEditorDialog />}
       {show.block && <BlockEditorDialog />}
       {show.plan && <PlanMyDayDialog />}
       {show.reflection && <ReflectionDialog />}

@@ -35,6 +35,19 @@ import {
   type LucideIcon,
   type LucideProps,
   Trophy,
+  Briefcase,
+  Camera,
+  Code,
+  FolderKanban,
+  Globe,
+  Hammer,
+  HeartPulse,
+  House,
+  Lightbulb,
+  Microscope,
+  Plane,
+  Presentation,
+  Stethoscope,
 } from "lucide-react"
 
 /** Icons a habit can use, by stored name. */
@@ -78,7 +91,32 @@ const OTHER: Record<string, LucideIcon> = {
   Flag,
 }
 
+/** Icons a project can use, by stored name. */
+export const PROJECT_ICONS: Record<string, LucideIcon> = {
+  FolderKanban,
+  Rocket,
+  GraduationCap,
+  BookOpen,
+  Microscope,
+  Stethoscope,
+  HeartPulse,
+  Presentation,
+  Briefcase,
+  Code,
+  PenLine,
+  Palette,
+  Camera,
+  Music,
+  House,
+  Plane,
+  Wallet,
+  Dumbbell,
+  Lightbulb,
+  Hammer,
+  Globe,
+}
+
 export function Icon({ name, ...props }: { name: string } & LucideProps) {
-  const C = HABIT_ICONS[name] ?? OTHER[name] ?? Sparkles
+  const C = HABIT_ICONS[name] ?? PROJECT_ICONS[name] ?? OTHER[name] ?? Sparkles
   return <C {...props} />
 }

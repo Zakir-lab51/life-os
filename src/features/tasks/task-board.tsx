@@ -24,6 +24,7 @@ import { blockingTasks } from "@/lib/domain/tasks"
 import type { Task, TaskStatus } from "@/lib/domain/types"
 import { BlockedError, setTaskStatus } from "@/lib/db/repo"
 import { reportError } from "@/lib/feedback"
+import type { TaskInput } from "@/lib/validation/schemas"
 import { useUI } from "@/lib/stores/ui"
 import { cn } from "@/lib/utils"
 import { arrangeBoard, settlePending } from "./board-layout"
@@ -45,9 +46,9 @@ const INSTRUCTIONS =
  * the card lands exactly where it will stay; after a drop the move shows at once and the
  * write catches up (a blocked move is put back). Mouse drags start after 6 px; touch drags
  * start on a short press-and-hold, so swiping over cards still scrolls the page. With the
- * keyboard, arrows jump from column to column.
+ * keyboard, arrows jump from column to column. `defaults` fill in tasks added from a column (a project's board adds to the project).
  */
-export function TaskBoard({ tasks, today, byId }: { tasks: Task[]; today: string; byId: Map<string, Task> }) {
+export function TaskBoard({ tasks, today, byId, defaults }: { tasks: Task[]; today: string; byId: Map<string, Task>; defaults?: Partial<TaskInput> }) {
   const [active, setActive] = useState<Task | null>(null)
   const [over, setOver] = useState<TaskStatus | null>(null)
   // moves already dropped, shown until the database reports them
@@ -141,7 +142,7 @@ export function TaskBoard({ tasks, today, byId }: { tasks: Task[]; today: string
     >
       <div className="grid gap-4 @4xl/main:grid-cols-3">
         {COLUMNS.map((col) => (
-          <Column key={col.status} col={col} tasks={columns[col.status]} today={today} byId={byId} dragging={!!active} />
+          <Column key={col.status} col={col} tasks={columns[col.status]} today={today} byId={byId} dragging={!!active} defaults={defaults} />
         ))}
       </div>
       <DragOverlay dropAnimation={{ duration: 220, easing: "cubic-bezier(0.22,1,0.36,1)" }}>
@@ -151,7 +152,7 @@ export function TaskBoard({ tasks, today, byId }: { tasks: Task[]; today: string
   )
 }
 
-function Column({ col, tasks, today, byId, dragging }: { col: (typeof COLUMNS)[number]; tasks: Task[]; today: string; byId: Map<string, Task>; dragging: boolean }) {
+function Column({ col, tasks, today, byId, dragging, defaults }: { col: (typeof COLUMNS)[number]; tasks: Task[]; today: string; byId: Map<string, Task>; dragging: boolean; defaults?: Partial<TaskInput> }) {
   const { setNodeRef, isOver } = useDroppable({ id: col.status })
   const openTaskEditor = useUI((s) => s.openTaskEditor)
   return (
@@ -168,7 +169,7 @@ function Column({ col, tasks, today, byId, dragging }: { col: (typeof COLUMNS)[n
           <button
             type="button"
             aria-label={`Add task to ${col.label}`}
-            onClick={() => openTaskEditor(null, { status: col.status })}
+            onClick={() => openTaskEditor(null, { ...defaults, status: col.status })}
             className="pressable ml-auto grid size-8 place-items-center rounded-full text-muted-foreground outline-none hover:bg-surface-3 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
           >
             <Plus className="size-4" />

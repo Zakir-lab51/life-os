@@ -5,7 +5,7 @@ import { ACHIEVEMENTS, computeStats, computeXP, levelFromXP } from "@/lib/domain
 import type { LifeData } from "@/lib/domain/scores"
 import type { Habit } from "@/lib/domain/types"
 
-export function evaluateProgress(data: LifeData, today: string) {
+export function evaluateProgress(data: Omit<LifeData, "projects">, today: string) {
   const stats = computeStats({ ...data, habits: data.habits as Habit[], today })
   const xp = computeXP(data)
   return { stats, xp, level: levelFromXP(xp.total), earned: ACHIEVEMENTS.filter((a) => a.check(stats)) }

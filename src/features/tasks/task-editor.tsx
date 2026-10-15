@@ -49,6 +49,7 @@ function toDraft(t: Task | null, defaults: Partial<TaskInput> | null): Draft {
     recurrence: t?.recurrence ?? null,
     dependsOn: t?.dependsOn ?? [],
     goalId: t?.goalId ?? null,
+    projectId: t?.projectId ?? null,
     ...(defaults as Partial<Draft>),
   }
 }
@@ -94,6 +95,7 @@ function TaskForm({ task, defaults, onDone, guard }: { task: Task | null; defaul
   const [newSub, setNewSub] = useState("")
   const allTasks = useLiveQuery(() => db.tasks.toArray(), [])
   const goals = useLiveQuery(() => db.goals.orderBy("order").filter((g) => g.status === "active" || g.id === d.goalId).toArray(), [d.goalId])
+  const projects = useLiveQuery(() => db.projects.orderBy("order").filter((p) => p.status === "active" || p.status === "paused" || p.id === d.projectId).toArray(), [d.projectId])
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setD((p) => ({ ...p, [k]: v }))
 
   const tagSuggestions = useMemo(() => [...new Set((allTasks ?? []).flatMap((t) => t.tags))].sort(), [allTasks])
@@ -244,21 +246,38 @@ function TaskForm({ task, defaults, onDone, guard }: { task: Task | null; defaul
           </Field>
         </div>
 
-        <Field label="Goal" htmlFor="task-goal" hint="Finishing this task moves the goal forward (and counts toward goals measured by tasks).">
-          <Select value={d.goalId ?? "none"} onValueChange={(v) => set("goalId", v === "none" ? null : v)}>
-            <SelectTrigger id="task-goal" className="h-10 w-full rounded-xl">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">No goal</SelectItem>
-              {(goals ?? []).map((g) => (
-                <SelectItem key={g.id} value={g.id}>
-                  {g.title}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Project" htmlFor="task-project" hint="It shows on the project's page and board.">
+            <Select value={d.projectId ?? "none"} onValueChange={(v) => set("projectId", v === "none" ? null : v)}>
+              <SelectTrigger id="task-project" className="h-10 w-full rounded-xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No project</SelectItem>
+                {(projects ?? []).map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Goal" htmlFor="task-goal" hint="Finishing this task moves the goal forward (and counts toward goals measured by tasks).">
+            <Select value={d.goalId ?? "none"} onValueChange={(v) => set("goalId", v === "none" ? null : v)}>
+              <SelectTrigger id="task-goal" className="h-10 w-full rounded-xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No goal</SelectItem>
+                {(goals ?? []).map((g) => (
+                  <SelectItem key={g.id} value={g.id}>
+                    {g.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+        </div>
 
         <Field label="Repeat" error={errors["recurrence.interval"] ?? errors.recurrence}>
           <div className="space-y-3">

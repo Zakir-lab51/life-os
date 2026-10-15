@@ -64,6 +64,8 @@ function useStatuses(): Partial<Record<NavKey, Status>> {
     else if (dueToday) out.tasks = { text: String(dueToday), tone: "violet" }
     const left = habitsForDay(data.habits, logsByHabit(data.habitLogs), today, prefs.weekStartsOn).filter((s) => !s.done && (!s.progress || s.progress.count < s.progress.target)).length
     if (left) out.habits = { text: `${left} left`, tone: "muted" }
+    const late = data.projects.filter((p) => p.status === "active" && p.dueDate && p.dueDate < today).length
+    if (late) out.projects = { text: `${late} late`, tone: "rose" }
     return out
   }, [life, timer, now])
 }

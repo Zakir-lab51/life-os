@@ -19,6 +19,8 @@ import type {
   ID,
   ISODate,
   Prefs,
+  Project,
+  ProjectStatus,
   Reflection,
   Task,
   TaskStatus,
@@ -33,12 +35,14 @@ import {
   goalLogInputSchema,
   habitInputSchema,
   prefsSchema,
+  projectInputSchema,
   reflectionInputSchema,
   taskInputSchema,
   type BlockInput,
   type BlockSeriesInput,
   type GoalInput,
   type HabitInput,
+  type ProjectInput,
   type TaskInput,
 } from "@/lib/validation/schemas"
 import { uid } from "@/lib/utils"
@@ -158,6 +162,7 @@ function editableFields(t: Task): TaskInput {
     recurrence: t.recurrence,
     dependsOn: t.dependsOn,
     goalId: t.goalId ?? null,
+    projectId: t.projectId ?? null,
   }
 }
 
@@ -295,7 +300,7 @@ export async function toggleSubtask(taskId: ID, subtaskId: ID) {
   await db.tasks.update(taskId, { subtasks, updatedAt: nowISO() })
 }
 
-export async function bulkUpdateTasks(ids: ID[], patch: { priority?: Task["priority"]; dueDate?: ISODate | null; area?: Task["area"] }) {
+export async function bulkUpdateTasks(ids: ID[], patch: { priority?: Task["priority"]; dueDate?: ISODate | null; area?: Task["area"]; projectId?: ID | null }) {
   await db.transaction("rw", db.tasks, async () => {
     for (const id of ids) await db.tasks.update(id, { ...patch, updatedAt: nowISO() })
   })
@@ -792,37 +797,158 @@ export interface GoalSnapshot {
   logs: GoalLog[]
   taskIds: ID[]
   childIds: ID[]
+  projectIds: ID[]
 }
 
-/** Deletes a goal and its logged values; linked tasks and sub-goals are kept but unlinked. Returns a snapshot for undo. */
+/** Deletes a goal and its logged values; linked tasks, projects and sub-goals are kept but unlinked. Returns a snapshot for undo. */
 export async function deleteGoal(id: ID): Promise<GoalSnapshot> {
-  return db.transaction("rw", db.goals, db.goalLogs, db.tasks, db.activity, async () => {
+  return db.transaction("rw", [db.goals, db.goalLogs, db.tasks, db.projects, db.activity], async () => {
     const goal = await db.goals.get(id)
     if (!goal) throw new NotFoundError("This goal")
     const logs = await db.goalLogs.where("goalId").equals(id).toArray()
     const taskIds = (await db.tasks.where("goalId").equals(id).primaryKeys()) as ID[]
     const childIds = (await db.goals.where("parentId").equals(id).primaryKeys()) as ID[]
+    const projectIds = (await db.projects.where("goalId").equals(id).primaryKeys()) as ID[]
     for (const t of taskIds) await db.tasks.update(t, { goalId: null })
     for (const c of childIds) await db.goals.update(c, { parentId: null })
+    for (const p of projectIds) await db.projects.update(p, { goalId: null })
     await db.goalLogs.where("goalId").equals(id).delete()
     await db.goals.delete(id)
     await unlogActivity(`goal:${id}`)
-    return { goal, logs, taskIds, childIds }
+    return { goal, logs, taskIds, childIds, projectIds }
   })
 }
 
 export async function restoreGoal(s: GoalSnapshot) {
-  await db.transaction("rw", db.goals, db.goalLogs, db.tasks, async () => {
+  await db.transaction("rw", [db.goals, db.goalLogs, db.tasks, db.projects], async () => {
     await db.goals.put(s.goal)
     await db.goalLogs.bulkPut(s.logs)
     for (const t of s.taskIds) await db.tasks.update(t, { goalId: s.goal.id })
     for (const c of s.childIds) await db.goals.update(c, { parentId: s.goal.id })
+    for (const p of s.projectIds) await db.projects.update(p, { goalId: s.goal.id })
   })
 }
 
 export async function reorderGoals(ids: ID[]) {
   await db.transaction("rw", db.goals, async () => {
     for (const [i, id] of ids.entries()) await db.goals.update(id, { order: i + 1 })
+  })
+}
+
+/* ── projects ───────────────────────────────────────── */
+
+async function checkProjectGoal(goalId: ID | null) {
+  if (goalId && !(await db.goals.get(goalId))) throw new ValidationError({ goalId: "That goal no longer exists" })
+}
+
+/** Makes a project; `taskIds` are moved into it (making a project from a tag uses this). */
+export async function createProject(input: ProjectInput, opts: { demo?: boolean; taskIds?: ID[] } = {}): Promise<Project> {
+  const parsed = projectInputSchema.safeParse(input)
+  if (!parsed.success) throw new ValidationError(parsed.error)
+  await checkProjectGoal(parsed.data.goalId)
+  const stamp = nowISO()
+  const last = await db.projects.orderBy("order").last()
+  const project: Project = {
+    id: uid("pr_"),
+    ...parsed.data,
+    status: "active",
+    completedAt: null,
+    order: (last?.order ?? 0) + 1,
+    createdAt: stamp,
+    updatedAt: stamp,
+    ...(opts.demo ? { demo: true } : {}),
+  }
+  await db.transaction("rw", db.projects, db.tasks, async () => {
+    await db.projects.add(project)
+    for (const t of opts.taskIds ?? []) await db.tasks.update(t, { projectId: project.id, updatedAt: stamp })
+  })
+  return project
+}
+
+function projectFields(p: Project): ProjectInput {
+  return { name: p.name, description: p.description, area: p.area, icon: p.icon, color: p.color, startDate: p.startDate, dueDate: p.dueDate, milestones: p.milestones, goalId: p.goalId, notes: p.notes, links: p.links }
+}
+
+export async function updateProject(id: ID, patch: Partial<ProjectInput>): Promise<Project> {
+  const current = await db.projects.get(id)
+  if (!current) throw new NotFoundError("This project")
+  const parsed = projectInputSchema.safeParse({ ...projectFields(current), ...patch })
+  if (!parsed.success) throw new ValidationError(parsed.error)
+  if (parsed.data.goalId !== current.goalId) await checkProjectGoal(parsed.data.goalId)
+  const next: Project = { ...current, ...parsed.data, updatedAt: nowISO() }
+  await db.projects.put(next)
+  return next
+}
+
+/** Finishes, pauses, resumes, reopens or archives a project. Finishing logs it in your history (once). */
+export async function setProjectStatus(id: ID, status: ProjectStatus): Promise<Project> {
+  return db.transaction("rw", db.projects, db.activity, async () => {
+    const project = await db.projects.get(id)
+    if (!project) throw new NotFoundError("This project")
+    const stamp = nowISO()
+    const next: Project = { ...project, status, completedAt: status === "done" ? (project.completedAt ?? stamp) : null, updatedAt: stamp }
+    await db.projects.put(next)
+    if (status === "done") await logActivity({ type: "project.completed", title: project.name, refId: id, area: project.area, dedupeKey: `project:${id}` })
+    else await unlogActivity(`project:${id}`)
+    return next
+  })
+}
+
+export async function toggleProjectMilestone(projectId: ID, milestoneId: ID): Promise<boolean> {
+  return db.transaction("rw", db.projects, db.activity, async () => {
+    const project = await db.projects.get(projectId)
+    if (!project) throw new NotFoundError("This project")
+    const ms = project.milestones.find((m) => m.id === milestoneId)
+    if (!ms) throw new NotFoundError("This milestone")
+    const done = !ms.doneAt
+    const stamp = nowISO()
+    await db.projects.put({ ...project, milestones: project.milestones.map((m) => (m.id === milestoneId ? { ...m, doneAt: done ? stamp : null } : m)), updatedAt: stamp })
+    const key = `pmilestone:${projectId}:${milestoneId}`
+    if (done) await logActivity({ type: "project.milestone", title: `${ms.title} · ${project.name}`, refId: projectId, area: project.area, dedupeKey: key })
+    else await unlogActivity(key)
+    return done
+  })
+}
+
+/** Moves tasks into a project, or out of any (null). */
+export async function moveTasksToProject(ids: ID[], projectId: ID | null) {
+  if (projectId && !(await db.projects.get(projectId))) throw new NotFoundError("This project")
+  await bulkUpdateTasks(ids, { projectId })
+}
+
+export interface ProjectSnapshot {
+  project: Project
+  /** Tasks taken out of the project (kept). */
+  taskIds: ID[]
+  /** Tasks deleted with it. */
+  tasks: Task[]
+}
+
+/**
+ * Deletes a project. Its tasks are kept and just taken out of it, unless `withTasks`,
+ * which deletes them too. Returns a snapshot for undo.
+ */
+export async function deleteProject(id: ID, opts: { withTasks?: boolean } = {}): Promise<ProjectSnapshot> {
+  return db.transaction("rw", db.projects, db.tasks, db.activity, async () => {
+    const project = await db.projects.get(id)
+    if (!project) throw new NotFoundError("This project")
+    const own = await db.tasks.where("projectId").equals(id).toArray()
+    if (opts.withTasks) await db.tasks.bulkDelete(own.map((t) => t.id))
+    else for (const t of own) await db.tasks.update(t.id, { projectId: null })
+    await db.projects.delete(id)
+    await unlogActivity(`project:${id}`)
+    return { project, taskIds: opts.withTasks ? [] : own.map((t) => t.id), tasks: opts.withTasks ? own : [] }
+  })
+}
+
+export async function restoreProject(s: ProjectSnapshot) {
+  await db.transaction("rw", db.projects, db.tasks, db.activity, async () => {
+    await db.projects.put(s.project)
+    await db.tasks.bulkPut(s.tasks)
+    for (const t of s.taskIds) await db.tasks.update(t, { projectId: s.project.id })
+    if (s.project.status === "done") {
+      await logActivity({ type: "project.completed", title: s.project.name, refId: s.project.id, area: s.project.area, dedupeKey: `project:${s.project.id}`, at: s.project.completedAt ?? undefined })
+    }
   })
 }
 

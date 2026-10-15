@@ -1,7 +1,7 @@
 import { addDays, daysBetween, toISODate } from "./dates"
 import { RADAR_META } from "./areas"
 import { isDueOn, logsByHabit, overallConsistency } from "./habits"
-import type { FocusSession, Goal, GoalLog, Habit, HabitLog, ISODate, Prefs, RadarDim, Reflection, Task } from "./types"
+import type { FocusSession, Goal, GoalLog, Habit, HabitLog, ISODate, Prefs, Project, RadarDim, Reflection, Task } from "./types"
 
 export interface LifeData {
   tasks: Task[]
@@ -11,6 +11,7 @@ export interface LifeData {
   reflections: Reflection[]
   goals: Goal[]
   goalLogs: GoalLog[]
+  projects: Project[]
 }
 
 export interface ScorePart {

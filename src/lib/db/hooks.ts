@@ -9,7 +9,7 @@ import type { ISODate } from "@/lib/domain/types"
 import type { LifeData } from "@/lib/domain/scores"
 
 async function readLifeData(): Promise<LifeData> {
-  const [tasks, habits, habitLogs, sessions, reflections, goals, goalLogs] = await Promise.all([
+  const [tasks, habits, habitLogs, sessions, reflections, goals, goalLogs, projects] = await Promise.all([
     db.tasks.toArray(),
     db.habits.orderBy("order").toArray(),
     db.habitLogs.toArray(),
@@ -17,8 +17,9 @@ async function readLifeData(): Promise<LifeData> {
     db.reflections.toArray(),
     db.goals.orderBy("order").toArray(),
     db.goalLogs.toArray(),
+    db.projects.orderBy("order").toArray(),
   ])
-  return { tasks, habits, habitLogs, sessions, reflections, goals, goalLogs }
+  return { tasks, habits, habitLogs, sessions, reflections, goals, goalLogs, projects }
 }
 
 /** `null`: no provider above (each caller reads for itself); `undefined`: still loading. */
@@ -26,7 +27,7 @@ const SharedLifeData = createContext<LifeData | undefined | null>(null)
 
 /**
  * One live read of everything for the whole app. Before, every part of the screen that
- * needed it (top bar, sidebar, engines, the page) read all seven tables again after every
+ * needed it (top bar, sidebar, engines, the page) read all these tables again after every
  * change, which grows with your history; now they share this one, and the same objects.
  */
 export function LifeDataProvider({ children }: { children: ReactNode }) {
@@ -68,6 +69,10 @@ export function useTask(id: string | null) {
 
 export function useGoal(id: string | null) {
   return useKeyedQuery(`goal:${id}`, async () => (id ? ((await db.goals.get(id)) ?? null) : null))
+}
+
+export function useProject(id: string | null) {
+  return useKeyedQuery(`project:${id}`, async () => (id ? ((await db.projects.get(id)) ?? null) : null))
 }
 
 export function useHabit(id: string | null) {

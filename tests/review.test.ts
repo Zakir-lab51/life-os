@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 import { reviewWeek, weekSummary } from "@/lib/domain/review"
 import type { LifeData } from "@/lib/domain/scores"
 
-const empty: LifeData = { tasks: [], habits: [], habitLogs: [], sessions: [], reflections: [], goals: [], goalLogs: [] }
+const empty: LifeData = { tasks: [], habits: [], habitLogs: [], sessions: [], reflections: [], goals: [], goalLogs: [], projects: [] }
 const task = (o: Record<string, unknown>) => ({ id: String(Math.random()), title: "t", priority: 3, status: "todo", dueDate: null, completedAt: null, ...o }) as never
 
 describe("weekly review", () => {

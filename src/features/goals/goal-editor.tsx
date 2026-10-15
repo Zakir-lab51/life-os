@@ -1,7 +1,7 @@
 "use client"
 
 import { useLiveQuery } from "dexie-react-hooks"
-import { Check, Plus, X } from "lucide-react"
+import { Check } from "lucide-react"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 import { DiscardBar, revealFirstError, useCloseGuard, useUnsaved, type CloseGuard } from "@/components/os/editor-guard"
@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { DatePicker } from "@/components/os/date-picker"
 import { Field, Segmented } from "@/components/os/field"
+import { MilestoneEditor } from "@/components/os/milestones"
 import { db } from "@/lib/db/db"
 import { useGoal, usePrefs } from "@/lib/db/hooks"
 import { ValidationError, createGoal, updateGoal } from "@/lib/db/repo"
@@ -22,7 +23,7 @@ import { AREAS, GOAL_HORIZONS, type Goal, type GoalHorizon, type GoalMeasure, ty
 import { reportError } from "@/lib/feedback"
 import type { GoalInput } from "@/lib/validation/schemas"
 import { useUI } from "@/lib/stores/ui"
-import { cn, uid } from "@/lib/utils"
+import { cn } from "@/lib/utils"
 
 type MeasureKind = GoalMeasure["kind"]
 
@@ -119,7 +120,6 @@ function GoalForm({ goal, defaults, weekStartsOn, onDone, guard }: { goal: Goal 
   const [errors, setErrors] = useState<Record<string, string>>({})
   useUnsaved(guard, d)
   const [saving, setSaving] = useState(false)
-  const [newMilestone, setNewMilestone] = useState({ title: "", due: null as string | null })
   const allHabits = useLiveQuery(() => db.habits.orderBy("order").toArray(), [])
   // archived habits stay listed only while this goal still uses them
   const habits = allHabits?.filter((h) => !h.archivedAt || h.id === d.habitId || d.habitIds.includes(h.id))
@@ -136,13 +136,6 @@ function GoalForm({ goal, defaults, weekStartsOn, onDone, guard }: { goal: Goal 
       // a serving link must point to a longer horizon
       parentId: p.parentId && parentCandidates({ id: goal?.id ?? "__new__", horizon }, goals ?? []).some((g) => g.id === p.parentId) ? p.parentId : null,
     }))
-
-  const addMilestone = () => {
-    const title = newMilestone.title.trim()
-    if (!title) return
-    set("milestones", [...d.milestones, { id: uid("ms_"), title: title.slice(0, 120), due: newMilestone.due, doneAt: null }])
-    setNewMilestone({ title: "", due: null })
-  }
 
   const save = async () => {
     const measure = toMeasure(d)
@@ -293,44 +286,7 @@ function GoalForm({ goal, defaults, weekStartsOn, onDone, guard }: { goal: Goal 
         </Field>
 
         <Field label={`Milestones${d.milestones.length ? ` · ${d.milestones.length}` : ""}`} hint={d.kind === "milestones" ? "Progress is the share of these you reach." : "They also show on your Life Roadmap."} error={errors.milestones}>
-          <div className="space-y-1.5">
-            {d.milestones.map((m, i) => (
-              <div key={m.id} className="flex items-center gap-2">
-                <span className={cn("grid size-6 shrink-0 place-items-center rounded-full text-[11px] font-semibold", m.doneAt ? "bg-mint text-white" : "bg-surface-3 text-muted-foreground")}>{m.doneAt ? <Check className="size-3.5" strokeWidth={3} /> : i + 1}</span>
-                <Input value={m.title} onChange={(e) => set("milestones", d.milestones.map((x) => (x.id === m.id ? { ...x, title: e.target.value } : x)))} aria-label={`Milestone ${i + 1}`} maxLength={120} className="h-9 flex-1 rounded-xl" />
-                <div className="w-36 shrink-0">
-                  <DatePicker value={m.due} placeholder="No date" onChange={(v) => set("milestones", d.milestones.map((x) => (x.id === m.id ? { ...x, due: v } : x)))} />
-                </div>
-                <Button type="button" variant="ghost" size="icon-sm" aria-label={`Remove ${m.title}`} onClick={() => set("milestones", d.milestones.filter((x) => x.id !== m.id))}>
-                  <X />
-                </Button>
-              </div>
-            ))}
-            <div className="flex items-center gap-2">
-              <span className="grid size-6 shrink-0 place-items-center text-violet">
-                <Plus className="size-4" />
-              </span>
-              <Input
-                value={newMilestone.title}
-                onChange={(e) => setNewMilestone((p) => ({ ...p, title: e.target.value }))}
-                onKeyDown={(e) => {
-                  if (e.key !== "Enter") return
-                  e.preventDefault()
-                  addMilestone()
-                }}
-                placeholder="Add a milestone"
-                aria-label="New milestone"
-                maxLength={120}
-                className="h-9 flex-1 rounded-xl"
-              />
-              <div className="w-36 shrink-0">
-                <DatePicker value={newMilestone.due} placeholder="No date" onChange={(v) => setNewMilestone((p) => ({ ...p, due: v }))} />
-              </div>
-              <Button type="button" variant="secondary" size="icon-sm" aria-label="Add milestone" onClick={addMilestone} disabled={!newMilestone.title.trim()}>
-                <Plus />
-              </Button>
-            </div>
-          </div>
+          <MilestoneEditor value={d.milestones} onChange={(v) => set("milestones", v)} />
         </Field>
 
         <div className="grid gap-4 sm:grid-cols-2">

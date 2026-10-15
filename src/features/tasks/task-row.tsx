@@ -1,10 +1,11 @@
 "use client"
 
-import { AlarmClock, CalendarDays, Check, Clock, Copy, GripVertical, Hash, ListChecks, Lock, MoreHorizontal, Pencil, Repeat, Sun, Trash2 } from "lucide-react"
+import { AlarmClock, CalendarDays, Check, Clock, Copy, FolderKanban, GripVertical, Hash, ListChecks, Lock, MoreHorizontal, Pencil, Repeat, Sun, Trash2 } from "lucide-react"
 import type { ReactNode } from "react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { AreaBadge, Chip, PriorityFlag } from "@/components/os/visuals"
+import { useLifeData } from "@/lib/db/hooks"
 import { setTaskStatus, updateTask } from "@/lib/db/repo"
 import { addDays, daysBetween, formatDay, formatDuration, relativeDayLabel, toISODate } from "@/lib/domain/dates"
 import { isOverdue } from "@/lib/domain/tasks"
@@ -12,6 +13,7 @@ import type { Task, TaskStatus } from "@/lib/domain/types"
 import { attempt } from "@/lib/feedback"
 import { useUI } from "@/lib/stores/ui"
 import { cn } from "@/lib/utils"
+import { ProjectChip } from "@/features/projects/shared"
 import { deleteWithUndo, duplicateWithFeedback, toggleDone, wasJustCompleted } from "./task-actions"
 import { SwipeRow } from "./swipe-row"
 
@@ -38,6 +40,7 @@ export function TaskMeta({ task, today, blockedBy }: { task: Task; today: string
           </Chip>
         )
       )}
+      {task.projectId && <ProjectChip projectId={task.projectId} />}
       <AreaBadge area={task.area} />
       <Chip icon={Clock}>{formatDuration(task.estimateMin)}</Chip>
       {task.subtasks.length > 0 && (
@@ -64,6 +67,7 @@ export function TaskMeta({ task, today, blockedBy }: { task: Task; today: string
 
 export function TaskActionsMenu({ task, today, children }: { task: Task; today: string; children?: ReactNode }) {
   const openTaskEditor = useUI((s) => s.openTaskEditor)
+  const projects = useLifeData()?.projects.filter((p) => p.status === "active" || p.status === "paused" || p.id === task.projectId)
   const setStatus = (s: TaskStatus) => void attempt(() => setTaskStatus(task.id, s))
   return (
     <DropdownMenu>
@@ -92,6 +96,27 @@ export function TaskActionsMenu({ task, today, children }: { task: Task; today: 
             <DropdownMenuItem onSelect={() => setStatus("done")}>Done</DropdownMenuItem>
           </DropdownMenuSubContent>
         </DropdownMenuSub>
+        {!!projects?.length && (
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <FolderKanban /> Project
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="max-w-64">
+              {projects.map((p) => (
+                <DropdownMenuItem key={p.id} onSelect={() => void attempt(() => updateTask(task.id, { projectId: p.id }))}>
+                  <span className="truncate">{p.name}</span>
+                  {p.id === task.projectId && <Check className="ml-auto" />}
+                </DropdownMenuItem>
+              ))}
+              {task.projectId && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={() => void attempt(() => updateTask(task.id, { projectId: null }))}>Take out of project</DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        )}
         <DropdownMenuItem onSelect={() => void duplicateWithFeedback(task.id)}>
           <Copy /> Duplicate
         </DropdownMenuItem>
@@ -108,17 +133,18 @@ export function TaskRow({
   task,
   today,
   blockedBy,
-  selected,
-  selecting,
+  selected = false,
+  selecting = false,
   onSelect,
   dragHandle,
 }: {
   task: Task
   today: string
   blockedBy?: Task[]
-  selected: boolean
-  selecting: boolean
-  onSelect: (shift: boolean) => void
+  selected?: boolean
+  selecting?: boolean
+  /** Without it the row has no select box (lists with no bulk actions). */
+  onSelect?: (shift: boolean) => void
   dragHandle?: ReactNode
 }) {
   const openTaskEditor = useUI((s) => s.openTaskEditor)
@@ -127,16 +153,18 @@ export function TaskRow({
     <SwipeRow task={task} today={today}>
       <div className={cn("group flex items-start gap-2.5 rounded-2xl border border-transparent px-2.5 py-2.5 transition-colors hover:bg-surface-2/60", selected && "border-violet/40 bg-violet/[0.07]")}>
         {dragHandle}
-        <label className={cn("mt-0.5 grid size-5 shrink-0 place-items-center transition-opacity", selecting || selected ? "opacity-100" : "pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 pointer-fine:focus-within:opacity-100")}>
-          <input
-            type="checkbox"
-            checked={selected}
-            onChange={() => undefined}
-            onClick={(e) => onSelect(e.shiftKey)}
-            aria-label={`Select ${task.title}`}
-            className="size-3.5 accent-[var(--violet)]"
-          />
-        </label>
+        {onSelect && (
+          <label className={cn("mt-0.5 grid size-5 shrink-0 place-items-center transition-opacity", selecting || selected ? "opacity-100" : "pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 pointer-fine:focus-within:opacity-100")}>
+            <input
+              type="checkbox"
+              checked={selected}
+              onChange={() => undefined}
+              onClick={(e) => onSelect(e.shiftKey)}
+              aria-label={`Select ${task.title}`}
+              className="size-3.5 accent-[var(--violet)]"
+            />
+          </label>
+        )}
         <Checkbox
           className="mt-0.5 size-5 rounded-full"
           checked={done}

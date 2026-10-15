@@ -50,6 +50,7 @@ export function backupCounts(b: Backup) {
     blocks: b.data.blocks.length,
     reflections: b.data.reflections.length,
     goals: b.data.goals.length,
+    projects: b.data.projects.length,
   }
 }
 

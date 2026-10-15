@@ -11,6 +11,7 @@ import {
   ChevronDown,
   Columns3,
   Flag,
+  FolderKanban,
   List,
   Plus,
   Search,
@@ -22,7 +23,7 @@ import {
 import { useEffect, useMemo, useState, type ReactNode } from "react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { PageHeader, PageTransition } from "@/components/os/page-header"
@@ -35,7 +36,7 @@ import { addDays, daysBetween, formatClock, formatDuration, roundUpTo, toISODate
 import { freeSlots, totalFree } from "@/lib/domain/planner"
 import { recommendTasks, scoreTask, type Recommendation } from "@/lib/domain/scheduling"
 import { BUCKET_LABEL, blockingTasks, compareByDue, compareByPriority, dueBucket, type DueBucket } from "@/lib/domain/tasks"
-import { AREAS, type Area, type Priority, type Task, type TaskStatus } from "@/lib/domain/types"
+import { AREAS, type Area, type Priority, type Project, type Task, type TaskStatus } from "@/lib/domain/types"
 import { attempt, succeeded } from "@/lib/feedback"
 import { useUI } from "@/lib/stores/ui"
 import { cn } from "@/lib/utils"
@@ -82,6 +83,8 @@ function Tasks({ life, blocks }: { life: Life; blocks: NonNullable<ReturnType<ty
   const [area, setArea] = useState<Area | "any">("any")
   const [priority, setPriority] = useState<Priority | "any">("any")
   const [tag, setTag] = useState<string>("any")
+  // "any", "none" (not in a project) or a project's id
+  const [project, setProject] = useState<string>("any")
   const [sort, setSort] = useState<Sort>("smart")
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [lastClicked, setLastClicked] = useState<string | null>(null)
@@ -107,6 +110,7 @@ function Tasks({ life, blocks }: { life: Life; blocks: NonNullable<ReturnType<ty
   const byId = useMemo(() => new Map(data.tasks.map((t) => [t.id, t])), [data.tasks])
   const freeMinutes = totalFree(blocks, Math.max(prefs.dayStartMin, nowMin), prefs.dayEndMin)
   const allTags = useMemo(() => [...new Set(data.tasks.flatMap((t) => t.tags))].sort(), [data.tasks])
+  const liveProjects = useMemo(() => data.projects.filter((p) => p.status === "active" || p.status === "paused" || p.id === project), [data.projects, project])
 
   const passesFacets = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -114,8 +118,9 @@ function Tasks({ life, blocks }: { life: Life; blocks: NonNullable<ReturnType<ty
       (area === "any" || t.area === area) &&
       (priority === "any" || t.priority === priority) &&
       (tag === "any" || t.tags.includes(tag)) &&
+      (project === "any" || (project === "none" ? !t.projectId : t.projectId === project)) &&
       (!q || `${t.title} ${t.notes} ${t.tags.join(" ")}`.toLowerCase().includes(q))
-  }, [query, area, priority, tag])
+  }, [query, area, priority, tag, project])
 
   const inView = useMemo(
     () => (t: Task) => {
@@ -210,7 +215,7 @@ function Tasks({ life, blocks }: { life: Life; blocks: NonNullable<ReturnType<ty
     ? (["overdue", "today", "upcoming", "someday"] as DueBucket[]).map((bucket) => ({ bucket, tasks: filtered.filter((t) => dueBucket(asListed(t), today) === bucket) })).filter((g) => g.tasks.length)
     : []
 
-  const anyFilter = query || area !== "any" || priority !== "any" || tag !== "any"
+  const anyFilter = query || area !== "any" || priority !== "any" || tag !== "any" || project !== "any"
   const row = (t: Task) => (
     <Glide key={t.id} id={t.id}>
       <TaskRow task={t} today={today} blockedBy={blockingTasks(t, byId)} selected={selected.has(t.id)} selecting={selecting} onSelect={(sh) => toggleSelect(t.id, sh)} />
@@ -221,6 +226,7 @@ function Tasks({ life, blocks }: { life: Life; blocks: NonNullable<ReturnType<ty
     setArea("any")
     setPriority("any")
     setTag("any")
+    setProject("any")
   }
   const selecting = selected.size > 0
 
@@ -322,6 +328,22 @@ function Tasks({ life, blocks }: { life: Life; blocks: NonNullable<ReturnType<ty
               </SelectContent>
             </Select>
           )}
+          {data.projects.length > 0 && (
+            <Select value={project} onValueChange={setProject}>
+              <SelectTrigger className="h-10 w-40 rounded-full bg-surface" aria-label="Filter by project">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="any">Any project</SelectItem>
+                <SelectItem value="none">Not in a project</SelectItem>
+                {liveProjects.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           {view === "list" && filter !== "done" && (
             <Select value={sort} onValueChange={(v) => setSort(v as Sort)}>
               <SelectTrigger className="h-10 w-40 rounded-full bg-surface" aria-label="Sort">
@@ -410,7 +432,7 @@ function Tasks({ life, blocks }: { life: Life; blocks: NonNullable<ReturnType<ty
         </Panel>
       )}
 
-      {selecting && <BulkBar ids={[...selected]} today={today} onClear={() => setSelected(new Set())} onSelectAll={() => setSelected(new Set(filtered.map((t) => t.id)))} total={filtered.length} />}
+      {selecting && <BulkBar ids={[...selected]} today={today} projects={liveProjects} onClear={() => setSelected(new Set())} onSelectAll={() => setSelected(new Set(filtered.map((t) => t.id)))} total={filtered.length} />}
     </PageTransition>
   )
 }
@@ -494,7 +516,8 @@ function ManualList({ tasks, today, byId, selected, selecting, onSelect }: { tas
   )
 }
 
-function BulkBar({ ids, today, total, onClear, onSelectAll }: { ids: string[]; today: string; total: number; onClear: () => void; onSelectAll: () => void }) {
+function BulkBar({ ids, today, total, projects, onClear, onSelectAll }: { ids: string[]; today: string; total: number; projects: Project[]; onClear: () => void; onSelectAll: () => void }) {
+  const openProjectEditor = useUI((s) => s.openProjectEditor)
   const setStatus = async (status: TaskStatus) => {
     const blocked = await attempt(() => bulkSetStatus(ids, status))
     if (blocked === undefined) return
@@ -547,6 +570,30 @@ function BulkBar({ ids, today, total, onClear, onSelectAll }: { ids: string[]; t
               {PRIORITY_META[p].label}
             </DropdownMenuItem>
           ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button size="sm" variant="ghost">
+            <FolderKanban /> Project
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="max-w-64">
+          {projects.map((p) => (
+            <DropdownMenuItem key={p.id} onSelect={() => void patch({ projectId: p.id }, `Moved to ${p.name}`)}>
+              <span className="truncate">{p.name}</span>
+            </DropdownMenuItem>
+          ))}
+          <DropdownMenuItem onSelect={() => void patch({ projectId: null }, "Taken out of projects")}>No project</DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onSelect={() => {
+              openProjectEditor(null, undefined, ids)
+              onClear()
+            }}
+          >
+            <Plus /> New project with these
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
       <DropdownMenu>

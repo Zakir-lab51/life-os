@@ -3,7 +3,7 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import { safeStorage } from "./safe-storage"
-import type { GoalInput, HabitInput, TaskInput } from "@/lib/validation/schemas"
+import type { GoalInput, HabitInput, ProjectInput, TaskInput } from "@/lib/validation/schemas"
 import type { ID, ISODate } from "@/lib/domain/types"
 
 export type TaskView = "list" | "board"
@@ -22,6 +22,8 @@ interface UIState {
   goalEditor: { open: boolean; goalId: ID | null; defaults: Partial<GoalInput> | null }
   /** The goal shown in the goal detail sheet. */
   openGoalId: ID | null
+  /** `taskIds`: tasks to move into a new project when it's made. */
+  projectEditor: { open: boolean; projectId: ID | null; defaults: Partial<ProjectInput> | null; taskIds: ID[] }
   planOpen: boolean
   reflectionOpen: boolean
   reviewOpen: boolean
@@ -43,6 +45,8 @@ interface UIState {
   openGoalEditor: (goalId?: ID | null, defaults?: Partial<GoalInput>) => void
   closeGoalEditor: () => void
   showGoal: (goalId: ID | null) => void
+  openProjectEditor: (projectId?: ID | null, defaults?: Partial<ProjectInput>, taskIds?: ID[]) => void
+  closeProjectEditor: () => void
   setPlanOpen: (open: boolean) => void
   setReflectionOpen: (open: boolean) => void
   setReviewOpen: (open: boolean) => void
@@ -64,6 +68,7 @@ export const useUI = create<UIState>()(
       blockEditor: { open: false, blockId: null, date: null, start: null },
       goalEditor: { open: false, goalId: null, defaults: null },
       openGoalId: null,
+      projectEditor: { open: false, projectId: null, defaults: null, taskIds: [] },
       planOpen: false,
       reflectionOpen: false,
       reviewOpen: false,
@@ -84,6 +89,8 @@ export const useUI = create<UIState>()(
       openGoalEditor: (goalId = null, defaults) => set({ goalEditor: { open: true, goalId, defaults: defaults ?? null }, paletteOpen: false }),
       closeGoalEditor: () => set((s) => ({ goalEditor: { ...s.goalEditor, open: false } })),
       showGoal: (goalId) => set({ openGoalId: goalId, paletteOpen: false }),
+      openProjectEditor: (projectId = null, defaults, taskIds = []) => set({ projectEditor: { open: true, projectId, defaults: defaults ?? null, taskIds }, paletteOpen: false }),
+      closeProjectEditor: () => set((s) => ({ projectEditor: { ...s.projectEditor, open: false } })),
       setPlanOpen: (open) => set({ planOpen: open, paletteOpen: false }),
       setReflectionOpen: (open) => set({ reflectionOpen: open, paletteOpen: false }),
       setReviewOpen: (open) => set({ reviewOpen: open, paletteOpen: false }),

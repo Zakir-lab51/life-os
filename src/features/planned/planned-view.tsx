@@ -14,14 +14,6 @@ interface PlannedModule {
 }
 
 const MODULES: Partial<Record<NavKey, PlannedModule>> = {
-  projects: {
-    summary: "A workspace for long-running work: milestones, a board per project, linked tasks, notes, resources and an activity history.",
-    coming: ["Project cards with progress and deadlines", "Milestones and per-project Kanban", "Task linking and archives", "Activity history per project"],
-    today: [
-      { label: "Tags", href: "/tasks", detail: "Tag tasks with a project name (e.g. #thesis) and filter by it." },
-      { label: "Board view", href: "/tasks", detail: "Kanban with drag and drop already works for all tasks." },
-    ],
-  },
   notes: {
     summary: "A second brain: rich-text notes, folders, tags, backlinks, a knowledge graph, daily journal, idea inbox and templates, with Markdown import and export.",
     coming: ["Rich-text editor with backlinks and linked notes", "Knowledge graph of note relationships", "Daily journal and idea inbox", "Markdown import / export", "Full-text search across notes"],

@@ -457,7 +457,7 @@ export function QuickAddPane({ prefs }: { prefs: Prefs }) {
 
 const PHASES = [
   { n: 1, label: "Foundation", items: "Dashboard, tasks, habits, My Day, focus, calendar, analytics, settings", done: true },
-  { n: 2, label: "Personal growth", items: "Goals, life roadmap, projects, weekly reviews", done: false },
+  { n: 2, label: "Personal growth", items: "Goals, life roadmap, projects, weekly reviews", done: true },
   { n: 3, label: "Knowledge", items: "Second brain: notes, backlinks, daily journal", done: false },
   { n: 4, label: "Finance & sync", items: "Finance tracker, accounts and cloud sync", done: false },
   { n: 5, label: "Polish", items: "Performance and deployment", done: false },

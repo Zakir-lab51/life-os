@@ -131,9 +131,17 @@ describe("horizons and the roadmap", () => {
 
   it("adds the New goal quick action to older prefs once, and respects turning it off", () => {
     const older = migratePrefs({ quickActions: ["task", "focus"] })
-    expect(older.quickActions).toEqual(["task", "goal", "focus"])
+    expect(older.quickActions).toEqual(["task", "goal", "project", "focus"])
     const off = migratePrefs({ quickActions: ["task", "focus"], seenQuickActions: [...QUICK_ACTIONS] })
     expect(off.quickActions).toEqual(["task", "focus"])
+  })
+
+  it("adds New project to prefs saved before Projects, once", () => {
+    const beforeProjects = QUICK_ACTIONS.filter((a) => a !== "project")
+    const saved = migratePrefs({ quickActions: ["task", "goal"], seenQuickActions: beforeProjects })
+    expect(saved.quickActions).toEqual(["task", "goal", "project"])
+    const again = migratePrefs({ ...saved, quickActions: ["task", "goal"] })
+    expect(again.quickActions).toEqual(["task", "goal"])
   })
 
   it("rolls the deadline on when little of the period is left", () => {
