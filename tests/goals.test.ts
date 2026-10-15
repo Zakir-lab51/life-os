@@ -131,7 +131,7 @@ describe("horizons and the roadmap", () => {
 
   it("adds the New goal quick action to older prefs once, and respects turning it off", () => {
     const older = migratePrefs({ quickActions: ["task", "focus"] })
-    expect(older.quickActions).toEqual(["task", "goal", "project", "focus"])
+    expect(older.quickActions).toEqual(["task", "note", "goal", "project", "focus"])
     const off = migratePrefs({ quickActions: ["task", "focus"], seenQuickActions: [...QUICK_ACTIONS] })
     expect(off.quickActions).toEqual(["task", "focus"])
   })

@@ -73,8 +73,8 @@ export function migratePrefs(saved: Partial<Prefs>): Prefs {
   const known = new Set(merged.widgets?.map((w) => w.id) ?? [])
   merged.widgets = [...(merged.widgets ?? []), ...base.widgets.filter((w) => !known.has(w.id))]
   // quick actions added since these prefs were saved start switched on, once; switching one off later sticks.
-  // Prefs saved before this was tracked knew every action except "goal" (added with Goals) and "project" (added later).
-  const seen = new Set<QuickActionId>(saved.seenQuickActions ?? QUICK_ACTIONS.filter((a) => a !== "goal" && a !== "project"))
+  // Prefs saved before this was tracked knew every action except "goal" (added with Goals) and the later "project" and "note".
+  const seen = new Set<QuickActionId>(saved.seenQuickActions ?? QUICK_ACTIONS.filter((a) => a !== "goal" && a !== "project" && a !== "note"))
   const on = new Set([...merged.quickActions, ...base.quickActions.filter((a) => !seen.has(a))])
   merged.quickActions = QUICK_ACTIONS.filter((a) => on.has(a))
   merged.seenQuickActions = [...QUICK_ACTIONS]

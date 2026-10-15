@@ -15,6 +15,8 @@ interface UIState {
   mobileNavSide: "left" | "right"
   paletteOpen: boolean
   captureOpen: boolean
+  /** What quick capture saves: a task, or an idea for the notes inbox. */
+  captureKind: "task" | "idea"
   shortcutsOpen: boolean
   taskEditor: { open: boolean; taskId: ID | null; defaults: Partial<TaskInput> | null }
   habitEditor: { open: boolean; habitId: ID | null; defaults: Partial<HabitInput> | null }
@@ -34,7 +36,7 @@ interface UIState {
   toggleSidebar: () => void
   setMobileNav: (open: boolean, side?: "left" | "right") => void
   setPalette: (open: boolean) => void
-  setCapture: (open: boolean) => void
+  setCapture: (open: boolean, kind?: "task" | "idea") => void
   setShortcuts: (open: boolean) => void
   openTaskEditor: (taskId?: ID | null, defaults?: Partial<TaskInput>) => void
   closeTaskEditor: () => void
@@ -62,6 +64,7 @@ export const useUI = create<UIState>()(
       mobileNavSide: "left",
       paletteOpen: false,
       captureOpen: false,
+      captureKind: "task",
       shortcutsOpen: false,
       taskEditor: { open: false, taskId: null, defaults: null },
       habitEditor: { open: false, habitId: null, defaults: null },
@@ -78,7 +81,8 @@ export const useUI = create<UIState>()(
       toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
       setMobileNav: (open, side) => set(side ? { mobileNavOpen: open, mobileNavSide: side } : { mobileNavOpen: open }),
       setPalette: (open) => set({ paletteOpen: open }),
-      setCapture: (open) => set({ captureOpen: open }),
+      // opening it starts on Task unless asked for an idea; switching inside it keeps the choice
+      setCapture: (open, kind) => set(open ? { captureOpen: true, captureKind: kind ?? "task" } : { captureOpen: false }),
       setShortcuts: (open) => set({ shortcutsOpen: open }),
       openTaskEditor: (taskId = null, defaults) => set({ taskEditor: { open: true, taskId, defaults: defaults ?? null }, paletteOpen: false }),
       closeTaskEditor: () => set((s) => ({ taskEditor: { ...s.taskEditor, open: false } })),

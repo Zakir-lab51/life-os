@@ -1,7 +1,8 @@
 import { db } from "./db"
 import { addDays, fromISODate, toISODate, todayISO, weekday } from "@/lib/domain/dates"
 import { defaultDueDate } from "@/lib/domain/goals"
-import type { ActivityEvent, Area, Block, FocusSession, Goal, GoalLog, Habit, HabitLog, ISODate, Milestone, Project, Reflection, Task } from "@/lib/domain/types"
+import { docLinks, docText, journalId, journalTitle } from "@/lib/domain/notes"
+import type { ActivityEvent, Area, Block, FocusSession, Goal, GoalLog, Habit, HabitLog, ISODate, Milestone, Note, NoteNode, Project, Reflection, Task } from "@/lib/domain/types"
 import { uid } from "@/lib/utils"
 
 /** Deterministic PRNG so the demo looks the same every time it's loaded. */
@@ -24,7 +25,8 @@ export async function hasDemoData() {
 /**
  * Loads a clearly-labelled sample life: tasks, habits with ~9 weeks of
  * history, focus sessions, reflections, today's timeline, a small tree of
- * goals linked to those tasks and habits, and three projects. Every record
+ * goals linked to those tasks and habits, three projects, and linked notes with a
+ * journal. Every record
  * carries `demo: true` so "Remove demo data" can delete exactly these.
  */
 export async function seedDemo(now = new Date()) {
@@ -395,6 +397,77 @@ export async function seedDemo(now = new Date()) {
   })
   tasks.push(done("Outline the seminar", -30, "study", seminar.id), done("Make the slides", -17, "study", seminar.id), done("Rehearse with a timer", -15, "study", seminar.id))
 
+  /* notes: a few linked study notes, a research note, an idea in the inbox, a template and two journal days */
+  const tx = (text: string, bold = false): NoteNode => ({ type: "text", text, ...(bold ? { marks: [{ type: "bold" }] } : {}) })
+  const para = (...content: (string | NoteNode)[]): NoteNode => ({ type: "paragraph", content: content.map((c) => (typeof c === "string" ? tx(c) : c)) })
+  const head = (level: number, text: string): NoteNode => ({ type: "heading", attrs: { level }, content: [tx(text)] })
+  const list = (...items: (string | NoteNode)[][]): NoteNode => ({ type: "bulletList", content: items.map((c) => ({ type: "listItem", content: [para(...c)] })) })
+  const checks = (...items: [string, boolean][]): NoteNode => ({ type: "taskList", content: items.map(([text, checked]) => ({ type: "taskItem", attrs: { checked }, content: [para(text)] })) })
+  const ids = { ecg: uid("n_"), cycle: uid("n_"), sounds: uid("n_"), athlete: uid("n_") }
+  const to = (id: string, title: string): NoteNode => ({ type: "noteLink", attrs: { id, title } })
+  const notes: Note[] = []
+  const note = (n: Pick<Note, "id" | "title"> & Partial<Note> & { body: NoteNode[]; days: number }): void => {
+    const { body, days, ...rest } = n
+    const content: NoteNode = { type: "doc", content: body }
+    const when = at(addDays(T, -days), 20 * 60)
+    notes.push({ tags: [], folder: null, kind: "note", date: null, inbox: false, pinned: false, createdAt: when, updatedAt: when, demo: true, ...rest, content, text: docText(content), links: docLinks(content) })
+  }
+  note({
+    id: ids.ecg,
+    title: "ECG basics",
+    folder: "Med school/Physiology",
+    tags: ["ecg"],
+    days: 12,
+    body: [
+      head(2, "Paper and speed"),
+      list(["25 mm/s: one small square is ", tx("0.04 s", true), ", one big square ", tx("0.2 s", true)], ["10 mm = 1 mV"]),
+      head(2, "Reading order"),
+      list(["Rate, rhythm, axis"], ["P wave, PR interval, QRS, ST segment, T wave"], ["QT, corrected with Bazett: QTc = QT / √RR"]),
+      para("The waves line up with the ", to(ids.cycle, "Cardiac cycle"), ": P before atrial systole, QRS just before ventricular systole."),
+    ],
+  })
+  note({
+    id: ids.cycle,
+    title: "Cardiac cycle",
+    folder: "Med school/Physiology",
+    tags: ["exam"],
+    pinned: true,
+    days: 3,
+    body: [
+      para("For the viva: walk through one beat on the ", tx("Wiggers diagram", true), "."),
+      checks(["Wiggers diagram", true], ["Heart sounds & murmurs", false], ["Pressure–volume loop", false]),
+      head(2, "Phases"),
+      list(["Atrial systole"], ["Isovolumetric contraction: all valves shut, ", to(ids.sounds, "Heart sounds"), " S1"], ["Ejection"], ["Isovolumetric relaxation: S2"], ["Filling"]),
+      para("Timing on the ", to(ids.ecg, "ECG basics"), " page."),
+    ],
+  })
+  note({
+    id: ids.sounds,
+    title: "Heart sounds",
+    folder: "Med school/Physiology",
+    days: 2,
+    body: [list(["S1: mitral and tricuspid close"], ["S2: aortic and pulmonary close; splits on inspiration"], ["S3: rapid filling (normal in athletes)"]), para("Where they fall: ", to(ids.cycle, "Cardiac cycle"), ".")],
+  })
+  note({
+    id: ids.athlete,
+    title: "Athlete's heart",
+    folder: "Research",
+    tags: ["poster"],
+    days: 8,
+    body: [para("For the research poster. Training changes the resting ECG: sinus bradycardia, first-degree block, early repolarisation."), para("Measure QTc as in ", to(ids.ecg, "ECG basics"), ". Ask Dr. Rao which changes count as normal.")],
+  })
+  note({ id: uid("n_"), title: "Make flashcards from the renal seminar", inbox: true, days: 1, body: [para("One card per slide; start with clearance.")] })
+  note({ id: uid("n_"), title: "Viva prep", kind: "template", days: 20, body: [head(2, "Likely questions"), checks(["", false]), head(2, "Diagrams to draw"), list([""]), head(2, "Weak spots"), list([""])] })
+  for (const [days, focus, learned] of [
+    [1, "Finish the renal summary before lunch", "Explaining the cardiac cycle out loud shows the gaps fast."],
+    [2, "Record the first five ECGs", "Bring spare electrodes; two ran out."],
+  ] as const) {
+    const date = addDays(T, -days)
+    const content: NoteNode = { type: "doc", content: [head(2, "Today's focus"), para(focus), head(2, "Grateful for"), list(["A quiet library slot"]), head(2, "What I learned"), para(learned)] }
+    const when = at(date, 21 * 60)
+    notes.push({ id: journalId(date), title: journalTitle(date), content, text: docText(content), links: [], tags: [], folder: null, kind: "journal", date, inbox: false, pinned: false, createdAt: when, updatedAt: when, demo: true })
+  }
+
   /* history feed, derived from the records above */
   const activity: ActivityEvent[] = [
     ...tasks
@@ -434,7 +507,7 @@ export async function seedDemo(now = new Date()) {
     }),
   ]
 
-  await db.transaction("rw", [db.tasks, db.habits, db.habitLogs, db.focusSessions, db.reflections, db.blocks, db.goals, db.goalLogs, db.projects, db.activity], async () => {
+  await db.transaction("rw", [db.tasks, db.habits, db.habitLogs, db.focusSessions, db.reflections, db.blocks, db.goals, db.goalLogs, db.projects, db.notes, db.activity], async () => {
     await db.tasks.bulkAdd(tasks)
     // demo goals and projects sit after the user's own in their lists
     const lastOrder = (await db.goals.orderBy("order").last())?.order ?? 0
@@ -449,12 +522,14 @@ export async function seedDemo(now = new Date()) {
     for (const r of reflections) if (!(await db.reflections.get(r.id))) await db.reflections.add(r)
     await db.blocks.bulkAdd(blocks)
     for (const e of activity) if (!(await db.activity.where("dedupeKey").equals(e.dedupeKey).first())) await db.activity.add(e)
+    // never overwrite a real journal entry the user already wrote for one of these days
+    for (const n of notes) if (!(await db.notes.get(n.id))) await db.notes.add(n)
   })
 }
 
 /** Deletes every record created by `seedDemo`, leaving the user's own data untouched. */
 export async function removeDemo() {
-  await db.transaction("rw", [db.tasks, db.habits, db.habitLogs, db.focusSessions, db.reflections, db.blocks, db.goals, db.goalLogs, db.projects, db.activity, db.routineChecks], async () => {
+  await db.transaction("rw", [db.tasks, db.habits, db.habitLogs, db.focusSessions, db.reflections, db.blocks, db.goals, db.goalLogs, db.projects, db.notes, db.activity, db.routineChecks], async () => {
     const demoHabitIds = (await db.habits.filter((h) => !!h.demo).primaryKeys()) as string[]
     const demoGoalIds = (await db.goals.filter((g) => !!g.demo).primaryKeys()) as string[]
     const demoProjectIds = (await db.projects.filter((p) => !!p.demo).primaryKeys()) as string[]
@@ -477,5 +552,7 @@ export async function removeDemo() {
     await db.blocks.filter((b) => !!b.demo).delete()
     await db.activity.filter((e) => !!e.demo).delete()
     await db.routineChecks.filter((c) => !!c.demo).delete()
+    // links from the user's own notes to demo notes stay, and read as missing
+    await db.notes.filter((n) => !!n.demo).delete()
   })
 }

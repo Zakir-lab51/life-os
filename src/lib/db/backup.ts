@@ -51,6 +51,7 @@ export function backupCounts(b: Backup) {
     reflections: b.data.reflections.length,
     goals: b.data.goals.length,
     projects: b.data.projects.length,
+    notes: b.data.notes.length,
   }
 }
 
@@ -95,8 +96,8 @@ export async function exportTasksCSV(): Promise<string> {
 }
 
 /** Triggers a browser download of generated content. */
-export function downloadText(filename: string, content: string, type = "application/json") {
-  const blob = new Blob([content], { type })
+export function downloadText(filename: string, content: string | Uint8Array, type = "application/json") {
+  const blob = new Blob([content as BlobPart], { type })
   const url = URL.createObjectURL(blob)
   const a = document.createElement("a")
   a.href = url

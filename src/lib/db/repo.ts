@@ -4,6 +4,7 @@ import { defaultPrefs, migratePrefs } from "./defaults"
 import { addDays, daysBetween, todayISO } from "@/lib/domain/dates"
 import { SERIES_AHEAD_DAYS, occurrenceId, seriesDates } from "@/lib/domain/series"
 import { horizonRank } from "@/lib/domain/goals"
+import { cleanFolder, docLinks, docText, emptyDoc, journalId, journalTemplate, journalTitle, renameLinks, resolveLinks } from "@/lib/domain/notes"
 import { blockingTasks, completeTask, createsCycle, normalizeTag, reopenTask } from "@/lib/domain/tasks"
 import type {
   ActivityEvent,
@@ -18,6 +19,8 @@ import type {
   HabitLog,
   ID,
   ISODate,
+  Note,
+  NoteNode,
   Prefs,
   Project,
   ProjectStatus,
@@ -34,6 +37,7 @@ import {
   goalInputSchema,
   goalLogInputSchema,
   habitInputSchema,
+  noteInputSchema,
   prefsSchema,
   projectInputSchema,
   reflectionInputSchema,
@@ -42,6 +46,7 @@ import {
   type BlockSeriesInput,
   type GoalInput,
   type HabitInput,
+  type NoteInput,
   type ProjectInput,
   type TaskInput,
 } from "@/lib/validation/schemas"
@@ -950,6 +955,133 @@ export async function restoreProject(s: ProjectSnapshot) {
       await logActivity({ type: "project.completed", title: s.project.name, refId: s.project.id, area: s.project.area, dedupeKey: `project:${s.project.id}`, at: s.project.completedAt ?? undefined })
     }
   })
+}
+
+/* ── notes ──────────────────────────────────────────── */
+
+/** Past this a note can't be saved: IndexedDB would cope, but sync and backups would crawl. */
+const NOTE_MAX_CHARS = 1_000_000
+
+/** The document, with its plain text and links read from it. */
+function noteBody(content: NoteNode) {
+  if (JSON.stringify(content).length > NOTE_MAX_CHARS) throw new ValidationError({ content: "This note is too long to save. Split it into two." })
+  return { content, text: docText(content), links: docLinks(content) }
+}
+
+export async function createNote(input: NoteInput, opts: { demo?: boolean; id?: ID } = {}): Promise<Note> {
+  const parsed = noteInputSchema.safeParse(input)
+  if (!parsed.success) throw new ValidationError(parsed.error)
+  const { content, ...data } = parsed.data
+  const stamp = nowISO()
+  const note: Note = {
+    id: opts.id ?? uid("n_"),
+    ...data,
+    tags: cleanTags(data.tags),
+    folder: cleanFolder(data.folder),
+    ...noteBody(content ?? emptyDoc()),
+    createdAt: stamp,
+    updatedAt: stamp,
+    ...(opts.demo ? { demo: true } : {}),
+  }
+  await db.notes.add(note)
+  return note
+}
+
+function noteFields(n: Note): NoteInput {
+  return { title: n.title, content: n.content, tags: n.tags, folder: n.folder, kind: n.kind, date: n.date, inbox: n.inbox, pinned: n.pinned }
+}
+
+/** Saves edits. A new title is written into every link to the note, so links always read right. */
+export async function updateNote(id: ID, patch: Partial<NoteInput>): Promise<Note> {
+  return db.transaction("rw", db.notes, async () => {
+    const current = await db.notes.get(id)
+    if (!current) throw new NotFoundError("This note")
+    const parsed = noteInputSchema.safeParse({ ...noteFields(current), ...patch })
+    if (!parsed.success) throw new ValidationError(parsed.error)
+    const { content, ...data } = parsed.data
+    const next: Note = {
+      ...current,
+      ...data,
+      tags: cleanTags(data.tags),
+      folder: cleanFolder(data.folder),
+      ...(patch.content ? noteBody(content!) : {}),
+      updatedAt: nowISO(),
+    }
+    await db.notes.put(next)
+    if (next.title !== current.title) {
+      for (const other of await db.notes.where("links").equals(id).toArray()) {
+        const renamed = renameLinks(other.content, id, next.title)
+        if (renamed !== other.content) await db.notes.put({ ...other, content: renamed, text: docText(renamed) })
+      }
+    }
+    return next
+  })
+}
+
+/** Deletes a note and returns it for undo. Links to it stay in other notes and read as missing until it's back. */
+export async function deleteNote(id: ID): Promise<Note> {
+  const note = await db.notes.get(id)
+  if (!note) throw new NotFoundError("This note")
+  await db.notes.delete(id)
+  return note
+}
+
+export async function restoreNote(note: Note) {
+  await db.notes.put(note)
+}
+
+/** A day's journal entry, made from the journal template the first time it's opened. */
+export async function openJournal(date: ISODate): Promise<Note> {
+  return db.transaction("rw", db.notes, async () => {
+    const id = journalId(date)
+    const existing = await db.notes.get(id)
+    if (existing) return existing
+    const stamp = nowISO()
+    const note: Note = { id, title: journalTitle(date), ...noteBody(journalTemplate()), tags: [], folder: null, kind: "journal", date, inbox: false, pinned: false, createdAt: stamp, updatedAt: stamp }
+    await db.notes.add(note)
+    return note
+  })
+}
+
+/** Saves a thought to the inbox: its first line is the title, the rest the body. */
+export async function captureIdea(raw: string): Promise<Note> {
+  const lines = raw.split(/\r?\n/).map((l) => l.trim())
+  const first = lines.find(Boolean) ?? ""
+  if (!first) throw new ValidationError({ title: "Write the idea first" })
+  const title = first.length > 80 ? `${first.slice(0, 79).trimEnd()}…` : first
+  const rest = first.length > 80 ? [first, ...lines.slice(lines.indexOf(first) + 1)] : lines.slice(lines.indexOf(first) + 1)
+  const paragraphs = rest.filter(Boolean).map((t): NoteNode => ({ type: "paragraph", content: [{ type: "text", text: t }] }))
+  return createNote({ title, content: { type: "doc", content: paragraphs.length ? paragraphs : [{ type: "paragraph" }] }, inbox: true })
+}
+
+export interface NoteDraft {
+  title: string
+  content: NoteNode
+  tags?: string[]
+  folder?: string | null
+}
+
+/**
+ * Adds imported notes in one go. Links written as [[Title]] are matched to notes by title
+ * (the imported ones first, then the ones already here, ignoring case).
+ */
+export async function importNotes(drafts: NoteDraft[]): Promise<Note[]> {
+  const stamp = nowISO()
+  const made = drafts.map((d) => ({ draft: d, id: uid("n_") }))
+  const existing = await db.notes.toArray()
+  const byTitle = new Map<string, ID>()
+  for (const n of existing) if (n.title && !byTitle.has(n.title.toLowerCase())) byTitle.set(n.title.toLowerCase(), n.id)
+  for (const m of made) if (m.draft.title) byTitle.set(m.draft.title.toLowerCase(), m.id)
+  const notes: Note[] = []
+  for (const { draft, id } of made) {
+    const parsed = noteInputSchema.safeParse({ title: draft.title.slice(0, 200), content: draft.content, tags: (draft.tags ?? []).slice(0, 20), folder: draft.folder ?? null })
+    if (!parsed.success) throw new ValidationError(parsed.error)
+    const { content, ...data } = parsed.data
+    const linked = resolveLinks(content!, (title) => byTitle.get(title.toLowerCase()) ?? null)
+    notes.push({ id, ...data, tags: cleanTags(data.tags), folder: cleanFolder(data.folder), ...noteBody(linked), createdAt: stamp, updatedAt: stamp })
+  }
+  await db.notes.bulkAdd(notes)
+  return notes
 }
 
 /* ── notifications & achievements ───────────────────── */

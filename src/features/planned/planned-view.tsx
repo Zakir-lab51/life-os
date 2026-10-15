@@ -14,11 +14,6 @@ interface PlannedModule {
 }
 
 const MODULES: Partial<Record<NavKey, PlannedModule>> = {
-  notes: {
-    summary: "A second brain: rich-text notes, folders, tags, backlinks, a knowledge graph, daily journal, idea inbox and templates, with Markdown import and export.",
-    coming: ["Rich-text editor with backlinks and linked notes", "Knowledge graph of note relationships", "Daily journal and idea inbox", "Markdown import / export", "Full-text search across notes"],
-    today: [{ label: "Daily reflection", href: "/today", detail: "Wins and lessons for each day, kept in your history." }],
-  },
   finance: {
     summary: "A personal finance overview with manual transactions, categories, monthly budgets, savings goals, recurring expenses, subscriptions and CSV import/export. INR by default.",
     coming: ["Income and expense tracking with categories", "Monthly budgets with progress", "Savings goals and subscription tracker", "Spending breakdowns and history", "CSV import / export"],

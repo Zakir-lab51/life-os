@@ -1,6 +1,7 @@
 "use client"
 
-import { ClipboardCheck, Check, Download, Keyboard, Moon, PanelLeft, Repeat, SquareCheckBig, Sun } from "lucide-react"
+import { useLiveQuery } from "dexie-react-hooks"
+import { CalendarHeart, ClipboardCheck, Check, Download, FileText, Keyboard, Lightbulb, Moon, PanelLeft, Repeat, SquareCheckBig, Sun } from "lucide-react"
 import { useTheme } from "next-themes"
 import { useMemo } from "react"
 import { toast } from "sonner"
@@ -17,12 +18,14 @@ import {
 } from "@/components/ui/command"
 import { Icon } from "@/components/os/icon"
 import { PriorityFlag } from "@/components/os/visuals"
-import { toggleHabitLog } from "@/lib/db/repo"
-import { relativeDayLabel } from "@/lib/domain/dates"
+import { db } from "@/lib/db/db"
+import { openJournal, toggleHabitLog } from "@/lib/db/repo"
+import { relativeDayLabel, toISODate } from "@/lib/domain/dates"
 import { habitsForDay, logsByHabit } from "@/lib/domain/habits"
 import { QUICK_ACTIONS } from "@/lib/domain/types"
 import { attempt } from "@/lib/feedback"
 import { useUI } from "@/lib/stores/ui"
+import { openNote } from "@/features/notes/route"
 import { openProject } from "@/features/projects/route"
 import { ProjectGlyph } from "@/features/projects/shared"
 import { QUICK_ACTION_META, useActions } from "./actions"
@@ -44,6 +47,8 @@ export function CommandPalette() {
     () => (life ? life.data.tasks.filter((t) => t.status !== "done").sort((a, b) => a.priority - b.priority || (a.dueDate ?? "9").localeCompare(b.dueDate ?? "9")) : []),
     [life],
   )
+  // only read while the palette is open: notes can be long
+  const notes = useLiveQuery(() => (open ? db.notes.orderBy("updatedAt").reverse().limit(60).toArray() : []), [open])
   const projects = useMemo(() => (life ? life.data.projects.filter((p) => p.status === "active" || p.status === "paused") : []), [life])
   const habitsToday = useMemo(
     () => (life ? habitsForDay(life.data.habits, logsByHabit(life.data.habitLogs), life.today, life.prefs.weekStartsOn) : []),
@@ -79,6 +84,22 @@ export function CommandPalette() {
               <ClipboardCheck />
               <span>Weekly review</span>
               <span className="text-xs text-muted-foreground">Look back, pick next week&apos;s top three</span>
+            </CommandItem>
+            <CommandItem
+              value="action today's journal diary entry write"
+              onSelect={close(async () => {
+                const entry = await attempt(() => openJournal(life?.today ?? toISODate(new Date())))
+                if (entry) openNote(entry.id, navigate)
+              })}
+            >
+              <CalendarHeart />
+              <span>Today&apos;s journal</span>
+              <span className="text-xs text-muted-foreground">A page for today in your second brain</span>
+            </CommandItem>
+            <CommandItem value="action capture an idea inbox thought note" onSelect={close(() => useUI.getState().setCapture(true, "idea"))}>
+              <Lightbulb />
+              <span>Capture an idea</span>
+              <span className="text-xs text-muted-foreground">Straight to your notes inbox</span>
             </CommandItem>
           </CommandGroup>
 
@@ -130,6 +151,23 @@ export function CommandPalette() {
                     {p.status === "paused" && <span className="ml-auto text-xs text-muted-foreground">Paused</span>}
                   </CommandItem>
                 ))}
+              </CommandGroup>
+            </>
+          )}
+
+          {!!notes?.length && (
+            <>
+              <CommandSeparator />
+              <CommandGroup heading="Notes">
+                {notes
+                  .filter((n) => n.kind !== "template")
+                  .map((n) => (
+                    <CommandItem key={n.id} value={`note ${n.title} ${n.tags.join(" ")} ${n.text.slice(0, 240)} ${n.id}`} onSelect={close(() => openNote(n.id, navigate))}>
+                      <FileText />
+                      <span className="truncate">{n.title || "Untitled"}</span>
+                      {n.folder && <span className="ml-auto shrink-0 text-xs text-muted-foreground">{n.folder.split("/").pop()}</span>}
+                    </CommandItem>
+                  ))}
               </CommandGroup>
             </>
           )}

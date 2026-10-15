@@ -1,21 +1,24 @@
 "use client"
 
-import { CalendarPlus, FolderKanban, NotebookPen, Plus, Repeat, Target, Timer, WandSparkles, Zap, type LucideIcon } from "lucide-react"
+import { CalendarPlus, FilePlus, FolderKanban, NotebookPen, Plus, Repeat, Target, Timer, WandSparkles, Zap, type LucideIcon } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useTheme } from "next-themes"
 import { useCallback } from "react"
 import { toast } from "sonner"
 import { usePrefs } from "@/lib/db/hooks"
 import { downloadText, exportBackup } from "@/lib/db/backup"
+import { createNote } from "@/lib/db/repo"
 import { todayISO } from "@/lib/domain/dates"
 import type { QuickActionId } from "@/lib/domain/types"
 import { attempt } from "@/lib/feedback"
 import { useFocus } from "@/lib/stores/focus"
 import { useUI } from "@/lib/stores/ui"
+import { openNote } from "@/features/notes/route"
 
 export const QUICK_ACTION_META: Record<QuickActionId, { label: string; description: string; icon: LucideIcon; keys?: string }> = {
   task: { label: "New task", description: "Full task editor", icon: Plus, keys: "N" },
   capture: { label: "Quick capture", description: "Type it, tag it, done", icon: Zap, keys: "Q" },
+  note: { label: "New note", description: "A blank page in your second brain", icon: FilePlus },
   habit: { label: "New habit", description: "Start tracking a habit", icon: Repeat },
   goal: { label: "New goal", description: "Set a goal and its milestones", icon: Target },
   project: { label: "New project", description: "Gather the tasks for a bigger piece of work", icon: FolderKanban },
@@ -40,6 +43,9 @@ export function useActions() {
           break
         case "capture":
           ui.setCapture(true)
+          break
+        case "note":
+          void attempt(() => createNote({})).then((note) => note && openNote(note.id, (href) => router.push(href)))
           break
         case "habit":
           ui.openHabitEditor(null)

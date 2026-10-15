@@ -339,6 +339,47 @@ export interface Project {
   demo?: boolean
 }
 
+/* ── notes: the second brain (Phase 3) ───────────────── */
+
+/**
+ * One node of a note's document, in the editor's (TipTap / ProseMirror) JSON shape. Kept
+ * as plain data here so nothing outside the Notes page needs the editor to read notes.
+ */
+export interface NoteNode {
+  type: string
+  attrs?: Record<string, unknown>
+  content?: NoteNode[]
+  marks?: { type: string; attrs?: Record<string, unknown> }[]
+  text?: string
+}
+
+/** Ordinary notes, a day's journal entry, or a template to start new notes from. */
+export const NOTE_KINDS = ["note", "journal", "template"] as const
+export type NoteKind = (typeof NOTE_KINDS)[number]
+
+export interface Note {
+  id: ID
+  title: string
+  /** The document: `{ type: "doc", content: [...] }`. */
+  content: NoteNode
+  /** The body as plain text (derived when saved), for search and previews. */
+  text: string
+  /** Notes this one links to (derived when saved), for backlinks and the graph. */
+  links: ID[]
+  tags: string[]
+  /** "Physiology", or a path such as "Med school/Physiology". */
+  folder: string | null
+  kind: NoteKind
+  /** A journal entry's day. */
+  date: ISODate | null
+  /** Captured into the inbox and not sorted yet. */
+  inbox: boolean
+  pinned: boolean
+  createdAt: ISODateTime
+  updatedAt: ISODateTime
+  demo?: boolean
+}
+
 export interface RoutineItem {
   id: ID
   label: string
@@ -370,7 +411,7 @@ export const RADAR_DIMS = [
 ] as const
 export type RadarDim = (typeof RADAR_DIMS)[number]
 
-export const QUICK_ACTIONS = ["task", "capture", "habit", "goal", "project", "block", "focus", "plan", "reflection"] as const
+export const QUICK_ACTIONS = ["task", "capture", "note", "habit", "goal", "project", "block", "focus", "plan", "reflection"] as const
 export type QuickActionId = (typeof QUICK_ACTIONS)[number]
 
 export type ProductivityStyle = "classic" | "deep" | "flow" | "flexible"

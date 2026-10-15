@@ -42,7 +42,7 @@ export const NAV: NavItem[] = [
   { key: "goals", href: "/goals", label: "Goals", icon: Target, phase: 2, ready: true, group: "Growth", tint: ["oklch(0.78 0.15 345)", "oklch(0.56 0.24 330)"] },
   { key: "habits", href: "/habits", label: "Habits", icon: Repeat, phase: 1, shortcut: "h", ready: true, group: "Growth", tint: ["oklch(0.83 0.15 160)", "oklch(0.6 0.15 162)"] },
   { key: "focus", href: "/focus", label: "Focus", icon: Timer, phase: 1, shortcut: "f", ready: true, group: "Growth", tint: ["oklch(0.84 0.12 200)", "oklch(0.6 0.12 190)"] },
-  { key: "notes", href: "/notes", label: "Second Brain", icon: Brain, phase: 3, ready: false, group: "Knowledge", tint: ["oklch(0.76 0.15 305)", "oklch(0.52 0.22 295)"] },
+  { key: "notes", href: "/notes", label: "Second Brain", icon: Brain, phase: 3, shortcut: "n", ready: true, group: "Knowledge", tint: ["oklch(0.76 0.15 305)", "oklch(0.52 0.22 295)"] },
   { key: "projects", href: "/projects", label: "Projects", icon: FolderKanban, phase: 2, shortcut: "p", ready: true, group: "Knowledge", tint: ["oklch(0.84 0.12 60)", "oklch(0.65 0.18 42)"] },
   { key: "finance", href: "/finance", label: "Finances", icon: Wallet, phase: 4, ready: false, group: "Life", tint: ["oklch(0.88 0.17 125)", "oklch(0.62 0.17 145)"] },
   { key: "analytics", href: "/analytics", label: "Analytics", icon: ChartColumn, phase: 1, shortcut: "a", ready: true, group: "Life", tint: ["oklch(0.74 0.13 270)", "oklch(0.47 0.2 268)"] },

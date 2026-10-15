@@ -1,6 +1,6 @@
 import { z } from "zod"
 import { FONTS, MATERIALS, PHOTOS, type FontId, type MaterialId, type PhotoId } from "@/lib/design/design"
-import { AREAS, GOAL_HORIZONS, PROJECT_STATUSES, QUICK_ACTIONS, RADAR_DIMS, WIDGET_IDS } from "@/lib/domain/types"
+import { AREAS, GOAL_HORIZONS, NOTE_KINDS, PROJECT_STATUSES, QUICK_ACTIONS, RADAR_DIMS, WIDGET_IDS, type NoteNode } from "@/lib/domain/types"
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use a valid date")
 const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use HH:mm")
@@ -168,6 +168,32 @@ export const projectInputSchema = z
   })
 export type ProjectInput = z.input<typeof projectInputSchema>
 
+/* ── notes ── */
+
+/** A node of a note's document (the editor's JSON), checked for shape only. */
+export const noteNodeSchema: z.ZodType<NoteNode> = z.lazy(() =>
+  z.object({
+    type: z.string().min(1).max(40),
+    attrs: z.record(z.string(), z.unknown()).optional(),
+    content: z.array(noteNodeSchema).optional(),
+    marks: z.array(z.object({ type: z.string().min(1).max(40), attrs: z.record(z.string(), z.unknown()).optional() })).optional(),
+    text: z.string().optional(),
+  }),
+)
+const noteDoc = noteNodeSchema.refine((n) => n.type === "doc", "A note's content must be a document")
+
+export const noteInputSchema = z.object({
+  title: z.string().trim().max(200, "Keep the title under 200 characters").default(""),
+  content: noteDoc.optional(),
+  tags: z.array(z.string().trim().min(1).max(32)).max(20, "Up to 20 tags").default([]),
+  folder: z.string().max(120).nullable().default(null),
+  kind: z.enum(NOTE_KINDS).default("note"),
+  date: isoDate.nullable().default(null),
+  inbox: z.boolean().default(false),
+  pinned: z.boolean().default(false),
+})
+export type NoteInput = z.input<typeof noteInputSchema>
+
 export const goalLogInputSchema = z.object({
   date: isoDate,
   value: z.number({ message: "Enter a number" }).finite("Enter a number"),
@@ -299,6 +325,21 @@ const projectRecordSchema = z.object({
   ...stamps,
 })
 
+const noteRecordSchema = z.object({
+  id,
+  title: z.string().max(200),
+  content: noteDoc,
+  text: z.string(),
+  links: z.array(id),
+  tags: z.array(z.string().max(32)),
+  folder: z.string().max(120).nullable(),
+  kind: z.enum(NOTE_KINDS),
+  date: isoDate.nullable(),
+  inbox: z.boolean(),
+  pinned: z.boolean(),
+  ...stamps,
+})
+
 const goalLogRecordSchema = z.object({ id: z.string(), goalId: id, date: isoDate, value: z.number(), note: z.string().max(500), createdAt: isoDateTime, demo: z.boolean().optional() })
 
 export const habitRecordSchema = z.object({
@@ -404,6 +445,8 @@ export const backupSchema = z.object({
       .default([]),
     // added with Projects
     projects: z.array(projectRecordSchema).default([]),
+    // added with the Second Brain
+    notes: z.array(noteRecordSchema).default([]),
   }),
 })
 export type Backup = z.infer<typeof backupSchema>

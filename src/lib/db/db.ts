@@ -11,6 +11,7 @@ import type {
   GoalLog,
   Habit,
   HabitLog,
+  Note,
   Prefs,
   Project,
   Reflection,
@@ -43,6 +44,7 @@ export class LifeDB extends Dexie {
   blockSeries!: EntityTable<BlockSeries, "id">
   reviews!: EntityTable<WeeklyReview, "id">
   projects!: EntityTable<Project, "id">
+  notes!: EntityTable<Note, "id">
 
   constructor(name = "life-os", synced = false) {
     super(name, synced ? { addons: [dexieCloud] } : {})
@@ -79,6 +81,10 @@ export class LifeDB extends Dexie {
     this.version(5).stores({
       tasks: "id, status, dueDate, area, completedAt, order, seriesId, *tags, goalId, projectId",
       projects: "id, status, order, goalId",
+    })
+    // the second brain: notes, found by folder, tag, journal day and the notes they link to
+    this.version(6).stores({
+      notes: "id, updatedAt, kind, date, folder, *tags, *links",
     })
     if (synced) {
       this.cloud.configure({
@@ -117,6 +123,7 @@ export const BACKUP_TABLES = [
   "blockSeries",
   "reviews",
   "projects",
+  "notes",
 ] as const
 
 /** Every table that holds LIFE OS data (with sync on, the database also has Dexie Cloud's own tables, which must be left alone). */

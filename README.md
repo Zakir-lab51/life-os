@@ -17,7 +17,7 @@ Other scripts:
 
 | Command | What it does |
 | --- | --- |
-| `npm test` | Vitest suite: recurrence, streaks, timer accuracy, scoring, planner, goals and forecasts, projects, persistence and backups |
+| `npm test` | Vitest suite: recurrence, streaks, timer accuracy, scoring, planner, goals and forecasts, projects, notes (links, search, graph, Markdown, zip), persistence and backups |
 | `npm run typecheck` | TypeScript, no emit |
 | `npm run lint` | ESLint (Next.js core web vitals + TypeScript rules) |
 | `npm run build` / `npm start` | Production build / serve it |
@@ -32,13 +32,14 @@ Other scripts:
 - **Goals** (Phase 2): weekly, monthly, quarterly, yearly and five-year goals, each measured by milestones, linked tasks, a number to reach (log the running total) or a habit's check-ins. Every goal shows its progress ring, a progress-over-time chart with an even-pace line, milestone timeline, linked tasks and supporting habits, and a plain-language forecast ("At your recent pace you'll finish around 8 Nov, 277 days before the deadline"). Goals can serve a bigger goal, building a tree from this week up to five years out. Filter by horizon and status; archive, reopen or delete with undo.
 - **Life Roadmap** (Goals → Roadmap): every goal as a bar on a 3-month, 1-year or 5-year timeline, one lane per horizon, with progress fill, milestone diamonds and a line to the goal it serves. The bottom lane lists today's tasks and habits for those goals; pointing at an action or goal lights up its whole chain up to the long-term ambition and dims the rest.
 - **Projects** (Phase 2): bigger pieces of work, each with an icon and colour, a deadline, milestones, and a goal it serves. The list shows each project's progress, health (on track, behind, stalled, overdue, ready to finish), next task and next milestone. A project's own page has an overview with a plain-language read of how it's going, its tasks as a list or a Kanban board (add them in one line there, or pull in open tasks from anywhere), milestones, notes that save as you type, links (web and mail only, opened in a new tab, no previews fetched) and a history rebuilt from its records. Pause, finish, archive, or delete it (keeping its tasks, or with them) with Undo. Its tasks still live in Tasks, My Day and the Calendar, with the project's name on them; Tasks can filter by project and move a selection into one (or make a new project from it), and any task's editor or menu can change its project. Tags that were standing in for projects (on two or more tasks) are offered as projects with their tasks moved in. A goal's sheet lists the projects serving it.
+- **Second Brain** (Phase 3): rich-text notes, like Apple Notes: headings, bold/italic/strike, inline code, bulleted, numbered and check lists, quotes, code blocks, dividers and web links, from a formatting bar that stays in reach while you scroll, or with the usual shortcuts and Markdown-style typing (`## `, `- `, `[ ] `). Type `[[` to link another note (or make a new one); links always show the note's current name, a link to a missing note is dashed (tap it to make the note), and renaming a note rewrites every link to it. Each note shows what links to it (with the line that does) and notes that mention it without a link. Folders (`Med school/Physiology`), tags and pins; full-text search across titles, text, folders and tags, also from the command palette. A **journal** page for every day from a template (today's focus, grateful for, notes, what I learned), stepping day to day and showing that day's reflection from My Day. An **inbox** for ideas: quick capture (Q) has an Idea mode, and there's a box on the Second Brain page. **Templates**: lecture notes, clinical case, meeting, book notes, project brief, or save any note as your own. A **knowledge graph** of notes and their links (bigger dots have more links; tap one to open it). **Markdown**: import .md files or a whole folder (front matter tags and folder, `# Title`, `#hashtags`, `[[links]]` matched to notes by title), export a note or everything as a zip of .md files in their folders. Notes save as you type.
 - **Habits**: daily, specific-weekday and N-per-week habits; check-ins; kind streaks (one missed day per week counts as rest); best streaks; GitHub-style heatmaps; consistency stats; XP, levels and achievements.
 - **Focus**: Pomodoro, custom and stopwatch modes; task-linked sessions; generated ambient sound (no audio files); distraction-free fullscreen; weekly chart, streak and session history. Timing comes from timestamps, so it stays exact in background tabs and across reloads, and a session that finished while the tab was closed is still recorded once.
 - **Analytics**: 7/30/90-day range, KPIs with period-over-period change, score/tasks/focus/habit trends, area breakdowns, Life Balance and an activity heatmap. Each chart can switch to a table of the same numbers; heatmap cells show their value on hover.
 - **Shell**: collapsible liquid-glass sidebar laid out like Settings (the logo and name, then the tabs in groups split by thin lines, then a digital watch in the room that's left: a flat, rounded case with a crown and side button; its screen shows the day, date and tonight's moon, the time with a seconds track round the edge, a focus bar counting a session down (the crown starts, pauses and resumes; the side button opens Focus) and how much of your day is left), each tab with a flat app-style icon (a two-tone tile, a facet of light and a bold white symbol) and live status, command palette (Ctrl/⌘+K), quick capture with natural syntax (Q), keyboard shortcuts (?), notification centre, quick-add menu (customisable), light/dark themes, reduced-motion support, responsive down to phones.
 - **Data**: JSON backup and validated restore, tasks CSV export, demo data load/remove, full reset.
 
-Modules still to come (Second Brain and Finances) appear in the sidebar marked **P3–P4**. Their pages say plainly that they're planned and point to what already works today; nothing is faked.
+The module still to come (Finances) appears in the sidebar marked **P4**. Their pages say plainly that they're planned and point to what already works today; nothing is faked.
 
 ## Architecture
 
@@ -46,12 +47,12 @@ Modules still to come (Second Brain and Finances) appear in the sidebar marked *
 src/
   app/                 Next.js App Router: one thin page per route, (os)/layout mounts the shell
   features/            One folder per module (overview, tasks, planner, calendar, goals,
-                       projects, habits, focus, analytics, settings, onboarding, planned, shell)
+                       projects, notes, habits, focus, analytics, settings, onboarding, planned, shell)
   components/ui/       shadcn/ui (Radix) primitives
   components/os/       LIFE OS building blocks: Panel, charts, heatmap, gauges, pickers
   lib/domain/          Pure, tested logic: dates, recurrence, tasks, capture parsing,
-                       scheduling, planner, goals/forecasts, projects, habits/streaks,
-                       focus timer, scores, XP, insights
+                       scheduling, planner, goals/forecasts, projects, notes (text, links,
+                       search, folders, graph layout), habits/streaks, focus timer, scores, XP, insights
   lib/db/              Dexie database, repository (the only writer), live-query hooks,
                        demo data, backup/restore
   lib/validation/      Zod schemas for every input and for backups
@@ -65,6 +66,7 @@ Key decisions:
 - **Local-first.** Dexie + `useLiveQuery` means every screen reads the same live data, so finishing a task updates the dashboard, analytics, XP and sidebar at once. `lib/db/repo.ts` is the single write path, which keeps a future sync layer to one seam.
 - **Derived, not duplicated.** Scores, streaks, XP and insights are computed from the records themselves. Undoing an action undoes its XP, and nothing can double-count. Activity events carry unique `dedupeKey`s.
 - **Client-rendered app shell.** Data lives in the browser, so the server prerenders only a boot screen (`ClientGate`). That's also why the whole app can be exported as static files: `GITHUB_PAGES=1 next build` writes `out/` for https://zakir-lab51.github.io/life-os/.
+- **The note editor loads only where it's used.** Notes are stored as the editor's JSON, with their plain text and links worked out when they're saved (`lib/domain/notes.ts`), so search, backlinks, the graph and the command palette read them without the editor. The editor itself ([TipTap](https://tiptap.dev), pinned to 3.31.4) comes only with the Second Brain page.
 - **No AI, by choice.** The briefing, recommendations, Plan My Day and insights are transparent rules that show their reasoning. LIFE OS uses no AI service (an AI assistant was considered and dropped), and sends nothing anywhere unless you turn on sync.
 - **Sync, if you want it.** Settings → Data & backup → Sync keeps your devices in step through [Dexie Cloud](https://dexie.org/cloud): your data is stored on its servers, you sign in on each device with a code sent to your email, and everything still works offline. Turning it on never touches a device's own data (the synced copy is a separate database), and a fresh device downloads your account before the app starts, so it can't write its defaults over your settings. With sync on, a dot on your profile picture shows its state (green up to date, violet syncing, grey offline, red on a problem).
 
