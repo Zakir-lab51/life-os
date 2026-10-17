@@ -1,16 +1,16 @@
 "use client"
 
+import dynamic from "next/dynamic"
 import { CloudRain, Maximize2, Minimize2, Pause, Play, RotateCcw, Save, SkipForward, Square, Trash2, Volume2, VolumeX, Waves, Wind } from "lucide-react"
 import Link from "next/link"
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react"
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import { toast } from "sonner"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Slider } from "@/components/ui/slider"
-import { ChartFrame, ChartTooltip, axisProps, useChartMotion } from "@/components/os/chart"
+import { ChartFrame } from "@/components/os/chart"
 import { PageHeader, PageTransition } from "@/components/os/page-header"
 import { Panel, PanelHeader } from "@/components/os/panel"
 import { EmptyState, StatTile } from "@/components/os/visuals"
@@ -351,8 +351,10 @@ function AmbientControls({ kind, volume, onPlay, onVolume, compact }: { kind: Am
   )
 }
 
+// the week chart loads after the page draws (see week-chart.tsx); its box keeps its size meanwhile
+const WeekChart = dynamic(() => import("./week-chart").then((m) => m.WeekChart), { ssr: false })
+
 function FocusSidebar({ life, today }: { life: Life; today: string }) {
-  const chartMotion = useChartMotion()
   const sessions = life.data.sessions
   const tasksById = new Map(life.data.tasks.map((t) => [t.id, t]))
   const week = useMemo(
@@ -383,15 +385,7 @@ function FocusSidebar({ life, today }: { life: Life; today: string }) {
       </div>
       <ChartFrame title="This week" subtitle="Focus minutes per day" table={{ columns: ["Day", "Minutes"], rows: week.map((w) => [formatDay(w.date, "EEE d MMM"), w.minutes]) }}>
         <div className="h-[180px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={week} margin={{ top: 8, right: 4, bottom: 0, left: -4 }} barCategoryGap="24%">
-              <CartesianGrid vertical={false} stroke="var(--line)" />
-              <XAxis dataKey="label" {...axisProps} interval={0} />
-              <YAxis {...axisProps} width={44} allowDecimals={false} />
-              <Tooltip cursor={{ fill: "var(--surface-3)", opacity: 0.5 }} content={<ChartTooltip format={(v) => `${v} min`} labelFormat={(_, p) => formatDay(String(p?.date), "EEEE d MMM")} />} />
-              <Bar {...chartMotion} dataKey="minutes" name="Focus" fill="var(--violet)" radius={[4, 4, 0, 0]} maxBarSize={24} />
-            </BarChart>
-          </ResponsiveContainer>
+          <WeekChart week={week} />
         </div>
       </ChartFrame>
       <Panel>

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest"
 import { db } from "@/lib/db/db"
-import { exportBackup, parseBackup, restoreBackup } from "@/lib/db/backup"
+import { exportBackup, restoreBackup } from "@/lib/db/backup"
+import { parseBackup } from "@/lib/db/backup-file"
 import { createBlockSeries, endSeriesFrom, ensureSeriesBlocks, saveWeeklyReview, skipSeriesDay, unskipSeriesDay, updateSeriesFrom, wipeAllData } from "@/lib/db/repo"
 import { describeDays, occurrenceId, seriesDates } from "@/lib/domain/series"
 

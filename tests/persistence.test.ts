@@ -17,7 +17,8 @@ import {
   updateTask,
   wipeAllData,
 } from "@/lib/db/repo"
-import { exportBackup, parseBackup, restoreBackup } from "@/lib/db/backup"
+import { exportBackup, restoreBackup } from "@/lib/db/backup"
+import { parseBackup } from "@/lib/db/backup-file"
 import { removeDemo, seedDemo } from "@/lib/db/demo"
 import { todayISO } from "@/lib/domain/dates"
 import { makeSession } from "./helpers"

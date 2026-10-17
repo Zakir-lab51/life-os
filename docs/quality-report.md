@@ -354,3 +354,53 @@ browser (0 lenses on the page) and fixed before this was committed.
 
 The drawer also has a Close button at its foot, within thumb reach (the ✕ at the top stays);
 its spacing was tightened so the watch keeps its full face.
+
+## Phase 5: a faster start
+
+Every page used to load 1.7–2.25 MB of JavaScript before it could start, 1.66 MB of it shared
+by all of them. Three things in that shared part (and two pages' own) weren't needed to draw a
+page, so they now load later or not at all.
+
+| Change | Saves | Where |
+|---|---|---|
+| The sync library (Dexie Cloud) loads only on a device that syncs. The database is made on first use (`db` stands in for it), after `initDatabase()` has fetched the sync code when it's needed; ClientGate waits for that. The sync screens no longer import the library for its one text helper. | ~130 KB minified, every page, when sync is off | `lib/db/db.ts`, `features/shell/client-gate.tsx`, `features/sync/sync-ui.tsx` |
+| The validation rules (zod) load the first time something is saved. Each writer fetches them before opening a transaction (awaiting anything else inside one would end it early). Reading a backup file moved to `backup-file.ts`, so the rest of `backup.ts` (Download a backup, in the command palette) doesn't pull zod in. Form errors are read without zod (`validation/errors.ts`). | ~154 KB, every page | `lib/db/repo.ts`, `lib/db/backup-file.ts`, `lib/validation/errors.ts` |
+| The charts on Overview (Life balance, the focus week) and Focus (this week) load after the page has drawn; their boxes keep their size meanwhile, so nothing shifts. | ~340 KB on Overview and Focus | `features/overview/charts.tsx`, `features/focus/week-chart.tsx` |
+
+### Measured
+
+JavaScript each page loads at start (the scripts in its HTML), production build, before and after:
+
+| Page | Before | After | Change | Before (gzip) | After (gzip) |
+|---|---|---|---|---|---|
+| Overview | 2229 KB | 1497 KB | −732 KB (−33%) | 705 KB | 488 KB |
+| My Day | 1808 KB | 1467 KB | −341 KB | 580 KB | 479 KB |
+| Tasks | 1807 KB | 1465 KB | −342 KB | 582 KB | 481 KB |
+| Calendar | 1785 KB | 1443 KB | −342 KB | 570 KB | 470 KB |
+| Goals | 1691 KB | 1350 KB | −341 KB | 542 KB | 441 KB |
+| Habits | 1787 KB | 1446 KB | −341 KB | 572 KB | 471 KB |
+| Focus | 2090 KB | 1382 KB | −708 KB (−34%) | 664 KB | 452 KB |
+| Projects | 1860 KB | 1519 KB | −341 KB | 595 KB | 494 KB |
+| Second Brain | 2209 KB | 1868 KB | −341 KB | 704 KB | 603 KB |
+| Analytics | 2253 KB | 1881 KB | −372 KB | 712 KB | 601 KB |
+| Settings | 1739 KB | 1518 KB | −221 KB | 557 KB | 490 KB |
+
+The part every page shares went from 1664 KB to 1322 KB.
+
+Warm opens (the offline copy installed, demo data loaded), in the browser pane on the PC, time
+until the page's heading appears and the JavaScript run before it, 3 loads each:
+
+| Page | Before | After |
+|---|---|---|
+| Overview | 372 / 418 / 548 ms, 2119 KB | 283 / 369 / 383 ms, 1779 KB |
+| My Day | 263 / 265 / 280 ms, 1698 KB | 244 / 257 / 261 ms, 1357 KB |
+
+### Not measured
+
+- Phones and the iPad themselves. On this PC the time saved is small (median 418 → 369 ms on
+  Overview, 265 → 257 ms on My Day); a phone parses and runs JavaScript several times slower,
+  so the bytes saved should count for more there, but that wasn't measured.
+- Main-thread blocking: the browser pane draws no frames while the app window is in the
+  background, so it reported no long tasks or paint times for either build.
+- A device that syncs still downloads the sync code, now just before the app starts instead of
+  with every page.

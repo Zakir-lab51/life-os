@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest"
 import { db } from "@/lib/db/db"
-import { exportBackup, parseBackup, restoreBackup } from "@/lib/db/backup"
+import { exportBackup, restoreBackup } from "@/lib/db/backup"
+import { parseBackup } from "@/lib/db/backup-file"
 import { ValidationError, createGoal, createHabit, createTask, deleteGoal, logGoalValue, restoreGoal, setGoalStatus, toggleMilestone, updateGoal, wipeAllData } from "@/lib/db/repo"
 import { todayISO, addDays } from "@/lib/domain/dates"
 import { defaultDueDate, forecastGoal, goalHistory, goalProgress, parentCandidates, type GoalContext } from "@/lib/domain/goals"

@@ -39,7 +39,7 @@ Other scripts:
 - **Shell**: collapsible liquid-glass sidebar laid out like Settings (the logo and name, then the tabs in groups split by thin lines, then a digital watch in the room that's left: a flat, rounded case with a crown and side button; its screen shows the day, date and tonight's moon, the time with a seconds track round the edge, a focus bar counting a session down (the crown starts, pauses and resumes; the side button opens Focus) and how much of your day is left), each tab with a flat app-style icon (a two-tone tile, a facet of light and a bold white symbol) and live status, command palette (Ctrl/⌘+K), quick capture with natural syntax (Q), keyboard shortcuts (?), notification centre, quick-add menu (customisable), light/dark themes, reduced-motion support, responsive down to phones.
 - **Data**: JSON backup and validated restore, tasks CSV export, demo data load/remove, full reset.
 
-The module still to come (Finances) appears in the sidebar marked **P4**. Their pages say plainly that they're planned and point to what already works today; nothing is faked.
+Every module in the sidebar is built. (A Finances module was planned as Phase 4 and dropped; money still counts as a life area for tasks, habits and the Life Balance radar. Sync, the other half of that phase, is in place through Dexie Cloud.)
 
 ## Architecture
 
@@ -47,7 +47,7 @@ The module still to come (Finances) appears in the sidebar marked **P4**. Their 
 src/
   app/                 Next.js App Router: one thin page per route, (os)/layout mounts the shell
   features/            One folder per module (overview, tasks, planner, calendar, goals,
-                       projects, notes, habits, focus, analytics, settings, onboarding, planned, shell)
+                       projects, notes, habits, focus, analytics, settings, onboarding, shell)
   components/ui/       shadcn/ui (Radix) primitives
   components/os/       LIFE OS building blocks: Panel, charts, heatmap, gauges, pickers
   lib/domain/          Pure, tested logic: dates, recurrence, tasks, capture parsing,
@@ -58,7 +58,6 @@ src/
   lib/validation/      Zod schemas for every input and for backups
   lib/stores/          Zustand: UI state and the persisted focus timer
 tests/                 Vitest (runs the real Dexie code against fake-indexeddb)
-prisma/schema.prisma   Relational model for the planned Phase 4 sync backend (not wired yet)
 ```
 
 Key decisions:
@@ -66,6 +65,7 @@ Key decisions:
 - **Local-first.** Dexie + `useLiveQuery` means every screen reads the same live data, so finishing a task updates the dashboard, analytics, XP and sidebar at once. `lib/db/repo.ts` is the single write path, which keeps a future sync layer to one seam.
 - **Derived, not duplicated.** Scores, streaks, XP and insights are computed from the records themselves. Undoing an action undoes its XP, and nothing can double-count. Activity events carry unique `dedupeKey`s.
 - **Client-rendered app shell.** Data lives in the browser, so the server prerenders only a boot screen (`ClientGate`). That's also why the whole app can be exported as static files: `GITHUB_PAGES=1 next build` writes `out/` for https://zakir-lab51.github.io/life-os/.
+- **A light start.** A page loads only what it needs to draw: the sync code comes only on a device that syncs (the database is made on first use, after `initDatabase()`), the validation rules (zod) the first time something is saved, and the charts on Overview and Focus just after the page appears. Dialogs load on first open. Numbers in `docs/quality-report.md` (Phase 5).
 - **The note editor loads only where it's used.** Notes are stored as the editor's JSON, with their plain text and links worked out when they're saved (`lib/domain/notes.ts`), so search, backlinks, the graph and the command palette read them without the editor. The editor itself ([TipTap](https://tiptap.dev), pinned to 3.31.4) comes only with the Second Brain page.
 - **No AI, by choice.** The briefing, recommendations, Plan My Day and insights are transparent rules that show their reasoning. LIFE OS uses no AI service (an AI assistant was considered and dropped), and sends nothing anywhere unless you turn on sync.
 - **Sync, if you want it.** Settings → Data & backup → Sync keeps your devices in step through [Dexie Cloud](https://dexie.org/cloud): your data is stored on its servers, you sign in on each device with a code sent to your email, and everything still works offline. Turning it on never touches a device's own data (the synced copy is a separate database), and a fresh device downloads your account before the app starts, so it can't write its defaults over your settings. With sync on, a dot on your profile picture shows its state (green up to date, violet syncing, grey offline, red on a problem).

@@ -10,13 +10,12 @@ import {
   Sun,
   Target,
   Timer,
-  Wallet,
   type LucideIcon,
 } from "lucide-react"
 
 export type NavKey =
   | "overview" | "today" | "tasks" | "calendar" | "goals" | "habits" | "focus"
-  | "notes" | "projects" | "finance" | "analytics" | "settings"
+  | "notes" | "projects" | "analytics" | "settings"
 
 export interface NavItem {
   key: NavKey
@@ -44,7 +43,6 @@ export const NAV: NavItem[] = [
   { key: "focus", href: "/focus", label: "Focus", icon: Timer, phase: 1, shortcut: "f", ready: true, group: "Growth", tint: ["oklch(0.84 0.12 200)", "oklch(0.6 0.12 190)"] },
   { key: "notes", href: "/notes", label: "Second Brain", icon: Brain, phase: 3, shortcut: "n", ready: true, group: "Knowledge", tint: ["oklch(0.76 0.15 305)", "oklch(0.52 0.22 295)"] },
   { key: "projects", href: "/projects", label: "Projects", icon: FolderKanban, phase: 2, shortcut: "p", ready: true, group: "Knowledge", tint: ["oklch(0.84 0.12 60)", "oklch(0.65 0.18 42)"] },
-  { key: "finance", href: "/finance", label: "Finances", icon: Wallet, phase: 4, ready: false, group: "Life", tint: ["oklch(0.88 0.17 125)", "oklch(0.62 0.17 145)"] },
   { key: "analytics", href: "/analytics", label: "Analytics", icon: ChartColumn, phase: 1, shortcut: "a", ready: true, group: "Life", tint: ["oklch(0.74 0.13 270)", "oklch(0.47 0.2 268)"] },
   { key: "settings", href: "/settings", label: "Settings", icon: Settings, phase: 1, shortcut: "s", ready: true, group: "Life", tint: ["oklch(0.78 0.02 255)", "oklch(0.52 0.03 260)"] },
 ]

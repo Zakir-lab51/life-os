@@ -4,7 +4,7 @@ import { DatabaseZap } from "lucide-react"
 import { useEffect, useState, type ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 import { readSync } from "@/lib/db/cloud"
-import { SYNCED } from "@/lib/db/db"
+import { SYNCED, initDatabase } from "@/lib/db/db"
 import { ensurePrefs } from "@/lib/db/repo"
 import { useFocus } from "@/lib/stores/focus"
 import { useUI } from "@/lib/stores/ui"
@@ -19,10 +19,14 @@ import { LifeMark } from "./sidebar"
 export function ClientGate({ children }: { children: ReactNode }) {
   const [state, setState] = useState<"boot" | "sync" | "ready" | "error">("boot")
   const [boots, setBoots] = useState(0)
+  // the sync sign-in dialog reads the database, so it waits until it's ready
+  const [opened, setOpened] = useState(false)
 
   useEffect(() => {
     let alive = true
     ;(async () => {
+      await initDatabase()
+      if (alive) setOpened(true)
       // a device that has just turned sync on signs in and downloads first (see lib/db/cloud.ts)
       if (SYNCED && !readSync()?.ready) {
         if (alive) setState("sync")
@@ -42,7 +46,7 @@ export function ClientGate({ children }: { children: ReactNode }) {
 
   return (
     <>
-      {SYNCED && <CloudLoginDialog />}
+      {SYNCED && opened && <CloudLoginDialog />}
       <GateScreen state={state} onSynced={() => (setState("boot"), setBoots((b) => b + 1))}>
         {children}
       </GateScreen>

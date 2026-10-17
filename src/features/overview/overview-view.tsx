@@ -167,7 +167,6 @@ function CustomizeDialog({ open, onOpenChange, life }: { open: boolean; onOpenCh
               <Switch checked={w.visible} onCheckedChange={(v) => save(widgets.map((x) => (x.id === w.id ? { ...x, visible: v } : x)))} aria-label={`Show ${WIDGET_META[w.id].label}`} />
             </li>
           ))}
-          <li className="px-2 pt-3 text-xs text-muted-foreground">Finance summary and Study progress widgets arrive with their modules (Phases 3 and 4).</li>
         </ul>
         <DialogFooter className="border-t border-line bg-surface-2/40 px-6 py-4">
           <Button

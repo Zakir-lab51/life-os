@@ -1,5 +1,4 @@
 import Dexie, { type EntityTable } from "dexie"
-import dexieCloud from "dexie-cloud-addon"
 import type {
   AchievementUnlock,
   ActivityEvent,
@@ -27,6 +26,9 @@ import { CLOUD_DATABASE_URL, readSync } from "./cloud"
  * the only writers. With sync on (see `cloud.ts`) the same tables sync through
  * Dexie Cloud, in a separate local database.
  */
+/** The Dexie Cloud addon. Only a device that syncs downloads it (it's about 130 KB). */
+export type CloudAddon = (typeof import("dexie-cloud-addon"))["default"]
+
 export class LifeDB extends Dexie {
   tasks!: EntityTable<Task, "id">
   habits!: EntityTable<Habit, "id">
@@ -46,8 +48,8 @@ export class LifeDB extends Dexie {
   projects!: EntityTable<Project, "id">
   notes!: EntityTable<Note, "id">
 
-  constructor(name = "life-os", synced = false) {
-    super(name, synced ? { addons: [dexieCloud] } : {})
+  constructor(name = "life-os", cloud: CloudAddon | null = null) {
+    super(name, cloud ? { addons: [cloud] } : {})
     this.version(1).stores({
       tasks: "id, status, dueDate, area, completedAt, order, seriesId, *tags",
       habits: "id, order, area",
@@ -67,7 +69,7 @@ export class LifeDB extends Dexie {
       goals: "id, status, horizon, parentId, order",
       goalLogs: "id, goalId, date",
     })
-    if (synced) {
+    if (cloud) {
       // a unique index can't hold across devices that are offline at once; events' ids carry their dedupe key instead
       this.version(3).stores({ activity: "id, dedupeKey, at, type" })
     }
@@ -86,7 +88,7 @@ export class LifeDB extends Dexie {
     this.version(6).stores({
       notes: "id, updatedAt, kind, date, folder, *tags, *links",
     })
-    if (synced) {
+    if (cloud) {
       this.cloud.configure({
         databaseUrl: CLOUD_DATABASE_URL,
         requireAuth: false,
@@ -101,10 +103,42 @@ export class LifeDB extends Dexie {
 /** Whether this device syncs (decided once, at load: turning sync on or off reloads the app). */
 export const SYNCED = typeof window !== "undefined" && CLOUD_DATABASE_URL !== "" && readSync() !== null
 
-export const db = new LifeDB("life-os", SYNCED)
+let instance: LifeDB | null = null
+let addon: CloudAddon | null = null
+
+/**
+ * Gets the database ready to open: on a device that syncs, fetches the sync code first.
+ * ClientGate waits for this before anything reads or writes.
+ */
+export async function initDatabase() {
+  if (SYNCED && !addon) addon = (await import("dexie-cloud-addon")).default
+}
+
+function current(): LifeDB {
+  if (!instance) {
+    if (SYNCED && !addon) throw new Error("The synced database was used before initDatabase() finished")
+    instance = new LifeDB("life-os", SYNCED ? addon : null)
+  }
+  return instance
+}
+
+/**
+ * The app's database. It's made on first use rather than when this file loads, so a
+ * device that doesn't sync never downloads the sync code; everything else uses it as
+ * the database itself (its methods are bound to it).
+ */
+export const db: LifeDB = new Proxy({} as LifeDB, {
+  get(_, key) {
+    const d = current()
+    const value = Reflect.get(d, key, d)
+    return typeof value === "function" ? value.bind(d) : value
+  },
+  set: (_, key, value) => Reflect.set(current(), key, value),
+  has: (_, key) => Reflect.has(current(), key),
+})
 
 /** This device's own data, from before sync was turned on (or while it's off). */
-export const openOwnData = () => new LifeDB("life-os", false)
+export const openOwnData = () => new LifeDB("life-os")
 
 /** Tables included in backups (notifications are transient and left out). */
 export const BACKUP_TABLES = [

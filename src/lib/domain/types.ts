@@ -444,6 +444,7 @@ export interface Prefs {
   focusAreas: Area[]
   /** No longer shown (the Study Hub was dropped); kept so older data and backups stay valid. */
   studyInterests: string[]
+  /** No longer used (the Finances module was dropped); kept so older data and backups stay valid. */
   currency: string
   motion: "system" | "reduced"
   /** Look and feel: accent, roundness, glass, glow, size, font (see src/lib/design/design.ts). */

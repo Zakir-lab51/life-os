@@ -1,5 +1,5 @@
 import { BACKUP_TABLES, db } from "./db"
-import { backupSchema, fieldErrors, type Backup } from "@/lib/validation/schemas"
+import type { Backup } from "@/lib/validation/schemas"
 import { AREA_META, PRIORITY_META } from "@/lib/domain/areas"
 import { describeRecurrence } from "@/lib/domain/recurrence"
 
@@ -20,25 +20,6 @@ export class BackupError extends Error {
     super(message)
     this.name = "BackupError"
   }
-}
-
-/** Parses and validates a backup file without touching the database. */
-export function parseBackup(text: string): Backup {
-  let json: unknown
-  try {
-    json = JSON.parse(text)
-  } catch {
-    throw new BackupError("That file isn't valid JSON.")
-  }
-  const parsed = backupSchema.safeParse(json)
-  if (!parsed.success) {
-    const [path, message] = Object.entries(fieldErrors(parsed.error))[0] ?? ["", "Unknown problem"]
-    throw new BackupError(`This doesn't look like a LIFE OS backup (${path}: ${message}).`)
-  }
-  if (parsed.data.version > BACKUP_VERSION) {
-    throw new BackupError("This backup was made by a newer version of LIFE OS.")
-  }
-  return parsed.data
 }
 
 export function backupCounts(b: Backup) {

@@ -1,4 +1,3 @@
-import type { ZodError } from "zod"
 import { APP_TABLES, db } from "./db"
 import { defaultPrefs, migratePrefs } from "./defaults"
 import { addDays, daysBetween, todayISO } from "@/lib/domain/dates"
@@ -30,34 +29,24 @@ import type {
   WeeklyReview,
 } from "@/lib/domain/types"
 import type { PlanSuggestion } from "@/lib/domain/planner"
-import {
-  blockInputSchema,
-  blockSeriesInputSchema,
-  fieldErrors,
-  goalInputSchema,
-  goalLogInputSchema,
-  habitInputSchema,
-  noteInputSchema,
-  prefsSchema,
-  projectInputSchema,
-  reflectionInputSchema,
-  taskInputSchema,
-  type BlockInput,
-  type BlockSeriesInput,
-  type GoalInput,
-  type HabitInput,
-  type NoteInput,
-  type ProjectInput,
-  type TaskInput,
-} from "@/lib/validation/schemas"
+import type { BlockInput, BlockSeriesInput, GoalInput, HabitInput, NoteInput, ProjectInput, TaskInput } from "@/lib/validation/schemas"
+import { fieldErrors, type ValidationIssues } from "@/lib/validation/errors"
 import { uid } from "@/lib/utils"
+
+/*
+  The validation rules (zod, about 150 KB) load the first time something is saved, not
+  with every page: reading needs none of it. Each writer fetches them before it opens a
+  transaction (awaiting anything else inside one would end it early).
+*/
+let rules: typeof import("@/lib/validation/schemas") | null = null
+const schemas = async () => (rules ??= await import("@/lib/validation/schemas"))
 
 /* ── errors ─────────────────────────────────────────── */
 
 export class ValidationError extends Error {
   fields: Record<string, string>
-  constructor(error: ZodError | Record<string, string>) {
-    const fields = "issues" in error ? fieldErrors(error as ZodError) : (error as Record<string, string>)
+  constructor(error: ValidationIssues | Record<string, string>) {
+    const fields = "issues" in error ? fieldErrors(error as ValidationIssues) : (error as Record<string, string>)
     super(Object.values(fields)[0] ?? "Some fields need attention")
     this.name = "ValidationError"
     this.fields = fields
@@ -112,6 +101,7 @@ export async function ensurePrefs(): Promise<Prefs> {
 export async function updatePrefs(patch: Partial<Omit<Prefs, "id" | "createdAt">>): Promise<Prefs> {
   const current = await ensurePrefs()
   const next = { ...current, ...patch, updatedAt: nowISO() }
+  const { prefsSchema } = await schemas()
   const parsed = prefsSchema.safeParse(next)
   if (!parsed.success) throw new ValidationError(parsed.error)
   await db.prefs.put(next as Prefs)
@@ -125,6 +115,7 @@ function cleanTags(tags: string[]) {
 }
 
 export async function createTask(input: TaskInput, opts: { demo?: boolean } = {}): Promise<Task> {
+  const { taskInputSchema } = await schemas()
   const parsed = taskInputSchema.safeParse(input)
   if (!parsed.success) throw new ValidationError(parsed.error)
   const data = parsed.data
@@ -175,6 +166,7 @@ function editableFields(t: Task): TaskInput {
 export async function updateTask(id: ID, patch: Partial<TaskInput>): Promise<Task> {
   const current = await db.tasks.get(id)
   if (!current) throw new NotFoundError("This task")
+  const { taskInputSchema } = await schemas()
   const parsed = taskInputSchema.safeParse({ ...editableFields(current), ...patch })
   if (!parsed.success) throw new ValidationError(parsed.error)
   const data = parsed.data
@@ -334,6 +326,7 @@ export async function moveTasksToDate(ids: ID[], date: ISODate) {
 /* ── habits ─────────────────────────────────────────── */
 
 export async function createHabit(input: HabitInput, opts: { demo?: boolean } = {}): Promise<Habit> {
+  const { habitInputSchema } = await schemas()
   const parsed = habitInputSchema.safeParse(input)
   if (!parsed.success) throw new ValidationError(parsed.error)
   const stamp = nowISO()
@@ -354,6 +347,7 @@ export async function createHabit(input: HabitInput, opts: { demo?: boolean } = 
 export async function updateHabit(id: ID, patch: Partial<HabitInput>): Promise<Habit> {
   const current = await db.habits.get(id)
   if (!current) throw new NotFoundError("This habit")
+  const { habitInputSchema } = await schemas()
   const parsed = habitInputSchema.safeParse({
     name: current.name,
     icon: current.icon,
@@ -424,6 +418,7 @@ export async function toggleHabitLog(habitId: ID, date: ISODate): Promise<boolea
 /* ── planner blocks ─────────────────────────────────── */
 
 export async function createBlock(input: BlockInput): Promise<Block> {
+  const { blockInputSchema } = await schemas()
   const parsed = blockInputSchema.safeParse(input)
   if (!parsed.success) throw new ValidationError(parsed.error)
   const stamp = nowISO()
@@ -435,6 +430,7 @@ export async function createBlock(input: BlockInput): Promise<Block> {
 export async function updateBlock(id: ID, patch: Partial<BlockInput>): Promise<Block> {
   const current = await db.blocks.get(id)
   if (!current) throw new NotFoundError("This block")
+  const { blockInputSchema } = await schemas()
   const parsed = blockInputSchema.safeParse({
     date: current.date,
     start: current.start,
@@ -466,6 +462,7 @@ export async function restoreBlock(block: Block) {
 
 /** Starts a repeating block and puts its days on the timeline from `from` on. */
 export async function createBlockSeries(input: BlockSeriesInput): Promise<BlockSeries> {
+  const { blockSeriesInputSchema } = await schemas()
   const parsed = blockSeriesInputSchema.safeParse(input)
   if (!parsed.success) throw new ValidationError(parsed.error)
   const stamp = nowISO()
@@ -531,6 +528,7 @@ export async function unskipSeriesDay(block: Block) {
 export async function updateSeriesFrom(seriesId: ID, patch: Partial<BlockSeriesInput>, from: ISODate): Promise<BlockSeries> {
   const current = await db.blockSeries.get(seriesId)
   if (!current) throw new NotFoundError("This repeating block")
+  const { blockSeriesInputSchema } = await schemas()
   const parsed = blockSeriesInputSchema.safeParse({ title: current.title, kind: current.kind, start: current.start, end: current.end, notes: current.notes, days: current.days, from: current.from, until: current.until, ...patch })
   if (!parsed.success) throw new ValidationError(parsed.error)
   const next: BlockSeries = { ...current, ...parsed.data, updatedAt: nowISO() }
@@ -660,6 +658,7 @@ export async function deleteFocusSession(id: ID) {
 /* ── reflections & routines ─────────────────────────── */
 
 export async function saveReflection(date: ISODate, input: { mood: number; wins?: string; improve?: string }): Promise<Reflection> {
+  const { reflectionInputSchema } = await schemas()
   const parsed = reflectionInputSchema.safeParse(input)
   if (!parsed.success) throw new ValidationError(parsed.error)
   const existing = await db.reflections.get(date)
@@ -704,6 +703,7 @@ async function checkParent(goalId: ID | null, horizon: Goal["horizon"], parentId
 }
 
 export async function createGoal(input: GoalInput, opts: { demo?: boolean } = {}): Promise<Goal> {
+  const { goalInputSchema } = await schemas()
   const parsed = goalInputSchema.safeParse(input)
   if (!parsed.success) throw new ValidationError(parsed.error)
   await checkParent(null, parsed.data.horizon, parsed.data.parentId)
@@ -730,6 +730,7 @@ function goalFields(g: Goal): GoalInput {
 export async function updateGoal(id: ID, patch: Partial<GoalInput>): Promise<Goal> {
   const current = await db.goals.get(id)
   if (!current) throw new NotFoundError("This goal")
+  const { goalInputSchema } = await schemas()
   const parsed = goalInputSchema.safeParse({ ...goalFields(current), ...patch })
   if (!parsed.success) throw new ValidationError(parsed.error)
   await checkParent(id, parsed.data.horizon, parsed.data.parentId)
@@ -774,6 +775,7 @@ export async function toggleMilestone(goalId: ID, milestoneId: ID): Promise<bool
 
 /** Records the value a number-target goal has reached on a day (one per day; the latest wins). */
 export async function logGoalValue(goalId: ID, input: { date: ISODate; value: number; note?: string }): Promise<GoalLog> {
+  const { goalLogInputSchema } = await schemas()
   const parsed = goalLogInputSchema.safeParse(input)
   if (!parsed.success) throw new ValidationError(parsed.error)
   if (daysBetween(todayISO(), parsed.data.date) > 0) throw new ValidationError({ date: "You can't log progress for a future day" })
@@ -848,6 +850,7 @@ async function checkProjectGoal(goalId: ID | null) {
 
 /** Makes a project; `taskIds` are moved into it (making a project from a tag uses this). */
 export async function createProject(input: ProjectInput, opts: { demo?: boolean; taskIds?: ID[] } = {}): Promise<Project> {
+  const { projectInputSchema } = await schemas()
   const parsed = projectInputSchema.safeParse(input)
   if (!parsed.success) throw new ValidationError(parsed.error)
   await checkProjectGoal(parsed.data.goalId)
@@ -877,6 +880,7 @@ function projectFields(p: Project): ProjectInput {
 export async function updateProject(id: ID, patch: Partial<ProjectInput>): Promise<Project> {
   const current = await db.projects.get(id)
   if (!current) throw new NotFoundError("This project")
+  const { projectInputSchema } = await schemas()
   const parsed = projectInputSchema.safeParse({ ...projectFields(current), ...patch })
   if (!parsed.success) throw new ValidationError(parsed.error)
   if (parsed.data.goalId !== current.goalId) await checkProjectGoal(parsed.data.goalId)
@@ -969,6 +973,7 @@ function noteBody(content: NoteNode) {
 }
 
 export async function createNote(input: NoteInput, opts: { demo?: boolean; id?: ID } = {}): Promise<Note> {
+  const { noteInputSchema } = await schemas()
   const parsed = noteInputSchema.safeParse(input)
   if (!parsed.success) throw new ValidationError(parsed.error)
   const { content, ...data } = parsed.data
@@ -993,6 +998,7 @@ function noteFields(n: Note): NoteInput {
 
 /** Saves edits. A new title is written into every link to the note, so links always read right. */
 export async function updateNote(id: ID, patch: Partial<NoteInput>): Promise<Note> {
+  const { noteInputSchema } = await schemas()
   return db.transaction("rw", db.notes, async () => {
     const current = await db.notes.get(id)
     if (!current) throw new NotFoundError("This note")
@@ -1073,6 +1079,7 @@ export async function importNotes(drafts: NoteDraft[]): Promise<Note[]> {
   for (const n of existing) if (n.title && !byTitle.has(n.title.toLowerCase())) byTitle.set(n.title.toLowerCase(), n.id)
   for (const m of made) if (m.draft.title) byTitle.set(m.draft.title.toLowerCase(), m.id)
   const notes: Note[] = []
+  const { noteInputSchema } = await schemas()
   for (const { draft, id } of made) {
     const parsed = noteInputSchema.safeParse({ title: draft.title.slice(0, 200), content: draft.content, tags: (draft.tags ?? []).slice(0, 20), folder: draft.folder ?? null })
     if (!parsed.success) throw new ValidationError(parsed.error)

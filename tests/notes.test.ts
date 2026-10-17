@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest"
 import { db } from "@/lib/db/db"
-import { exportBackup, parseBackup, restoreBackup } from "@/lib/db/backup"
+import { exportBackup, restoreBackup } from "@/lib/db/backup"
+import { parseBackup } from "@/lib/db/backup-file"
 import { removeDemo, seedDemo } from "@/lib/db/demo"
 import { ValidationError, captureIdea, createNote, deleteNote, importNotes, openJournal, restoreNote, updateNote, wipeAllData } from "@/lib/db/repo"
 import {

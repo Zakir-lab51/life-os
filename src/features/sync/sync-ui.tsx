@@ -1,7 +1,7 @@
 "use client"
 
 import { formatDistanceToNowStrict } from "date-fns"
-import { resolveText, type DXCUserInteraction } from "dexie-cloud-addon"
+import type { DXCAlert, DXCUserInteraction } from "dexie-cloud-addon"
 import { useObservable } from "dexie-react-hooks"
 import { Cloud, CloudOff, Laptop, Loader2, LogOut, RefreshCw, Smartphone } from "lucide-react"
 import { useState, type FormEvent } from "react"
@@ -31,6 +31,9 @@ export function CloudLoginDialog() {
   return <LoginPrompt key={`${ui.type}:${ui.title}`} ui={ui} />
 }
 
+/** An alert's text with its {placeholders} filled in (Dexie Cloud's resolveText, without loading the addon for it). */
+const alertText = ({ message, messageParams }: DXCAlert) => message.replace(/\{\w+\}/g, (n) => messageParams?.[n.slice(1, -1)] ?? "")
+
 function LoginPrompt({ ui }: { ui: DXCUserInteraction }) {
   const fields = Object.entries(ui.fields ?? {}) as [string, { type: string; label?: string; placeholder?: string }][]
   const [values, setValues] = useState<Record<string, string>>({})
@@ -49,7 +52,7 @@ function LoginPrompt({ ui }: { ui: DXCUserInteraction }) {
           </DialogHeader>
           {ui.alerts?.map((a, i) => (
             <p key={i} role={a.type === "error" ? "alert" : "status"} className={cn("rounded-xl px-3 py-2 text-sm", a.type === "error" ? "bg-destructive/10 text-destructive" : a.type === "warning" ? "bg-amber/10" : "bg-foreground/[0.05] text-muted-foreground")}>
-              {resolveText(a)}
+              {alertText(a)}
             </p>
           ))}
           {fields.map(([name, f], i) => (

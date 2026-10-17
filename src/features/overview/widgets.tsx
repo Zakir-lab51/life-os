@@ -18,16 +18,16 @@ import {
   TriangleAlert,
   WandSparkles,
 } from "lucide-react"
+import dynamic from "next/dynamic"
 import Link from "next/link"
 import { motion } from "motion/react"
 import { useRouter } from "next/navigation"
 import { useMemo, useState } from "react"
-import { Bar, BarChart, PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar, RadarChart, ResponsiveContainer, Tooltip, XAxis } from "recharts"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { HabitMark } from "@/components/os/habit-mark"
-import { ChartFrame, ChartTooltip, axisProps, useChartMotion } from "@/components/os/chart"
+import { ChartFrame } from "@/components/os/chart"
 import { Icon } from "@/components/os/icon"
 import { RollingText } from "@/components/os/rolling-text"
 import { Panel, PanelHeader } from "@/components/os/panel"
@@ -54,6 +54,10 @@ import { toggleDone, useSettling, wasJustCompleted } from "@/features/tasks/task
 import { KIND_LABEL } from "@/features/planner/block-editor"
 
 /* ── greeting & score ───────────────────────────────── */
+
+// the charts library loads after Overview has drawn (see charts.tsx); the boxes keep their size meanwhile
+const LifeRadar = dynamic(() => import("./charts").then((m) => m.LifeRadar), { ssr: false })
+const FocusWeek = dynamic(() => import("./charts").then((m) => m.FocusWeek), { ssr: false })
 
 export function greetingFor(hour: number) {
   if (hour >= 5 && hour < 12) return { hello: "Good morning", line: "Let's make today count." }
@@ -357,7 +361,6 @@ function TaskLine({ task, today, onOpen }: { task: Task; today: string; onOpen: 
 /* ── life balance radar ─────────────────────────────── */
 
 export function RadarWidget({ values }: { values: RadarValue[] }) {
-  const chartMotion = useChartMotion()
   const tracked = values.filter((v) => v.value !== null)
   // short axis labels keep the chart from clipping in narrow cards; the tooltip and table use full names
   const data = values.map((v) => ({ label: v.label, axis: v.label === "Personal Growth" ? "Growth" : v.label, value: v.value ?? 0, raw: v.value }))
@@ -372,28 +375,7 @@ export function RadarWidget({ values }: { values: RadarValue[] }) {
       ) : (
         // long axis labels may reach a few px past the chart, into the card's padding, instead of being cut off
         <div className="h-[230px] [&_.recharts-surface]:overflow-visible">
-          <ResponsiveContainer width="100%" height="100%">
-            <RadarChart data={data} outerRadius="64%" margin={{ top: 6, right: 30, bottom: 6, left: 30 }}>
-              <PolarGrid stroke="var(--line)" />
-              <PolarAngleAxis dataKey="axis" tick={{ fill: "var(--muted-foreground)", fontSize: 10.5 }} />
-              <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
-              <Radar {...chartMotion} dataKey="value" name="Score" stroke="var(--violet)" strokeWidth={2} fill="var(--violet)" fillOpacity={0.15} dot={{ r: 3, fill: "var(--violet)", strokeWidth: 0 }} />
-              <Tooltip
-                content={({ active, payload }) => {
-                  if (!active || !payload?.length) return null
-                  const p = payload[0].payload as { label: string; raw: number | null }
-                  const v = values.find((x) => x.label === p.label)
-                  return (
-                    <div className="max-w-56 rounded-2xl border border-line bg-popover/95 px-3 py-2.5 text-xs shadow-xl backdrop-blur-xl">
-                      <div className="font-semibold text-foreground">{p.raw === null ? "Not tracked yet" : `${p.raw} / 100`}</div>
-                      <div className="text-muted-foreground">{p.label}</div>
-                      {v && <div className="mt-1 text-muted-foreground">{v.detail || v.how}</div>}
-                    </div>
-                  )
-                }}
-              />
-            </RadarChart>
-          </ResponsiveContainer>
+          <LifeRadar values={values} data={data} />
         </div>
       )}
       {values.some((v) => v.value === null) && tracked.length >= 3 && (
@@ -454,7 +436,6 @@ export function HabitsWidget({ life }: { life: Life }) {
 /* ── focus ──────────────────────────────────────────── */
 
 export function FocusWidget({ life }: { life: Life }) {
-  const chartMotion = useChartMotion()
   const router = useRouter()
   const timer = useFocus((s) => s.timer)
   const begin = useFocus((s) => s.begin)
@@ -495,13 +476,7 @@ export function FocusWidget({ life }: { life: Life }) {
       </div>
       <HatchBar value={target ? todayMin / target : 0} tone="cyan" className="mt-3" height={8} />
       <div className="mt-4 h-[92px]" aria-label="Focus minutes, last 7 days">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={week} margin={{ top: 4, right: 0, bottom: 0, left: 0 }} barCategoryGap="22%">
-            <XAxis dataKey="label" {...axisProps} interval={0} height={16} />
-            <Tooltip cursor={{ fill: "var(--surface-3)", opacity: 0.5 }} content={<ChartTooltip format={(v) => `${v} min`} labelFormat={(_, p) => formatDay(String(p?.date))} />} />
-            <Bar {...chartMotion} dataKey="minutes" name="Focus" fill="var(--cyan)" radius={[4, 4, 0, 0]} maxBarSize={24} />
-          </BarChart>
-        </ResponsiveContainer>
+        <FocusWeek week={week} />
       </div>
     </Panel>
   )
