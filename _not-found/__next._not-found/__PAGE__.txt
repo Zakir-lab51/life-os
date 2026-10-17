@@ -1,0 +1,57 @@
+1:"$Sreact.fragment"
+2:"/life-os/_next/static/chunks/3dpy2a3i4qkg5.js"
+3:"/life-os/_next/static/chunks/268r52-_1ojq-.js"
+4:"/life-os/_next/static/chunks/1ao6_8x_qe0vg.js"
+5:I[63178,["$2","$3","$4"],"ThemeProvider"]
+6:I[46798,["$2","$3","$4"],"TooltipProvider"]
+7:I[39756,["$2","$3","$4"],"default"]
+8:I[37457,["$2","$3","$4"],"default"]
+9:"/life-os/_next/static/chunks/3u26yrb4ivm1a.js"
+a:"/life-os/_next/static/chunks/1248pe08ox28l.js"
+b:"/life-os/_next/static/chunks/3b_2wmp42km1a.js"
+c:"/life-os/_next/static/chunks/3br430trwg4ly.js"
+d:"/life-os/_next/static/chunks/1c1wv-8_19-za.js"
+e:"/life-os/_next/static/chunks/40m0k4owg-p4k.js"
+f:I[62985,["$2","$3","$4","$9","$a","$b","$c","$d","$e"],"LifeMark"]
+10:I[22016,["$2","$3","$4","$9","$a","$b","$c","$d","$e"],""]
+21:"ViewportBoundary"
+22:I[97367,["$2","$3","$4"],"$21"]
+23:"MetadataBoundary"
+24:I[97367,["$2","$3","$4"],"$23"]
+25:"$Sreact.suspense"
+:HL["/life-os/_next/static/chunks/33nj653q5ca_v.css","style"]
+:HL["/life-os/_next/static/chunks/3elo5a9657e-e.css","style"]
+12:X
+15:X
+15:C
+16:[["children",{"s":"__PAGE__","h":160,"d":{"r":["$","$1","c",{"children":[["$","main",null,{"className":"grid min-h-dvh place-items-center p-6","children":["$","div",null,{"className":"glass flex max-w-md flex-col items-center rounded-panel p-8 text-center","children":[["$","$Lf",null,{"className":"size-12"}],["$","h1",null,{"className":"mt-4 text-xl font-semibold tracking-tight","children":"There's no page here"}],"$L17","$L18"]}]}],["$L19","$L1a","$L1b","$L1c","$L1d","$L1e"],"$L1f"]}],"p":"$@20","v":null,"s":"$12"}}]]
+13:[["children",{"s":"/_not-found","h":96,"d":{"r":["$","$1","c",{"children":[null,["$","$L7",null,{"parallelRouterKey":"children","template":["$","$L8",null,{}]}]]}],"p":"$@14","v":"$15","s":"$12"},"c":"$Q16"}]]
+0:{"t":{"t":{"s":"","h":80,"d":{"r":["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/life-os/_next/static/chunks/33nj653q5ca_v.css","precedence":"next"}],["$","link","1",{"rel":"stylesheet","href":"/life-os/_next/static/chunks/3elo5a9657e-e.css","precedence":"next"}],["$","script","script-0",{"src":"/life-os/_next/static/chunks/3dpy2a3i4qkg5.js","async":true}],["$","script","script-1",{"src":"/life-os/_next/static/chunks/268r52-_1ojq-.js","async":true}],["$","script","script-2",{"src":"/life-os/_next/static/chunks/1ao6_8x_qe0vg.js","async":true}]],["$","html",null,{"lang":"en","suppressHydrationWarning":true,"data-scroll-behavior":"smooth","className":"t0mrfW_variable fP3qvq_variable igIvXW_variable _89cFpa_variable _8Li5zG_variable h-full antialiased","children":[["$","head",null,{"children":[["$","meta",null,{"name":"theme-color","content":"#09080a"}],["$","script",null,{"dangerouslySetInnerHTML":{"__html":"try{var t=localStorage.getItem(\"theme\")||\"dark\";var d=t===\"dark\"||(t===\"system\"&&matchMedia(\"(prefers-color-scheme: dark)\").matches);var m=document.querySelector('meta[name=\"theme-color\"]');if(m)m.setAttribute(\"content\",d?\"#09080a\":\"#f7f6f9\")}catch(e){}"}}],["$","script",null,{"dangerouslySetInnerHTML":{"__html":"try{(function(){var m=document.createElement(\"meta\");m.name=\"viewport\";m.id=\"phone-scale\";document.head.appendChild(m);var p=matchMedia(\"(orientation: portrait)\");function fit(){var a=Math.min(screen.width,screen.height),b=Math.max(screen.width,screen.height);if(!(a>0)||a>=600){m.content=\"width=device-width, initial-scale=1, viewport-fit=cover\";return}var w=p.matches?a:b;var l=Math.max(Math.min(320,w),Math.round(w/1.125));m.content=\"width=\"+l+\", initial-scale=\"+(w/l).toFixed(4)+\", viewport-fit=cover\"}fit();p.addEventListener(\"change\",fit)})()}catch(e){}"}}],["$","script",null,{"dangerouslySetInnerHTML":{"__html":"try{var v=JSON.parse(localStorage.getItem(\"life-os.design-vars\")||\"null\")||{\"--brand-h\":\"303\",\"--brand-c\":\"1.00\",\"--radius\":\"1.000rem\",\"--glass-blur\":\"1px\",\"--glass-alpha\":\"10%\",\"--glass-sheen\":\"1\",\"--glass-saturate\":\"200%\",\"--glow\":\"1.00\",\"--ui-scale\":\"1.000\",\"--font-ui\":\"var(--font-jakarta)\",\"--bg-image\":\"none\",\"--bg-image-sm\":\"none\",\"--bg-dim\":\"0.00\",\"--bg-blur\":\"0px\"};for(var k in v)document.documentElement.style.setProperty(k,v[k])}catch(e){}"}}]]}],["$","body",null,{"className":"min-h-full","children":["$","$L5",null,{"attribute":"class","defaultTheme":"dark","enableSystem":true,"disableTransitionOnChange":true,"children":["$","$L6",null,{"delayDuration":250,"children":["$","$L7",null,{"parallelRouterKey":"children","template":["$","$L8",null,{}],"notFound":[["$","main",null,{"className":"grid min-h-dvh place-items-center p-6","children":["$","div",null,{"className":"glass flex max-w-md flex-col items-center rounded-panel p-8 text-center","children":[["$","$Lf",null,{"className":"size-12"}],["$","h1",null,{"className":"mt-4 text-xl font-semibold tracking-tight","children":"There's no page here"}],["$","p",null,{"className":"mt-2 text-sm text-muted-foreground","children":"The address may be mistyped, or the page has moved. Everything you've saved is still in LIFE OS."}],["$","$L10",null,{"href":"/","className":"pressable mt-6 rounded-control bg-primary px-4 py-2 text-sm font-medium text-primary-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring","children":"Go to Overview"}]]}]}],[]]}]}]}]}]]}]]}],"p":"$@11","v":null,"s":"$12"},"c":"$Q13"},"h":{"r":["$","$1","h",{"children":[["$","meta",null,{"name":"robots","content":"noindex"}],["$","$L22",null,{"children":[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1, viewport-fit=cover"}]]}],["$","$L24",null,{"children":[["$","div",null,{"hidden":true,"children":["$","$25",null,{"name":"Next.Metadata","children":[["$","title","0",{"children":"Page not found · LIFE OS"}],["$","meta","1",{"name":"description","content":"A personal operating system for your day, habits, focus and progress."}],"$L26","$L27","$L28","$L29","$L2a","$L2b","$L2c"]}]}],null]}],"$L2d"]}],"p":"$@2e","v":null,"s":"$12"}},"a":"$@2f","u":"$@30","b":"BxkUCEjOpAI90Za8ev8g3"}
+31:I[97367,["$2","$3","$4"],"OutletBoundary"]
+33:I[27201,["$2","$3","$4"],"IconMark"]
+17:["$","p",null,{"className":"mt-2 text-sm text-muted-foreground","children":"The address may be mistyped, or the page has moved. Everything you've saved is still in LIFE OS."}]
+18:["$","$L10",null,{"href":"/","className":"pressable mt-6 rounded-control bg-primary px-4 py-2 text-sm font-medium text-primary-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring","children":"Go to Overview"}]
+19:["$","script","script-0",{"src":"/life-os/_next/static/chunks/3u26yrb4ivm1a.js","async":true}]
+1a:["$","script","script-1",{"src":"/life-os/_next/static/chunks/1248pe08ox28l.js","async":true}]
+1b:["$","script","script-2",{"src":"/life-os/_next/static/chunks/3b_2wmp42km1a.js","async":true}]
+1c:["$","script","script-3",{"src":"/life-os/_next/static/chunks/3br430trwg4ly.js","async":true}]
+1d:["$","script","script-4",{"src":"/life-os/_next/static/chunks/1c1wv-8_19-za.js","async":true}]
+1e:["$","script","script-5",{"src":"/life-os/_next/static/chunks/40m0k4owg-p4k.js","async":true}]
+1f:["$","$L31",null,{"children":["$","$25",null,{"name":"Next.MetadataOutlet","children":"$@32"}]}]
+26:["$","link","2",{"rel":"manifest","href":"/life-os/manifest.webmanifest"}]
+27:["$","meta","3",{"name":"mobile-web-app-capable","content":"yes"}]
+28:["$","meta","4",{"name":"apple-mobile-web-app-title","content":"LIFE OS"}]
+29:["$","meta","5",{"name":"apple-mobile-web-app-status-bar-style","content":"default"}]
+2a:["$","link","6",{"rel":"icon","href":"/life-os/icons/icon-192.png","sizes":"192x192","type":"image/png"}]
+2b:["$","link","7",{"rel":"apple-touch-icon","href":"/life-os/icons/apple-touch-icon.png","sizes":"180x180"}]
+2c:["$","$L33","8",{}]
+2d:["$","meta",null,{"name":"next-size-adjust","content":""}]
+12:300
+32:null
+30:true
+12:C
+2f:0
+14:"$undefined"
+11:"$undefined"
+2e:"$undefined"
+20:"$undefined"
